@@ -478,7 +478,7 @@ export default function PropertiesPage() {
         text: `Property "${property.name}" successfully deleted!`,
         type: 'success'
       });
-      // Reload to refresh the property list
+      // Reload to refresh the property list test
       window.location.reload();
     } else {
       setMessage({

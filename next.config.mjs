@@ -4,7 +4,7 @@ const nextConfig = {
       // This completely disables ESLint during builds
       ignoreDuringBuilds: true,
     },
-    // Other Next.js config options you might have
   };
   
-  module.exports = nextConfig;
+  // Use ES module export syntax instead of CommonJS
+  export default nextConfig;

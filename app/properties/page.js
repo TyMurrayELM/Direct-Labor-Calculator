@@ -468,9 +468,9 @@ export default function PropertiesPage() {
   };
   
   const handleDeleteProperty = async (property) => {
-    if (!confirm(`Are you sure you want to delete the property &quot;${property.name}&quot;?`)) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete the property "' + property.name + '"?')) {
+  return;
+}
     
     const result = await deleteProperty(property.id);
     if (result.success) {

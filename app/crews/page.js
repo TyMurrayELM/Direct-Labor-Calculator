@@ -107,9 +107,9 @@ export default function CrewsPage() {
   };
 
   const handleDeleteCrew = async (crew) => {
-    if (!confirm(`Are you sure you want to delete the crew &quot;${crew.name}&quot;?`)) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete the crew "' + crew.name + '"?')) {
+  return;
+}
     
     // Check if crew has properties
     const result = await getPropertyCountByCrew(crew.id);

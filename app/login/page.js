@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+
+  // Check for error parameters in URL (e.g., if redirected from auth callback)
+  useEffect(() => {
+    const errorType = searchParams.get('error');
+    if (errorType === 'unauthorized') {
+      setError('You do not have access to this application. Please contact your administrator.');
+    } else if (errorType === 'auth_error') {
+      setError('There was a problem with authentication. Please try again.');
+    }
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -30,7 +42,6 @@ export default function LoginPage() {
     }
   };
 
-  // Rest of your login component code...
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-100">
       <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full">
@@ -61,6 +72,10 @@ export default function LoginPage() {
           )}
           <span>Sign in with Google</span>
         </button>
+        
+        <p className="mt-6 text-sm text-center text-gray-500">
+          This application requires approved access.
+        </p>
       </div>
     </div>
   );

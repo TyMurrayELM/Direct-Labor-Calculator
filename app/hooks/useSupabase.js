@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase-client';
 
 // Hook to fetch properties with comprehensive filtering
@@ -15,7 +15,8 @@ export function useProperties({
   page = 1, 
   pageSize = 50, // Default to 50 items per page
   sortBy = 'name',
-  sortOrder = 'asc'
+  sortOrder = 'asc',
+  fetchAllTotals = false // Flag to fetch totals for all properties
 }) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,181 +26,191 @@ export function useProperties({
   const [totalCurrentHours, setTotalCurrentHours] = useState(0);
   const [totalAdjustedHours, setTotalAdjustedHours] = useState(0);
 
-  useEffect(() => {
-    async function fetchProperties() {
-      try {
-        setLoading(true);
-        console.log("Fetching properties with filters:", { branchId, crewId, crewType, region, accountManager, propertyType, company, client, searchQuery });
-        
-        // Build query with filters
-        let query = supabase
-          .from('properties')
-          .select('*, crews(id, name, crew_type, region, supervisor, size)', { count: 'exact' });
-        
-        // Apply filters - only add where clauses for non-empty filters
-        if (branchId) {
-          query = query.eq('branch_id', branchId);
-        }
-        
-        if (crewId) {
-          query = query.eq('crew_id', crewId);
-        }
-        
-        if (crewType) {
-          // First, get all crews matching the type
-          const { data: matchingCrews } = await supabase
-            .from('crews')
-            .select('id')
-            .eq('crew_type', crewType);
-          
-          if (matchingCrews && matchingCrews.length > 0) {
-            // Then filter properties by those crew IDs
-            const crewIds = matchingCrews.map(crew => crew.id);
-            query = query.in('crew_id', crewIds);
-          } else {
-            // If no crews match the type, return no results
-            query = query.eq('id', -1); // This will match no properties
-          }
-        }
-        
-        if (region) {
-          query = query.ilike('region', `%${region}%`);
-        }
-        
-        if (accountManager) {
-          query = query.ilike('account_manager', `%${accountManager}%`);
-        }
-        
-        if (propertyType) {
-          query = query.eq('property_type', propertyType);
-        }
-        
-        if (company) {
-          query = query.ilike('company', `%${company}%`);
-        }
-        
-        if (client) {
-          query = query.ilike('client', `%${client}%`);
-        }
-        
-        // Add search query filtering - FIXED SYNTAX
-        if (searchQuery) {
-          // The correct syntax for Supabase OR filters
-          query = query.or([
-            { name: { ilike: `%${searchQuery}%` } },
-            { property_type: { ilike: `%${searchQuery}%` } },
-            { account_manager: { ilike: `%${searchQuery}%` } },
-            { region: { ilike: `%${searchQuery}%` } },
-            { company: { ilike: `%${searchQuery}%` } },
-            { client: { ilike: `%${searchQuery}%` } }
-          ]);
-        }
-        
-        // Apply sorting
-        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
-        
-        // Apply pagination
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
-        
-        query = query.range(from, to);
-        
-        // Execute query
-        const { data, error, count } = await query;
-        
-        if (error) throw error;
-        
-        setProperties(data || []);
-        setCount(count || 0);
-        
-        // Calculate totals across all pages by making a separate query without pagination
-        let totalsQuery = supabase
-          .from('properties')
-          .select('monthly_invoice, current_hours, adjusted_hours, crews(crew_type)');
-        
-        // Apply the same filters
-        if (branchId) {
-          totalsQuery = totalsQuery.eq('branch_id', branchId);
-        }
-        
-        if (crewId) {
-          totalsQuery = totalsQuery.eq('crew_id', crewId);
-        }
-        
-        if (crewType) {
-          // First, get all crews matching the type
-          const { data: matchingCrews } = await supabase
-            .from('crews')
-            .select('id')
-            .eq('crew_type', crewType);
-          
-          if (matchingCrews && matchingCrews.length > 0) {
-            // Then filter properties by those crew IDs
-            const crewIds = matchingCrews.map(crew => crew.id);
-            totalsQuery = totalsQuery.in('crew_id', crewIds);
-          } else {
-            // If no crews match the type, return no results
-            totalsQuery = totalsQuery.eq('id', -1); // This will match no properties
-          }
-        }
-        
-        if (region) {
-          totalsQuery = totalsQuery.ilike('region', `%${region}%`);
-        }
-        
-        if (accountManager) {
-          totalsQuery = totalsQuery.ilike('account_manager', `%${accountManager}%`);
-        }
-        
-        if (propertyType) {
-          totalsQuery = totalsQuery.eq('property_type', propertyType);
-        }
-        
-        if (company) {
-          totalsQuery = totalsQuery.ilike('company', `%${company}%`);
-        }
-        
-        if (client) {
-          totalsQuery = totalsQuery.ilike('client', `%${client}%`);
-        }
-        
-        // Add the same search query to totals calculation - FIXED SYNTAX
-        if (searchQuery) {
-          totalsQuery = totalsQuery.or([
-            { name: { ilike: `%${searchQuery}%` } },
-            { property_type: { ilike: `%${searchQuery}%` } },
-            { account_manager: { ilike: `%${searchQuery}%` } },
-            { region: { ilike: `%${searchQuery}%` } },
-            { company: { ilike: `%${searchQuery}%` } },
-            { client: { ilike: `%${searchQuery}%` } }
-          ]);
-        }
-        
-        const { data: allData, error: totalsError } = await totalsQuery;
-        
-        if (totalsError) throw totalsError;
-        
-        // Calculate totals from all matching properties
-        const calculatedMonthlyInvoice = allData.reduce((sum, prop) => sum + (prop.monthly_invoice || 0), 0);
-        const calculatedCurrentHours = allData.reduce((sum, prop) => sum + (prop.current_hours || 0), 0);
-        const calculatedAdjustedHours = allData.reduce((sum, prop) => {
-          const hours = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
-          return sum + (hours || 0);
-        }, 0);
-        
-        setTotalMonthlyInvoice(calculatedMonthlyInvoice);
-        setTotalCurrentHours(calculatedCurrentHours);
-        setTotalAdjustedHours(calculatedAdjustedHours);
-      } catch (err) {
-        console.error('Error fetching properties:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  // Extract the fetchProperties logic into a separate function
+  const fetchProperties = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log("Fetching properties with filters:", { branchId, crewId, crewType, region, accountManager, propertyType, company, client, searchQuery });
+      
+      // Build query with filters
+      let query = supabase
+        .from('properties')
+        .select('*, crews(id, name, crew_type, region, supervisor, size)', { count: 'exact' });
+      
+      // Apply filters - only add where clauses for non-empty filters
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
       }
+      
+      if (crewId) {
+        query = query.eq('crew_id', crewId);
+      }
+      
+      if (crewType) {
+        // First, get all crews matching the type
+        const { data: matchingCrews } = await supabase
+          .from('crews')
+          .select('id')
+          .eq('crew_type', crewType);
+        
+        if (matchingCrews && matchingCrews.length > 0) {
+          // Then filter properties by those crew IDs
+          const crewIds = matchingCrews.map(crew => crew.id);
+          query = query.in('crew_id', crewIds);
+        } else {
+          // If no crews match the type, return no results
+          query = query.eq('id', -1); // This will match no properties
+        }
+      }
+      
+      if (region) {
+        query = query.ilike('region', `%${region}%`);
+      }
+      
+      if (accountManager) {
+        query = query.ilike('account_manager', `%${accountManager}%`);
+      }
+      
+      if (propertyType) {
+        query = query.eq('property_type', propertyType);
+      }
+      
+      if (company) {
+        query = query.ilike('company', `%${company}%`);
+      }
+      
+      if (client) {
+        query = query.ilike('client', `%${client}%`);
+      }
+      
+      // Add search query filtering - FIXED SYNTAX
+      if (searchQuery) {
+        // The correct syntax for Supabase OR filters
+        query = query.or([
+          { name: { ilike: `%${searchQuery}%` } },
+          { property_type: { ilike: `%${searchQuery}%` } },
+          { account_manager: { ilike: `%${searchQuery}%` } },
+          { region: { ilike: `%${searchQuery}%` } },
+          { company: { ilike: `%${searchQuery}%` } },
+          { client: { ilike: `%${searchQuery}%` } }
+        ]);
+      }
+      
+      // Apply sorting
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      
+      // Apply pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
+      query = query.range(from, to);
+      
+      // Execute query
+      const { data, error, count } = await query;
+      
+      if (error) throw error;
+      
+      setProperties(data || []);
+      setCount(count || 0);
+      
+      // Calculate totals across all pages by making a separate query without pagination
+      let totalsQuery = supabase
+        .from('properties')
+        .select('monthly_invoice, current_hours, adjusted_hours, crews(crew_type)');
+      
+      // Apply the same filters
+      if (branchId) {
+        totalsQuery = totalsQuery.eq('branch_id', branchId);
+      }
+      
+      if (crewId) {
+        totalsQuery = totalsQuery.eq('crew_id', crewId);
+      }
+      
+      if (crewType) {
+        // First, get all crews matching the type
+        const { data: matchingCrews } = await supabase
+          .from('crews')
+          .select('id')
+          .eq('crew_type', crewType);
+        
+        if (matchingCrews && matchingCrews.length > 0) {
+          // Then filter properties by those crew IDs
+          const crewIds = matchingCrews.map(crew => crew.id);
+          totalsQuery = totalsQuery.in('crew_id', crewIds);
+        } else {
+          // If no crews match the type, return no results
+          totalsQuery = totalsQuery.eq('id', -1); // This will match no properties
+        }
+      }
+      
+      if (region) {
+        totalsQuery = totalsQuery.ilike('region', `%${region}%`);
+      }
+      
+      if (accountManager) {
+        totalsQuery = totalsQuery.ilike('account_manager', `%${accountManager}%`);
+      }
+      
+      if (propertyType) {
+        totalsQuery = totalsQuery.eq('property_type', propertyType);
+      }
+      
+      if (company) {
+        totalsQuery = totalsQuery.ilike('company', `%${company}%`);
+      }
+      
+      if (client) {
+        totalsQuery = totalsQuery.ilike('client', `%${client}%`);
+      }
+      
+      // Add the same search query to totals calculation - FIXED SYNTAX
+      if (searchQuery) {
+        totalsQuery = totalsQuery.or([
+          { name: { ilike: `%${searchQuery}%` } },
+          { property_type: { ilike: `%${searchQuery}%` } },
+          { account_manager: { ilike: `%${searchQuery}%` } },
+          { region: { ilike: `%${searchQuery}%` } },
+          { company: { ilike: `%${searchQuery}%` } },
+          { client: { ilike: `%${searchQuery}%` } }
+        ]);
+      }
+      
+      const { data: allData, error: totalsError } = await totalsQuery;
+      
+      if (totalsError) throw totalsError;
+      
+      // Calculate totals from all matching properties
+      const calculatedMonthlyInvoice = allData.reduce((sum, prop) => sum + (prop.monthly_invoice || 0), 0);
+      const calculatedCurrentHours = allData.reduce((sum, prop) => sum + (prop.current_hours || 0), 0);
+      const calculatedAdjustedHours = allData.reduce((sum, prop) => {
+        const hours = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
+        return sum + (hours || 0);
+      }, 0);
+      
+      setTotalMonthlyInvoice(calculatedMonthlyInvoice);
+      setTotalCurrentHours(calculatedCurrentHours);
+      setTotalAdjustedHours(calculatedAdjustedHours);
+      
+      return true; // Indicate successful fetch
+    } catch (err) {
+      console.error('Error fetching properties:', err);
+      setError(err.message);
+      return false; // Indicate failed fetch
+    } finally {
+      setLoading(false);
     }
-    
-    fetchProperties();
   }, [branchId, crewId, crewType, region, accountManager, propertyType, company, client, searchQuery, page, pageSize, sortBy, sortOrder]);
+  
+  // Create a refetch function that can be called from the component
+  const refetchProperties = useCallback(async () => {
+    return await fetchProperties();
+  }, [fetchProperties]);
+  
+  // Initial fetch on dependencies change
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
   
   return { 
     properties, 
@@ -209,7 +220,8 @@ export function useProperties({
     totalPages: Math.ceil(count / pageSize),
     totalMonthlyInvoice,
     totalCurrentHours,
-    totalAdjustedHours 
+    totalNewHours: totalAdjustedHours,  // Use a more descriptive name here
+    refetchProperties  // Expose the refetch function
   };
 }
 

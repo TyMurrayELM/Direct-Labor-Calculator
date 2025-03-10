@@ -162,6 +162,12 @@ const DirectLaborCalculator = () => {
   const [companyFilter, setCompanyFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   
+  // State for tracking edited hours
+  const [editedHours, setEditedHours] = useState({});
+  
+  // State for tracking which property is currently being saved
+  const [savingPropertyId, setSavingPropertyId] = useState(null);
+  
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews(selectedBranchId);
@@ -175,7 +181,8 @@ const DirectLaborCalculator = () => {
     totalPages,
     totalMonthlyInvoice: backendTotalMonthlyInvoice,
     totalCurrentHours: backendTotalCurrentHours,
-    totalAdjustedHours: backendTotalNewHours
+    totalNewHours: backendTotalNewHours,
+    refetchProperties  // Extract the refetch function
   } = useProperties({
     branchId: selectedBranchId,
     crewId: selectedCrewId,
@@ -189,9 +196,6 @@ const DirectLaborCalculator = () => {
     pageSize,
     fetchAllTotals: true  // Add this flag to ensure we get correct totals
   });
-  
-  // State for tracking edited hours
-  const [editedHours, setEditedHours] = useState({});
   
   // Determine if any data is loading
   const isLoading = branchesLoading || crewsLoading || propertiesLoading || optionsLoading;
@@ -235,17 +239,34 @@ const DirectLaborCalculator = () => {
     setPage(1);
   };
   
-  // Save changes to Supabase
+  // Save changes to Supabase - UPDATED to use refetchProperties
   const saveNewHours = async (id, newHours) => {
-    const result = await updatePropertyHours(id, newHours);
-    if (result.success) {
-      // Remove from edited hours once saved
-      const updatedEditedHours = { ...editedHours };
-      delete updatedEditedHours[id];
-      setEditedHours(updatedEditedHours);
+    try {
+      // Set the saving state to show loading indicator
+      setSavingPropertyId(id);
       
-      // Force refresh the properties
-      window.location.reload();
+      // Call the API to update the hours
+      const result = await updatePropertyHours(id, newHours);
+      
+      if (result.success) {
+        // Remove from edited hours once saved
+        const updatedEditedHours = { ...editedHours };
+        delete updatedEditedHours[id];
+        setEditedHours(updatedEditedHours);
+        
+        // Refetch the data instead of reloading the page
+        await refetchProperties();
+        
+        // Success notification could be added here
+      } else {
+        // Handle error - could add a toast notification here
+        console.error('Failed to save:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving hours:', error);
+    } finally {
+      // Clear the saving state
+      setSavingPropertyId(null);
     }
   };
 
@@ -730,6 +751,9 @@ const DirectLaborCalculator = () => {
                       : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
                     const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
                     
+                    // Determine if this property is currently being saved
+                    const isSaving = savingPropertyId === property.id;
+                    
                     return (
                       <tr key={property.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -764,17 +788,24 @@ const DirectLaborCalculator = () => {
                               onChange={(e) => handleNewHoursChange(property.id, e.target.value)}
                               placeholder={(property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours).toString()}
                               className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                              disabled={isSaving}
                             />
                             {editedHours[property.id] !== undefined && editedHours[property.id] !== property.current_hours && (
-                              <button
-                                onClick={() => saveNewHours(property.id, editedHours[property.id])}
-                                className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                title="Save changes"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </button>
+                              isSaving ? (
+                                <div className="w-8 h-8 flex items-center justify-center">
+                                  <div className="w-5 h-5 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => saveNewHours(property.id, editedHours[property.id])}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  title="Save changes"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                              )
                             )}
                           </div>
                         </td>

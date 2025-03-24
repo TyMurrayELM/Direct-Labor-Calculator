@@ -144,8 +144,8 @@ const DirectLaborCalculator = () => {
   const HOURS_PER_WEEK = 40; // Weekly hours for headcount calculation
   
   // State for target direct labor percentage
-  const [targetDirectLaborPercent, setTargetDirectLaborPercent] = useState(0.425);
-  const [targetDirectLaborInput, setTargetDirectLaborInput] = useState("42.5");
+  const [targetDirectLaborPercent, setTargetDirectLaborPercent] = useState(0.40);
+  const [targetDirectLaborInput, setTargetDirectLaborInput] = useState("40");
   
   // State for pagination and filters
   const [selectedBranchId, setSelectedBranchId] = useState(null);

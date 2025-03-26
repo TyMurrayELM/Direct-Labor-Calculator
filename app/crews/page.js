@@ -10,7 +10,7 @@ export default function CrewsPage() {
   const DRIVE_TIME_FACTOR = 0.9;
   const HOURLY_COST = 24.75;
   const WEEKS_PER_MONTH = 4.33;
-  const TARGET_DIRECT_LABOR_PERCENT = 42.5; // Default target percentage
+  const TARGET_DIRECT_LABOR_PERCENT = 40; // Default target percentage
   const HOURS_PER_MONTH = 173.2; // 40 hrs/week * 4.33 weeks/month
   
   const { crews, loading: crewsLoading } = useCrews();

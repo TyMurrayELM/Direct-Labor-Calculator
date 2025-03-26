@@ -232,9 +232,11 @@ const CrewForm = ({ crew, onSave, onCancel }) => {
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
               >
                 <option value="">Select Vehicle</option>
+		<option value="F-150">F-150</option>
                 <option value="F-250">F-250</option>
                 <option value="F-350">F-350</option>
                 <option value="F-450">F-450</option>
+		<option value="Isuzu NPR">Isuzu NPR</option>
                 <option value="Other">Other</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">

@@ -314,7 +314,7 @@ if (false) { // Always continue with deletion for now
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('name')} className="flex items-center focus:outline-none">
                     Crew Name
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'name' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -326,7 +326,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('type')} className="flex items-center focus:outline-none">
                     Type
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'type' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -338,7 +338,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm" style={{ width: 'min-content' }}>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm" style={{ width: 'min-content' }}>
                   <button onClick={() => handleSort('branch')} className="flex items-center focus:outline-none">
                     Branch
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'branch' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -350,8 +350,8 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                {/* New Vehicle Column */}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                {/* New Vehicle Column - Made more compact */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm" style={{ width: 'min-content' }}>
                   <button onClick={() => handleSort('vehicle')} className="flex items-center focus:outline-none">
                     Vehicle
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'vehicle' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -363,7 +363,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('propertyCount')} className="flex items-center focus:outline-none">
                     Properties
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'propertyCount' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -375,7 +375,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('size')} className="flex items-center focus:outline-none">
                     Size
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'size' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -387,10 +387,10 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   Monthly Revenue<br/>Required
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('monthlyInvoice')} className="flex items-center focus:outline-none">
                     Monthly Revenue
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'monthlyInvoice' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -402,7 +402,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('currentHours')} className="flex items-center focus:outline-none">
                     Current Hours
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'currentHours' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -414,7 +414,7 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('directLabor')} className="flex items-center focus:outline-none">
                     Direct Labor %
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'directLabor' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
@@ -426,13 +426,13 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Actions</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {sortedCrews.length === 0 ? (
                 <tr>
-                  <td colSpan="12" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="12" className="px-3 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -460,10 +460,10 @@ if (false) { // Always continue with deletion for now
                   
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <div className="text-xs font-medium text-gray-900">{crew.name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           crew.crew_type === 'Maintenance' ? 'bg-green-100 text-green-800' :
                           crew.crew_type === 'Enhancement' ? 'bg-blue-100 text-blue-800' :
@@ -475,7 +475,7 @@ if (false) { // Always continue with deletion for now
                           {crew.crew_type}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap" style={{ width: 'min-content' }}>
+                      <td className="px-3 py-4 whitespace-nowrap" style={{ width: 'min-content' }}>
                         {/* Branch name with lighter color styling - smaller font and tighter fit */}
                         <span 
                           className="px-2 py-1 rounded-full text-xs font-medium border shadow-sm"
@@ -488,8 +488,8 @@ if (false) { // Always continue with deletion for now
                           {branchInfo.name}
                         </span>
                       </td>
-                      {/* Display Vehicle Information */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* Display Vehicle Information - More compact */}
+                      <td className="px-3 py-4 whitespace-nowrap">
                         {crew.vehicle ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                             {crew.vehicle}
@@ -498,19 +498,19 @@ if (false) { // Always continue with deletion for now
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                           {stats.propertyCount} {stats.propertyCount === 1 ? 'property' : 'properties'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {crew.size ? (
                           <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                             {crew.size} members
                           </span>
                         ) : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs font-medium">
                         {crew.size ? (
                           (() => {
                             // Calculate monthly labor cost
@@ -527,13 +527,13 @@ if (false) { // Always continue with deletion for now
                           })()
                         ) : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-700">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs font-medium text-gray-700">
                         {formatCurrency(stats.totalMonthlyInvoice)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {stats.totalCurrentHours.toFixed(1)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         {stats.propertyCount > 0 ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isDirectLaborGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -544,16 +544,17 @@ if (false) { // Always continue with deletion for now
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs">
+                      <td className="px-3 py-4 whitespace-nowrap text-xs">
                         <div className="flex space-x-2">
+                          {/* Edit button converted to icon-only */}
                           <button
                             onClick={() => handleEditCrew(crew)}
-                            className="flex items-center px-2 py-1 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
+                            className="flex items-center justify-center p-1 w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                            title="Edit Crew"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            Edit
                           </button>
                           {/* Delete button removed to prevent accidental deletions */}
                         </div>

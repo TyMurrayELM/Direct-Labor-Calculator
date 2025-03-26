@@ -14,6 +14,7 @@ const CrewForm = ({ crew, onSave, onCancel }) => {
     supervisor: '',
     size: 3,
     branch_id: '',
+    vehicle: '', // Added vehicle field
   });
 
   // Initialize form if editing an existing crew
@@ -26,6 +27,7 @@ const CrewForm = ({ crew, onSave, onCancel }) => {
         supervisor: crew.supervisor || '',
         size: crew.size || 3,
         branch_id: crew.branch_id || '',
+        vehicle: crew.vehicle || '', // Initialize vehicle from crew data
       });
     }
   }, [crew]);
@@ -214,6 +216,32 @@ const CrewForm = ({ crew, onSave, onCancel }) => {
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter crew size"
               />
+            </div>
+          </div>
+          
+          {/* New Vehicle dropdown */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Vehicle
+            </label>
+            <div className="relative rounded-md shadow-sm">
+              <select
+                name="vehicle"
+                value={formData.vehicle}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
+              >
+                <option value="">Select Vehicle</option>
+                <option value="F-250">F-250</option>
+                <option value="F-350">F-350</option>
+                <option value="F-450">F-450</option>
+                <option value="Other">Other</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </div>
             </div>
           </div>
 

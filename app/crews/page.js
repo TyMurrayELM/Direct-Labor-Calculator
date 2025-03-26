@@ -208,6 +208,8 @@ if (false) { // Always continue with deletion for now
         const sizeA = a.size || 0;
         const sizeB = b.size || 0;
         comparison = sizeA - sizeB;
+      } else if (sortBy === 'vehicle') {
+        comparison = (a.vehicle || '').localeCompare(b.vehicle || '');
       } else if (sortBy === 'directLabor') {
         comparison = a.directLaborPercent - b.directLaborPercent;
       } else if (sortBy === 'monthlyInvoice') {
@@ -348,6 +350,19 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
+                {/* New Vehicle Column */}
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                  <button onClick={() => handleSort('vehicle')} className="flex items-center focus:outline-none">
+                    Vehicle
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'vehicle' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={
+                        sortBy === 'vehicle' 
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                          : "M5 15l7-7 7 7"
+                      } />
+                    </svg>
+                  </button>
+                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('propertyCount')} className="flex items-center focus:outline-none">
                     Properties
@@ -417,7 +432,7 @@ if (false) { // Always continue with deletion for now
             <tbody className="bg-white divide-y divide-gray-100">
               {sortedCrews.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="12" className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -472,6 +487,16 @@ if (false) { // Always continue with deletion for now
                         >
                           {branchInfo.name}
                         </span>
+                      </td>
+                      {/* Display Vehicle Information */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {crew.vehicle ? (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {crew.vehicle}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
                         <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">

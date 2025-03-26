@@ -277,7 +277,7 @@ export function useCrews(branchId) {
         
         let query = supabase
           .from('crews')
-          .select('id, name, crew_type, branch_id, region, supervisor, size');
+          .select('id, name, crew_type, branch_id, region, supervisor, size, vehicle');
         
         if (branchId) {
           query = query.eq('branch_id', branchId);

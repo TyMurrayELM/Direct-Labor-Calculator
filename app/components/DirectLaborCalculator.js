@@ -5,7 +5,7 @@ import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyO
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
-import PropertyForm from '../components/PropertyForm'; // Import PropertyForm
+// No need to import PropertyForm as we're navigating to properties page
 
 // Custom Branch Dropdown Component (inline for easy copy/paste)
 const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
@@ -169,9 +169,7 @@ const DirectLaborCalculator = () => {
   // State for tracking which property is currently being saved
   const [savingPropertyId, setSavingPropertyId] = useState(null);
   
-  // New state for property edit form
-  const [selectedProperty, setSelectedProperty] = useState(null);
-  const [showPropertyForm, setShowPropertyForm] = useState(false);
+  // State for messages
   const [message, setMessage] = useState({ text: '', type: '' });
   
   // Fetch data using custom hooks
@@ -276,33 +274,7 @@ const DirectLaborCalculator = () => {
     }
   };
 
-  // New handlers for property form
-  const handleEditProperty = (property) => {
-    setSelectedProperty(property);
-    setShowPropertyForm(true);
-  };
-  
-  const handleCancelPropertyForm = () => {
-    setShowPropertyForm(false);
-    setSelectedProperty(null);
-  };
-  
-  const handleSaveProperty = async () => {
-    setMessage({
-      text: `Property successfully updated!`,
-      type: 'success'
-    });
-    setShowPropertyForm(false);
-    setSelectedProperty(null);
-    
-    // Refetch to refresh data
-    await refetchProperties();
-    
-    // Clear the message after 3 seconds
-    setTimeout(() => {
-      setMessage({ text: '', type: '' });
-    }, 3000);
-  };
+  // We no longer need property form handlers as we're navigating to another page
 
   // Format currency without decimal points
   const formatCurrency = (amount) => {
@@ -811,13 +783,13 @@ const DirectLaborCalculator = () => {
                     return (
                       <tr key={property.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {/* Make property name clickable */}
-                          <button 
-                            onClick={() => handleEditProperty(property)}
+                          {/* Make property name a link to edit view */}
+                          <Link 
+                            href={`/properties?edit=${property.id}`}
                             className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
                           >
                             {property.name}
-                          </button>
+                          </Link>
                           <div className="flex flex-col text-xs text-gray-500 mt-1">
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type})</span>
@@ -946,20 +918,7 @@ const DirectLaborCalculator = () => {
         </div>
       )}
 
-      {/* Property Form Modal */}
-      {showPropertyForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="max-w-4xl w-full">
-            <PropertyForm
-              property={selectedProperty}
-              branches={branches}
-              crews={crews}
-              onSave={handleSaveProperty}
-              onCancel={handleCancelPropertyForm}
-            />
-          </div>
-        </div>
-      )}
+      {/* No need for the PropertyForm modal */}
     </div>
   );
 };

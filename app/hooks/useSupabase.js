@@ -481,13 +481,31 @@ export async function updateProperty(id, propertyData) {
 // Function to delete property
 export async function deleteProperty(id) {
   try {
+    console.log(`Attempting to delete property with ID: ${id}`);
+    
+    // First, manually delete any property_updates entries to be absolutely sure
+    const { error: updateRecordsError } = await supabase
+      .from('property_updates')
+      .delete()
+      .eq('property_id', id);
+    
+    if (updateRecordsError) {
+      console.warn('Warning when deleting property_updates:', updateRecordsError);
+      // Continue anyway since we've set up CASCADE
+    }
+    
+    // Now delete the property
     const { error } = await supabase
       .from('properties')
       .delete()
       .eq('id', id);
       
-    if (error) throw error;
+    if (error) {
+      console.error('Error deleting property:', error);
+      throw error;
+    }
     
+    console.log(`Successfully deleted property with ID: ${id}`);
     return { success: true };
   } catch (error) {
     console.error('Error deleting property:', error);

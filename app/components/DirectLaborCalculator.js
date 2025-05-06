@@ -5,6 +5,7 @@ import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyO
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import PropertyForm from '../components/PropertyForm'; // Import PropertyForm
 
 // Custom Branch Dropdown Component (inline for easy copy/paste)
 const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
@@ -168,6 +169,11 @@ const DirectLaborCalculator = () => {
   // State for tracking which property is currently being saved
   const [savingPropertyId, setSavingPropertyId] = useState(null);
   
+  // New state for property edit form
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews(selectedBranchId);
@@ -268,6 +274,34 @@ const DirectLaborCalculator = () => {
       // Clear the saving state
       setSavingPropertyId(null);
     }
+  };
+
+  // New handlers for property form
+  const handleEditProperty = (property) => {
+    setSelectedProperty(property);
+    setShowPropertyForm(true);
+  };
+  
+  const handleCancelPropertyForm = () => {
+    setShowPropertyForm(false);
+    setSelectedProperty(null);
+  };
+  
+  const handleSaveProperty = async () => {
+    setMessage({
+      text: `Property successfully updated!`,
+      type: 'success'
+    });
+    setShowPropertyForm(false);
+    setSelectedProperty(null);
+    
+    // Refetch to refresh data
+    await refetchProperties();
+    
+    // Clear the message after 3 seconds
+    setTimeout(() => {
+      setMessage({ text: '', type: '' });
+    }, 3000);
   };
 
   // Format currency without decimal points
@@ -708,6 +742,26 @@ const DirectLaborCalculator = () => {
           </div>
         </div>
 
+        {/* Success/Error Message */}
+        {message.text && (
+          <div className={`p-4 mx-6 my-4 rounded-lg flex items-start ${
+            message.type === 'success' 
+              ? 'bg-green-50 text-green-700 border-l-4 border-green-500' 
+              : 'bg-red-50 text-red-700 border-l-4 border-red-500'
+          }`}>
+            {message.type === 'success' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
+
         {propertiesLoading ? (
           <div className="p-12 text-center">
             <div className="flex items-center justify-center">
@@ -757,7 +811,13 @@ const DirectLaborCalculator = () => {
                     return (
                       <tr key={property.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">{property.name}</div>
+                          {/* Make property name clickable */}
+                          <button 
+                            onClick={() => handleEditProperty(property)}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                          >
+                            {property.name}
+                          </button>
                           <div className="flex flex-col text-xs text-gray-500 mt-1">
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type})</span>
@@ -883,6 +943,21 @@ const DirectLaborCalculator = () => {
       {!propertiesLoading && (
         <div className="mt-4 text-center text-sm text-gray-500">
           Showing {properties.length} of {count} properties
+        </div>
+      )}
+
+      {/* Property Form Modal */}
+      {showPropertyForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="max-w-4xl w-full">
+            <PropertyForm
+              property={selectedProperty}
+              branches={branches}
+              crews={crews}
+              onSave={handleSaveProperty}
+              onCancel={handleCancelPropertyForm}
+            />
+          </div>
         </div>
       )}
     </div>

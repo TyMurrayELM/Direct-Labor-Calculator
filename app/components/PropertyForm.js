@@ -33,8 +33,8 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
   const [selectedBranchId, setSelectedBranchId] = useState(property?.branch_id || '');
   const filteredCrews = crews.filter(crew => !selectedBranchId || crew.branch_id === selectedBranchId);
 
-  // Use the property options hook to fetch property types from Supabase
-  const { propertyTypes = [], loading: loadingPropertyTypes = false } = usePropertyOptions() || {};
+  // Use the property options hook to fetch property types, regions, and account managers from Supabase
+  const { propertyTypes = [], regions = [], accountManagers = [], loading: loadingPropertyTypes = false } = usePropertyOptions() || {};
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -269,28 +269,52 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Region
               </label>
-              <input
-                type="text"
-                name="region"
-                value={formData.region}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter region"
-              />
+              <div className="relative rounded-md shadow-sm">
+                <select
+                  name="region"
+                  value={formData.region || ''}
+                  onChange={handleChange}
+                  className="block w-full px-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
+                >
+                  <option value="">Select Region</option>
+                  {regions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Account Manager
               </label>
-              <input
-                type="text"
-                name="account_manager"
-                value={formData.account_manager}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter account manager"
-              />
+              <div className="relative rounded-md shadow-sm">
+                <select
+                  name="account_manager"
+                  value={formData.account_manager || ''}
+                  onChange={handleChange}
+                  className="block w-full px-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
+                >
+                  <option value="">Select Account Manager</option>
+                  {accountManagers.map((manager) => (
+                    <option key={manager} value={manager}>
+                      {manager}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -426,7 +450,7 @@ export default function PropertiesPage() {
   // Fetch data
   const { branches } = useBranches();
   const { crews } = useCrews();
-  const { properties, loading, count, totalPages } = useProperties({
+  const { properties, loading, count, totalPages, refetchProperties } = useProperties({
     page,
     pageSize,
     sortBy,
@@ -449,14 +473,25 @@ export default function PropertiesPage() {
       return;
     }
     
+    console.log(`Attempting to delete property: ${property.name} (ID: ${property.id})`);
+    
     const result = await deleteProperty(property.id);
+    
+    console.log('Delete result:', result);
+    
     if (result.success) {
       setMessage({
         text: `Property "${property.name}" successfully deleted!`,
         type: 'success'
       });
-      // Reload to refresh the property list
-      window.location.reload();
+      
+      // Instead of reloading the page, refetch the data
+      await refetchProperties();
+      
+      // Clear the message after 3 seconds
+      setTimeout(() => {
+        setMessage({ text: '', type: '' });
+      }, 3000);
     } else {
       setMessage({
         text: result.error || 'Failed to delete property',
@@ -478,8 +513,8 @@ export default function PropertiesPage() {
       setMessage({ text: '', type: '' });
     }, 3000);
     
-    // Reload to refresh the property list
-    window.location.reload();
+    // Refetch instead of reload
+    refetchProperties();
   };
   
   const handleCancelForm = () => {

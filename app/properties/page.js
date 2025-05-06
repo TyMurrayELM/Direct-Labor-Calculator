@@ -11,6 +11,7 @@ import {
   usePropertyOptions
 } from '../hooks/useSupabase';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation'; // Add this import
 
 // Property Form component - you can create this as a separate component file later
 const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
@@ -397,6 +398,9 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
 };
 
 export default function PropertiesPage() {
+  // Add useSearchParams hook to access query parameters
+  const searchParams = useSearchParams();
+  
   // State for properties - with a very large page size to load all properties
   const [page, setPage] = useState(1);
   const pageSize = 1000; // Very large page size to load all properties
@@ -409,6 +413,9 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [message, setMessage] = useState({ text: '', type: '' });
   
+  // State to control if we're in edit mode directly from URL
+  const [editFromUrl, setEditFromUrl] = useState(false);
+  
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews();
@@ -418,6 +425,33 @@ export default function PropertiesPage() {
     sortBy,
     sortOrder
   });
+  
+  // Check for edit parameter on component mount and when searchParams changes
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && properties && !propertiesLoading) {
+      const propertyId = parseInt(editId);
+      // Find the property in our loaded properties
+      const property = properties.find(p => p.id === propertyId);
+      if (property) {
+        // Found property in current data, open edit form
+        setSelectedProperty(property);
+        setShowForm(true);
+        setEditFromUrl(true);
+      } else {
+        // Property not found in loaded data, show message
+        setMessage({
+          text: `Property with ID ${editId} not found`,
+          type: 'error'
+        });
+        
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          setMessage({ text: '', type: '' });
+        }, 3000);
+      }
+    }
+  }, [searchParams, properties, propertiesLoading]);
   
   // Client-side filtering
   const filteredProperties = searchText 
@@ -497,6 +531,12 @@ if (false) { // Always continue with deletion for now
     setShowForm(false);
     setSelectedProperty(null);
     
+    // If we came directly from URL, navigate back
+    if (editFromUrl) {
+      window.history.pushState({}, '', '/properties');
+      setEditFromUrl(false);
+    }
+    
     // Clear the message after 3 seconds
     setTimeout(() => {
       setMessage({ text: '', type: '' });
@@ -509,6 +549,12 @@ if (false) { // Always continue with deletion for now
   const handleCancelForm = () => {
     setShowForm(false);
     setSelectedProperty(null);
+    
+    // If we came directly from URL, navigate back to main properties view
+    if (editFromUrl) {
+      window.history.pushState({}, '', '/properties');
+      setEditFromUrl(false);
+    }
   };
   
   // Function to handle sorting

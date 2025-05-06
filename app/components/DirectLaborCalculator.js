@@ -785,7 +785,7 @@ const DirectLaborCalculator = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           {/* Make property name a link to edit property directly */}
                           <Link 
-                            href={`/properties/edit/${property.id}`}
+                            href={`/properties?edit=${property.id}`}
                             className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
                           >
                             {property.name}

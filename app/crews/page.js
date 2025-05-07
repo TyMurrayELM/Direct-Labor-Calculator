@@ -514,14 +514,21 @@ if (false) { // Always continue with deletion for now
                     utilizationPercent: 0
                   };
                   
-                  // Determine if Direct Labor % is good or bad compared to target
-                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
-                  const isEffectiveDLGood = stats.effectiveDLPercent < 100;
-                  const isUtilizationGood = stats.utilizationPercent < 100;
-                  
                   // Calculate monthly required revenue
                   const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * HOURLY_COST : 0;
                   const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
+                  
+                  // Direct calculation of Effective DL%
+                  const effectiveDLPercent = (requiredRevenue > 0) ? (stats.totalMonthlyInvoice / requiredRevenue) * 100 : 0;
+                  
+                  // Direct calculation of Utilization %
+                  const availableHours = crew.size ? crew.size * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR : 0;
+                  const utilizationPercent = (availableHours > 0) ? (stats.totalCurrentHours / availableHours) * 100 : 0;
+                  
+                  // Determine if values are good or bad compared to targets
+                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
+                  const isEffectiveDLGood = effectiveDLPercent < 100;
+                  const isUtilizationGood = utilizationPercent < 100;
                   
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
@@ -606,7 +613,7 @@ if (false) { // Always continue with deletion for now
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isEffectiveDLGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {formatPercent(stats.effectiveDLPercent)}
+                            {formatPercent(effectiveDLPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -618,7 +625,7 @@ if (false) { // Always continue with deletion for now
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isUtilizationGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {formatPercent(stats.utilizationPercent)}
+                            {formatPercent(utilizationPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>

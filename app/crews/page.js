@@ -90,15 +90,24 @@ export default function CrewsPage() {
       // Calculate DL percentages and utilization
       stats[crewId].directLaborPercent = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice);
       
-      // Calculate monthly required revenue
+      // Calculate monthly required revenue (important for Effective DL%)
       const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;
-      const requiredRevenue = monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100);
+      const requiredRevenue = crewSize > 0 ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
       
-      // Calculate effective DL percentage
-      stats[crewId].effectiveDLPercent = calculateEffectiveDLPercent(totalMonthlyInvoice, requiredRevenue);
+      // Calculate effective DL percentage - 100% means we're meeting the target exactly
+      if (requiredRevenue > 0) {
+        stats[crewId].effectiveDLPercent = (totalMonthlyInvoice / requiredRevenue) * 100;
+      } else {
+        stats[crewId].effectiveDLPercent = 0;
+      }
       
-      // Calculate utilization percentage
-      stats[crewId].utilizationPercent = calculateUtilizationPercent(totalCurrentHours, crewSize);
+      // Calculate utilization percentage - what percentage of available hours are being used
+      if (crewSize > 0) {
+        const availableHours = crewSize * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
+        stats[crewId].utilizationPercent = (totalCurrentHours / availableHours) * 100;
+      } else {
+        stats[crewId].utilizationPercent = 0;
+      }
     });
     
     setCrewStats(stats);

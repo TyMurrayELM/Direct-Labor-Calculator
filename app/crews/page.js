@@ -37,13 +37,13 @@ export default function CrewsPage() {
   
   // Calculate Effective DL percentage
   const calculateEffectiveDLPercent = (monthlyRevenue, requiredRevenue) => {
-    if (requiredRevenue === 0 || monthlyRevenue === 0) return 0;
+    if (requiredRevenue === 0) return 0;
     return (monthlyRevenue / requiredRevenue) * 100;
   };
   
   // Calculate Utilization percentage
   const calculateUtilizationPercent = (currentHours, crewSize) => {
-    if (crewSize === 0 || currentHours === 0) return 0;
+    if (crewSize === 0) return 0;
     // Calculate total available hours for the crew (accounting for drive time)
     const availableHours = crewSize * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
     return (currentHours / availableHours) * 100;
@@ -542,7 +542,7 @@ if (false) { // Always continue with deletion for now
                           crew.crew_type === 'Onsite' ? 'bg-orange-100 text-orange-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {crew.crew_type}
+                          {crew.crew_type === 'Maintenance' ? 'Maint' : crew.crew_type}
                         </span>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap" style={{ width: 'min-content' }}>
@@ -607,7 +607,7 @@ if (false) { // Always continue with deletion for now
                       </td>
                       {/* New Column: Effective DL % */}
                       <td className="px-3 py-4 whitespace-nowrap">
-                        {crew.size && stats.totalMonthlyInvoice > 0 ? (
+                        {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isEffectiveDLGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
@@ -619,7 +619,7 @@ if (false) { // Always continue with deletion for now
                       </td>
                       {/* New Column: DL Utilization % */}
                       <td className="px-3 py-4 whitespace-nowrap">
-                        {crew.size && stats.totalCurrentHours > 0 ? (
+                        {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isUtilizationGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>

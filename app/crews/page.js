@@ -1,7 +1,4 @@
-// Determine color coding based on calculated values
-                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
-                  const isEffectiveDLGood = effectiveDLPercent < 100;
-                  const isUtilizationGood = utilizationPercent < 100;"use client";
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useCrews, useBranches, deleteCrew, getPropertyCountByCrew, useProperties } from '../hooks/useSupabase';
@@ -36,20 +33,6 @@ export default function CrewsPage() {
   const calculateDirectLaborPercent = (hours, monthlyInvoice) => {
     if (hours === 0 || monthlyInvoice === 0) return 0;
     return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
-  };
-  
-  // Calculate Effective DL percentage
-  const calculateEffectiveDLPercent = (monthlyRevenue, requiredRevenue) => {
-    if (requiredRevenue === 0) return 0;
-    return (monthlyRevenue / requiredRevenue) * 100;
-  };
-  
-  // Calculate Utilization percentage
-  const calculateUtilizationPercent = (currentHours, crewSize) => {
-    if (crewSize === 0) return 0;
-    // Calculate total available hours for the crew (accounting for drive time)
-    const availableHours = crewSize * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
-    return (currentHours / availableHours) * 100;
   };
   
   // Format percentage
@@ -531,16 +514,14 @@ if (false) { // Always continue with deletion for now
                     utilizationPercent: 0
                   };
                   
+                  // Determine if Direct Labor % is good or bad compared to target
+                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
+                  const isEffectiveDLGood = stats.effectiveDLPercent < 100;
+                  const isUtilizationGood = stats.utilizationPercent < 100;
+                  
                   // Calculate monthly required revenue
                   const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * HOURLY_COST : 0;
                   const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
-                  
-                  // Calculate effective DL percentage (Monthly Revenue / Monthly Revenue Required)
-                  const effectiveDLPercent = requiredRevenue > 0 ? (stats.totalMonthlyInvoice / requiredRevenue) * 100 : 0;
-                  
-                  // Calculate utilization percentage (Current Hours / Available Hours)
-                  const availableHours = crew.size ? crew.size * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR : 0;
-                  const utilizationPercent = availableHours > 0 ? (stats.totalCurrentHours / availableHours) * 100 : 0;
                   
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
@@ -625,7 +606,7 @@ if (false) { // Always continue with deletion for now
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isEffectiveDLGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {formatPercent(effectiveDLPercent)}
+                            {formatPercent(stats.effectiveDLPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -637,7 +618,7 @@ if (false) { // Always continue with deletion for now
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isUtilizationGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {formatPercent(utilizationPercent)}
+                            {formatPercent(stats.utilizationPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>

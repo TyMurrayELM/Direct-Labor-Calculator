@@ -35,6 +35,20 @@ export default function CrewsPage() {
     return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
   };
   
+  // Calculate Effective DL percentage
+  const calculateEffectiveDLPercent = (monthlyRevenue, requiredRevenue) => {
+    if (requiredRevenue === 0 || monthlyRevenue === 0) return 0;
+    return (monthlyRevenue / requiredRevenue) * 100;
+  };
+  
+  // Calculate Utilization percentage
+  const calculateUtilizationPercent = (currentHours, crewSize) => {
+    if (crewSize === 0 || currentHours === 0) return 0;
+    // Calculate total available hours for the crew (accounting for drive time)
+    const availableHours = crewSize * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
+    return (currentHours / availableHours) * 100;
+  };
+  
   // Format percentage
   const formatPercent = (value) => {
     return `${value.toFixed(1)}%`;
@@ -52,7 +66,9 @@ export default function CrewsPage() {
         totalMonthlyInvoice: 0,
         totalCurrentHours: 0,
         propertyCount: 0,
-        directLaborPercent: 0
+        directLaborPercent: 0,
+        effectiveDLPercent: 0,
+        utilizationPercent: 0
       };
     });
     
@@ -65,10 +81,24 @@ export default function CrewsPage() {
       }
     });
     
-    // Calculate Direct Labor percentage for each crew
+    // Calculate metrics for each crew
     Object.keys(stats).forEach(crewId => {
       const { totalCurrentHours, totalMonthlyInvoice } = stats[crewId];
+      const crew = crews.find(c => c.id === crewId);
+      const crewSize = crew?.size || 0;
+      
+      // Calculate DL percentages and utilization
       stats[crewId].directLaborPercent = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice);
+      
+      // Calculate monthly required revenue
+      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;
+      const requiredRevenue = monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100);
+      
+      // Calculate effective DL percentage
+      stats[crewId].effectiveDLPercent = calculateEffectiveDLPercent(totalMonthlyInvoice, requiredRevenue);
+      
+      // Calculate utilization percentage
+      stats[crewId].utilizationPercent = calculateUtilizationPercent(totalCurrentHours, crewSize);
     });
     
     setCrewStats(stats);
@@ -102,7 +132,7 @@ export default function CrewsPage() {
       setMessage({ text: '', type: '' });
     }, 3000);
     
-    // Reload the page to refresh crew list test
+    // Reload the page to refresh crew list
     window.location.reload();
   };
 
@@ -179,6 +209,8 @@ if (false) { // Always continue with deletion for now
         branchName: branchInfo.name,
         // Add DL% and other stats for sorting
         directLaborPercent: crewStats[crew.id]?.directLaborPercent || 0,
+        effectiveDLPercent: crewStats[crew.id]?.effectiveDLPercent || 0,
+        utilizationPercent: crewStats[crew.id]?.utilizationPercent || 0,
         totalMonthlyInvoice: crewStats[crew.id]?.totalMonthlyInvoice || 0,
         totalCurrentHours: crewStats[crew.id]?.totalCurrentHours || 0,
         propertyCount: crewStats[crew.id]?.propertyCount || 0
@@ -212,6 +244,10 @@ if (false) { // Always continue with deletion for now
         comparison = (a.vehicle || '').localeCompare(b.vehicle || '');
       } else if (sortBy === 'directLabor') {
         comparison = a.directLaborPercent - b.directLaborPercent;
+      } else if (sortBy === 'effectiveDL') {
+        comparison = a.effectiveDLPercent - b.effectiveDLPercent;
+      } else if (sortBy === 'utilization') {
+        comparison = a.utilizationPercent - b.utilizationPercent;
       } else if (sortBy === 'monthlyInvoice') {
         comparison = a.totalMonthlyInvoice - b.totalMonthlyInvoice;
       } else if (sortBy === 'currentHours') {
@@ -377,7 +413,7 @@ if (false) { // Always continue with deletion for now
                 </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('size')} className="flex items-center focus:outline-none">
-                    Size
+                    Crew Size
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'size' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
                         sortBy === 'size' 
@@ -416,10 +452,36 @@ if (false) { // Always continue with deletion for now
                 </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('directLabor')} className="flex items-center focus:outline-none">
-                    Direct Labor %
+                    Assigned DL %
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'directLabor' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
                         sortBy === 'directLabor' 
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                          : "M5 15l7-7 7 7"
+                      } />
+                    </svg>
+                  </button>
+                </th>
+                {/* New Column: Effective DL % */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                  <button onClick={() => handleSort('effectiveDL')} className="flex items-center focus:outline-none">
+                    Effective DL %
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'effectiveDL' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={
+                        sortBy === 'effectiveDL' 
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                          : "M5 15l7-7 7 7"
+                      } />
+                    </svg>
+                  </button>
+                </th>
+                {/* New Column: DL Utilization % */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                  <button onClick={() => handleSort('utilization')} className="flex items-center focus:outline-none">
+                    DL Utilization %
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'utilization' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={
+                        sortBy === 'utilization' 
                           ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
                           : "M5 15l7-7 7 7"
                       } />
@@ -432,7 +494,7 @@ if (false) { // Always continue with deletion for now
             <tbody className="bg-white divide-y divide-gray-100">
               {sortedCrews.length === 0 ? (
                 <tr>
-                  <td colSpan="12" className="px-3 py-12 text-center text-gray-500">
+                  <td colSpan="14" className="px-3 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -452,11 +514,19 @@ if (false) { // Always continue with deletion for now
                     totalMonthlyInvoice: 0,
                     totalCurrentHours: 0,
                     propertyCount: 0,
-                    directLaborPercent: 0
+                    directLaborPercent: 0,
+                    effectiveDLPercent: 0,
+                    utilizationPercent: 0
                   };
                   
                   // Determine if Direct Labor % is good or bad compared to target
                   const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
+                  const isEffectiveDLGood = stats.effectiveDLPercent < 100;
+                  const isUtilizationGood = stats.utilizationPercent < 100;
+                  
+                  // Calculate monthly required revenue
+                  const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * HOURLY_COST : 0;
+                  const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
                   
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
@@ -500,31 +570,21 @@ if (false) { // Always continue with deletion for now
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {stats.propertyCount} {stats.propertyCount === 1 ? 'property' : 'properties'}
+                          {stats.propertyCount}
                         </span>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {crew.size ? (
                           <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            {crew.size} members
+                            {crew.size}
                           </span>
                         ) : '-'}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs font-medium">
                         {crew.size ? (
-                          (() => {
-                            // Calculate monthly labor cost
-                            const monthlyLaborCost = crew.size * HOURS_PER_MONTH * HOURLY_COST;
-                            
-                            // Calculate required revenue to achieve target DL% (without drive time factor)
-                            const requiredRevenue = monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100);
-                            
-                            return (
-                              <span className="text-blue-600">
-                                {formatCurrency(requiredRevenue)}
-                              </span>
-                            );
-                          })()
+                          <span className="text-blue-600">
+                            {formatCurrency(requiredRevenue)}
+                          </span>
                         ) : '-'}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs font-medium text-gray-700">
@@ -533,12 +593,37 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {stats.totalCurrentHours.toFixed(1)}
                       </td>
+                      {/* Assigned DL % (renamed from Direct Labor %) */}
                       <td className="px-3 py-4 whitespace-nowrap">
                         {stats.propertyCount > 0 ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             isDirectLaborGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {formatPercent(stats.directLaborPercent)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* New Column: Effective DL % */}
+                      <td className="px-3 py-4 whitespace-nowrap">
+                        {crew.size && stats.totalMonthlyInvoice > 0 ? (
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                            isEffectiveDLGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {formatPercent(stats.effectiveDLPercent)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* New Column: DL Utilization % */}
+                      <td className="px-3 py-4 whitespace-nowrap">
+                        {crew.size && stats.totalCurrentHours > 0 ? (
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                            isUtilizationGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {formatPercent(stats.utilizationPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>

@@ -445,6 +445,19 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
+                {/* DL Utilization % Column - Moved here */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                  <button onClick={() => handleSort('utilization')} className="flex items-center focus:outline-none">
+                    DL Utilization %
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'utilization' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={
+                        sortBy === 'utilization' 
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                          : "M5 15l7-7 7 7"
+                      } />
+                    </svg>
+                  </button>
+                </th>
                 <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
                   <button onClick={() => handleSort('directLabor')} className="flex items-center focus:outline-none">
                     Assigned DL %
@@ -457,26 +470,13 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                {/* New Column: Effective DL % */}
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
-                  <button onClick={() => handleSort('effectiveDL')} className="flex items-center focus:outline-none">
+                {/* New Column: Effective DL % with highlighted styling */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-blue-50 z-10 shadow-sm border-b-2 border-blue-400">
+                  <button onClick={() => handleSort('effectiveDL')} className="flex items-center focus:outline-none font-bold text-blue-700">
                     Effective DL %
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'effectiveDL' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
                         sortBy === 'effectiveDL' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
-                          : "M5 15l7-7 7 7"
-                      } />
-                    </svg>
-                  </button>
-                </th>
-                {/* New Column: DL Utilization % */}
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
-                  <button onClick={() => handleSort('utilization')} className="flex items-center focus:outline-none">
-                    DL Utilization %
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'utilization' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'utilization' 
                           ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
                           : "M5 15l7-7 7 7"
                       } />
@@ -614,7 +614,19 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {stats.totalCurrentHours.toFixed(1)}
                       </td>
-                      {/* Assigned DL % (renamed from Direct Labor %) */}
+                      {/* DL Utilization % - Moved here */}
+                      <td className="px-3 py-4 whitespace-nowrap">
+                        {crew.size ? (
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                            getUtilizationColorClass(utilizationPercent)
+                          }`}>
+                            {formatPercent(utilizationPercent)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Assigned DL % */}
                       <td className="px-3 py-4 whitespace-nowrap">
                         {stats.propertyCount > 0 ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
@@ -626,25 +638,13 @@ if (false) { // Always continue with deletion for now
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      {/* New Column: Effective DL % */}
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      {/* Effective DL % */}
+                      <td className="px-3 py-4 whitespace-nowrap bg-blue-50">
                         {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
                             getEffectiveDLColorClass(effectiveDLPercent)
                           }`}>
                             {formatPercent(effectiveDLPercent)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      {/* New Column: DL Utilization % */}
-                      <td className="px-3 py-4 whitespace-nowrap">
-                        {crew.size ? (
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            getUtilizationColorClass(utilizationPercent)
-                          }`}>
-                            {formatPercent(utilizationPercent)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>

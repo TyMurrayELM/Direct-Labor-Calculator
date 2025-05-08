@@ -522,8 +522,12 @@ if (false) { // Always continue with deletion for now
                   const effectiveDLPercent = (requiredRevenue > 0) ? (stats.totalMonthlyInvoice / requiredRevenue) * 100 : 0;
                   
                   // Direct calculation of Utilization %
-                  const availableHours = crew.size ? crew.size * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR : 0;
-                  const utilizationPercent = (availableHours > 0) ? (stats.totalCurrentHours / availableHours) * 100 : 0;
+                  // Step 1: Calculate total man hours per month (accounting for drive time)
+                  const totalManHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
+                  // Step 2: Convert to crew hours by dividing by crew size
+                  const crewHoursPerMonth = crew.size > 0 ? totalManHoursPerMonth / crew.size : 0; // Simplifies to 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR
+                  // Step 3: Calculate utilization percentage
+                  const utilizationPercent = (crewHoursPerMonth > 0) ? (stats.totalCurrentHours / crewHoursPerMonth) * 100 : 0;
                   
                   // Determine if values are good or bad compared to targets
                   const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;

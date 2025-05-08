@@ -519,7 +519,12 @@ if (false) { // Always continue with deletion for now
                   const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
                   
                   // Direct calculation of Effective DL%
-                  const effectiveDLPercent = (requiredRevenue > 0) ? (stats.totalMonthlyInvoice / requiredRevenue) * 100 : 0;
+                  // Step 1: Calculate total hours we're paying for per month
+                  const totalHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH;
+                  // Step 2: Calculate monthly labor cost
+                  const totalMonthlyCost = totalHoursPerMonth * HOURLY_COST;
+                  // Step 3: Calculate Effective DL%
+                  const effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? (totalMonthlyCost / stats.totalMonthlyInvoice) * 100 : 0;
                   
                   // Direct calculation of Utilization %
                   // Step 1: Calculate total man hours per month (accounting for drive time)
@@ -529,9 +534,10 @@ if (false) { // Always continue with deletion for now
                   // Step 3: Calculate utilization percentage
                   const utilizationPercent = (crewHoursPerMonth > 0) ? (stats.totalCurrentHours / crewHoursPerMonth) * 100 : 0;
                   
-                  // Determine if values are good or bad compared to targets
-                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
-                  const isEffectiveDLGood = effectiveDLPercent < 100;
+                  // Color coding for Effective DL%
+                  const getEffectiveDLColorClass = (percent) => {
+                    return percent <= 40 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                  };
                   
                   // Utilization color coding: Green >= 95%, Yellow 90-95%, Red < 90%
                   const getUtilizationColorClass = (percent) => {
@@ -621,7 +627,7 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap">
                         {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            isEffectiveDLGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            getEffectiveDLColorClass(effectiveDLPercent)
                           }`}>
                             {formatPercent(effectiveDLPercent)}
                           </span>

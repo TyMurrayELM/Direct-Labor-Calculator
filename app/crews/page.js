@@ -555,7 +555,7 @@ if (false) { // Always continue with deletion for now
                         <div className="text-xs font-medium text-gray-900">{crew.name}</div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex text-xxs leading-5 font-semibold rounded-full ${
+                        <span className={`px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full ${
                           crew.crew_type === 'Maintenance' ? 'bg-green-100 text-green-800' :
                           crew.crew_type === 'Enhancement' ? 'bg-blue-100 text-blue-800' :
                           crew.crew_type === 'Installation' ? 'bg-purple-100 text-purple-800' :
@@ -569,7 +569,7 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap" style={{ width: 'min-content' }}>
                         {/* Branch name with lighter color styling - smaller font and tighter fit */}
                         <span 
-                          className="px-2 py-1 rounded-full text-xxs font-medium border shadow-sm"
+                          className="px-2 py-0.5 rounded-full text-[0.65rem] leading-4 font-medium border shadow-sm"
                           style={{ 
                             backgroundColor: getLightColor(branchInfo.color),
                             borderColor: branchInfo.color,
@@ -582,11 +582,11 @@ if (false) { // Always continue with deletion for now
                       {/* Display Vehicle Information - More compact */}
                       <td className="px-3 py-4 whitespace-nowrap">
                         {crew.vehicle ? (
-                          <span className="px-3 py-1 inline-flex text-xxs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                          <span className="px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full bg-gray-100 text-gray-800">
                             {crew.vehicle}
                           </span>
                         ) : (
-                          <span className="text-xxs text-gray-400">-</span>
+                          <span className="text-[0.65rem] text-gray-400">-</span>
                         )}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">

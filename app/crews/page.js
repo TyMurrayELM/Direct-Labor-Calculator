@@ -341,11 +341,11 @@ if (false) { // Always continue with deletion for now
         )}
       
         {/* Crew List */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-20 shadow-sm">
                   <button onClick={() => handleSort('name')} className="flex items-center focus:outline-none">
                     Crew Name
                     <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'name' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>

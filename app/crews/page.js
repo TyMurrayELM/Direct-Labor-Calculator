@@ -532,7 +532,13 @@ if (false) { // Always continue with deletion for now
                   // Determine if values are good or bad compared to targets
                   const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
                   const isEffectiveDLGood = effectiveDLPercent < 100;
-                  const isUtilizationGood = utilizationPercent < 100;
+                  
+                  // Utilization color coding: Green >= 95%, Yellow 90-95%, Red < 90%
+                  const getUtilizationColorClass = (percent) => {
+                    if (percent >= 95) return 'bg-green-100 text-green-800'; // Good (green)
+                    if (percent >= 90) return 'bg-yellow-100 text-yellow-800'; // Warning (yellow)
+                    return 'bg-red-100 text-red-800'; // Bad (red)
+                  };
                   
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
@@ -627,7 +633,7 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap">
                         {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            isUtilizationGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            getUtilizationColorClass(utilizationPercent)
                           }`}>
                             {formatPercent(utilizationPercent)}
                           </span>

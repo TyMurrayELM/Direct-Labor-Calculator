@@ -315,6 +315,9 @@ if (false) { // Always continue with deletion for now
                 <li>The "Monthly Revenue Required" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
                 <li>For example, a 4-person crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month (52 weeks ÷ 12 months), this crew would need to generate approximately ${formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue to reach the target.</li>
                 <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
+                <li><strong>Assigned DL %</strong> - The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
+                <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
+                <li><strong>DL Utilization %</strong> - The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
               </ul>
             </div>
           </div>

@@ -534,6 +534,9 @@ if (false) { // Always continue with deletion for now
                   // Step 3: Calculate utilization percentage
                   const utilizationPercent = (crewHoursPerMonth > 0) ? (stats.totalCurrentHours / crewHoursPerMonth) * 100 : 0;
                   
+                  // Color coding functions
+                  const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;
+                  
                   // Color coding for Effective DL%
                   const getEffectiveDLColorClass = (percent) => {
                     return percent <= 40 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';

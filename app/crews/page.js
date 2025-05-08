@@ -614,7 +614,11 @@ if (false) { // Always continue with deletion for now
                         {formatCurrency(stats.totalMonthlyInvoice)}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
-                        {stats.totalCurrentHours.toFixed(1)}
+                        {stats.totalCurrentHours > 0 ? (
+                          `${stats.totalCurrentHours.toFixed(1)} / ${(crew.size * 40 * DRIVE_TIME_FACTOR).toFixed(0)}`
+                        ) : (
+                          `0.0 / ${(crew.size * 40 * DRIVE_TIME_FACTOR).toFixed(0)}`
+                        )}
                       </td>
                       {/* DL Utilization % - Moved here */}
                       <td className="px-3 py-4 whitespace-nowrap">

@@ -569,14 +569,10 @@ if (false) { // Always continue with deletion for now
                   if (isOnsiteWithFullUtilization) {
                     // For Onsite crews with 100% utilization - use Assigned DL% value directly
                     effectiveDLPercent = stats.directLaborPercent;
-                  } else if (crew.crew_type === 'Onsite') {
-                    // For Onsite crews without 100% utilization - calculate normally without factor
+                  } else {
+                    // For all crew types including non-100% Onsite - calculate without drive time factor
                     effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? 
                       (totalMonthlyCost / stats.totalMonthlyInvoice) * 100 : 0;
-                  } else {
-                    // For all other crew types - calculate with DRIVE_TIME_FACTOR
-                    effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? 
-                      (totalMonthlyCost / (stats.totalMonthlyInvoice * DRIVE_TIME_FACTOR)) * 100 : 0;
                   }
                   
                   // Color coding functions

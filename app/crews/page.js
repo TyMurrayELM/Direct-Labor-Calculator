@@ -547,15 +547,16 @@ if (false) { // Always continue with deletion for now
                   // Get the hours adjustment factor based on crew type
                   const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
                   
-                  // For Onsite crews with 100% utilization, use same value for both percentages
-                  // Otherwise calculate normally
-                  const isOnsiteWithFullUtilization = crew.crew_type === 'Onsite' && 
-                    Math.abs(stats.utilizationPercent - 100) < 0.1; // Allow small rounding error
+                  // Calculate total hours paid per month
+                  const totalHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH;
+                  // Calculate monthly labor cost
+                  const totalMonthlyCost = totalHoursPerMonth * HOURLY_COST;
                   
-                  const effectiveDLPercent = isOnsiteWithFullUtilization ?
-                    stats.directLaborPercent : 
-                    stats.totalMonthlyInvoice > 0 ? 
-                      (totalMonthlyCost / (stats.totalMonthlyInvoice * (crew.crew_type === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR))) * 100 : 0;
+                  // For Onsite crews, calculate without drive time adjustment
+                  // For other crews, apply the drive time factor
+                  const effectiveDLPercent = crew.crew_type === 'Onsite' 
+                    ? (stats.totalMonthlyInvoice > 0 ? (totalMonthlyCost / stats.totalMonthlyInvoice) * 100 : 0)
+                    : (stats.totalMonthlyInvoice > 0 ? (totalMonthlyCost / (stats.totalMonthlyInvoice * DRIVE_TIME_FACTOR)) * 100 : 0);
                   
                   // Direct calculation of Utilization %
                   // Available hours per week for this specific crew (including crew size)

@@ -35,9 +35,10 @@ export default function CrewsPage() {
   };
 
   // Calculate Direct Labor percentage
-  const calculateDirectLaborPercent = (hours, monthlyInvoice) => {
+  const calculateDirectLaborPercent = (hours, monthlyInvoice, crewType) => {
     if (hours === 0 || monthlyInvoice === 0) return 0;
-    return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
+    const factor = crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
+    return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * factor) * 100;
   };
   
   // Format percentage
@@ -79,7 +80,7 @@ export default function CrewsPage() {
       const crewSize = crew?.size || 0;
       
       // Calculate DL percentages and utilization
-      stats[crewId].directLaborPercent = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice);
+      stats[crewId].directLaborPercent = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice, crew?.crew_type);
       
       // Calculate monthly required revenue (important for Effective DL%)
       const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;

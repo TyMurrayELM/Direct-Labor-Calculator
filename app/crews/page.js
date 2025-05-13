@@ -552,18 +552,32 @@ if (false) { // Always continue with deletion for now
                   // Calculate monthly labor cost
                   const totalMonthlyCost = totalHoursPerMonth * HOURLY_COST;
                   
-                  // For Onsite crews, calculate without drive time adjustment
-                  // For other crews, apply the drive time factor
-                  const effectiveDLPercent = crew.crew_type === 'Onsite' 
-                    ? (stats.totalMonthlyInvoice > 0 ? (totalMonthlyCost / stats.totalMonthlyInvoice) * 100 : 0)
-                    : (stats.totalMonthlyInvoice > 0 ? (totalMonthlyCost / (stats.totalMonthlyInvoice * DRIVE_TIME_FACTOR)) * 100 : 0);
-                  
                   // Direct calculation of Utilization %
                   // Available hours per week for this specific crew (including crew size)
                   const availableCrewHoursPerWeek = crew.size * 40 * hoursAdjustmentFactor; // Weekly hours per crew
                   const utilizationPercent = (availableCrewHoursPerWeek > 0) 
                     ? (stats.totalCurrentHours / availableCrewHoursPerWeek) * 100 
                     : 0;
+                  
+                  // Check if this is an Onsite crew with 100% utilization
+                  const isOnsiteWithFullUtilization = crew.crew_type === 'Onsite' && 
+                    Math.abs(utilizationPercent - 100) < 0.5; // Allow small rounding error
+                  
+                  // Calculate Effective DL% based on crew type and utilization
+                  let effectiveDLPercent;
+                  
+                  if (isOnsiteWithFullUtilization) {
+                    // For Onsite crews with 100% utilization - use Assigned DL% value directly
+                    effectiveDLPercent = stats.directLaborPercent;
+                  } else if (crew.crew_type === 'Onsite') {
+                    // For Onsite crews without 100% utilization - calculate normally without factor
+                    effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? 
+                      (totalMonthlyCost / stats.totalMonthlyInvoice) * 100 : 0;
+                  } else {
+                    // For all other crew types - calculate with DRIVE_TIME_FACTOR
+                    effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? 
+                      (totalMonthlyCost / (stats.totalMonthlyInvoice * DRIVE_TIME_FACTOR)) * 100 : 0;
+                  }
                   
                   // Color coding functions
                   const isDirectLaborGood = stats.directLaborPercent < TARGET_DIRECT_LABOR_PERCENT;

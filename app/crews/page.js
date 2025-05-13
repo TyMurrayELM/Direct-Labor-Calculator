@@ -86,8 +86,17 @@ export default function CrewsPage() {
       const crew = crews.find(c => c.id === crewId);
       const crewSize = crew?.size || 0;
       
-      // Calculate DL percentages and utilization
-      stats[crewId].directLaborPercent = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice, crew?.crew_type);
+      // Calculate DL percentages and utilization - directly without helper function
+      // This ensures complete consistency in calculation method
+      if (crew?.crew_type === 'Onsite') {
+        // For Onsite crews - NO drive time factor adjustment
+        stats[crewId].directLaborPercent = totalCurrentHours > 0 && totalMonthlyInvoice > 0 ?
+          (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / totalMonthlyInvoice * 100 : 0;
+      } else {
+        // For all other crew types - apply DRIVE_TIME_FACTOR
+        stats[crewId].directLaborPercent = totalCurrentHours > 0 && totalMonthlyInvoice > 0 ?
+          (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / (totalMonthlyInvoice * DRIVE_TIME_FACTOR) * 100 : 0;
+      }
       
       // Calculate monthly required revenue (important for Effective DL%)
       const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;

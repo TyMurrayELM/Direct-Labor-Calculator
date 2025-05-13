@@ -29,6 +29,11 @@ export default function CrewsPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [sortedCrews, setSortedCrews] = useState([]);
 
+  // Helper function to determine whether to apply drive time factor based on crew type
+  const getAvailableHoursFactor = (crewType) => {
+    return crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
+  };
+
   // Calculate Direct Labor percentage
   const calculateDirectLaborPercent = (hours, monthlyInvoice) => {
     if (hours === 0 || monthlyInvoice === 0) return 0;
@@ -89,7 +94,8 @@ export default function CrewsPage() {
       
       // Calculate utilization percentage - what percentage of available hours are being used
       if (crewSize > 0) {
-        const availableHours = crewSize * 40 * WEEKS_PER_MONTH * DRIVE_TIME_FACTOR;
+        const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
+        const availableHours = crewSize * 40 * WEEKS_PER_MONTH * hoursAdjustmentFactor;
         stats[crewId].utilizationPercent = (totalCurrentHours / availableHours) * 100;
       } else {
         stats[crewId].utilizationPercent = 0;
@@ -521,6 +527,9 @@ if (false) { // Always continue with deletion for now
                   const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * HOURLY_COST : 0;
                   const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
                   
+                  // Get the hours adjustment factor based on crew type
+                  const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
+                  
                   // Direct calculation of Effective DL%
                   // Step 1: Calculate total hours we're paying for per month
                   const totalHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH;
@@ -531,7 +540,7 @@ if (false) { // Always continue with deletion for now
                   
                   // Direct calculation of Utilization %
                   // Available hours per week for this specific crew (including crew size)
-                  const availableCrewHoursPerWeek = crew.size * 40 * DRIVE_TIME_FACTOR; // Weekly hours per crew
+                  const availableCrewHoursPerWeek = crew.size * 40 * hoursAdjustmentFactor; // Weekly hours per crew
                   const utilizationPercent = (availableCrewHoursPerWeek > 0) 
                     ? (stats.totalCurrentHours / availableCrewHoursPerWeek) * 100 
                     : 0;
@@ -615,9 +624,9 @@ if (false) { // Always continue with deletion for now
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
                         {stats.totalCurrentHours > 0 ? (
-                          `${stats.totalCurrentHours.toFixed(1)} / ${(crew.size * 40 * DRIVE_TIME_FACTOR).toFixed(0)}`
+                          `${stats.totalCurrentHours.toFixed(1)} / ${(crew.size * 40 * hoursAdjustmentFactor).toFixed(0)}`
                         ) : (
-                          `0.0 / ${(crew.size * 40 * DRIVE_TIME_FACTOR).toFixed(0)}`
+                          `0.0 / ${(crew.size * 40 * hoursAdjustmentFactor).toFixed(0)}`
                         )}
                       </td>
                       {/* DL Utilization % - Moved here */}

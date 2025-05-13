@@ -37,10 +37,15 @@ export default function CrewsPage() {
   // Calculate Direct Labor percentage - adjusted for Onsite crews
   const calculateDirectLaborPercent = (hours, monthlyInvoice, crewType) => {
     if (hours === 0 || monthlyInvoice === 0) return 0;
-    // For Onsite crew type, don't apply the drive time discount
-    // For all other crew types, apply the DRIVE_TIME_FACTOR
-    const factor = crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
-    return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * factor) * 100;
+    
+    // NO drive time factor adjustment for Onsite crews
+    if (crewType === 'Onsite') {
+      return (hours * HOURLY_COST * WEEKS_PER_MONTH) / monthlyInvoice * 100;
+    } 
+    // Apply drive time factor for all other crew types
+    else {
+      return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
+    }
   };
   
   // Format percentage
@@ -538,10 +543,15 @@ if (false) { // Always continue with deletion for now
                   const totalHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH;
                   // Step 2: Calculate monthly labor cost
                   const totalMonthlyCost = totalHoursPerMonth * HOURLY_COST;
-                  // Step 3: Calculate Effective DL% - apply drive time factor for non-Onsite crews
-                  const effectiveFactor = crew.crew_type === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
-                  const effectiveDLPercent = stats.totalMonthlyInvoice > 0 ? 
-                    (totalMonthlyCost / (stats.totalMonthlyInvoice * effectiveFactor)) * 100 : 0;
+                  // Step 3: Calculate Effective DL% - NO drive time factor for Onsite crews
+                  let effectiveDLPercent = 0;
+                  if (stats.totalMonthlyInvoice > 0) {
+                    if (crew.crew_type === 'Onsite') {
+                      effectiveDLPercent = (totalMonthlyCost / stats.totalMonthlyInvoice) * 100;
+                    } else {
+                      effectiveDLPercent = (totalMonthlyCost / (stats.totalMonthlyInvoice * DRIVE_TIME_FACTOR)) * 100;
+                    }
+                  }
                   
                   // Direct calculation of Utilization %
                   // Available hours per week for this specific crew (including crew size)

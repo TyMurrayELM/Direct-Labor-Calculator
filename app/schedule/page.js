@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   useProperties, 
@@ -557,11 +557,12 @@ export default function SchedulePage() {
             <li>• Drag properties from "Unassigned" to schedule them on specific days</li>
             <li>• Move properties between days by dragging them</li>
             <li>• Click "Save Schedule" to save changes to the database</li>
-            <li>• The schedule shows properties assigned to {selectedCrew?.name || 'the selected crew'}</li>
-            <li>• Color coding: <span className="text-green-600 font-medium">Green = Good</span>, <span className="text-yellow-600 font-medium">Yellow = High utilization</span>, <span className="text-red-600 font-medium">Red = Over capacity</span></li>
-            <li>• Direct Labor % target is {TARGET_DIRECT_LABOR_PERCENT}% - stay below for optimal profitability</li>
+            <li>• The schedule shows properties assigned to the selected crew</li>
+            <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
+            <li>• Direct Labor target is 40% - stay below for optimal profitability</li>
           </ul>
         </div>
       </div>
     </div>
   );
+}

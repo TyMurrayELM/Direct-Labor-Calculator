@@ -72,26 +72,26 @@ export default function SchedulePage() {
       if (!selectedCrew && crews.length > 0) {
         setSelectedCrew(crews[0]);
       }
-      
-      // Initialize unassigned jobs with actual properties
-      const formattedProperties = properties.map(prop => ({
-        id: prop.id,
-        name: prop.name,
-        address: prop.address || 'No address provided',
-        current_hours: prop.current_hours || 0,
-        monthly_invoice: prop.monthly_invoice || 0,
-        crew_id: prop.crew_id,
-        branch_id: prop.branch_id
-      }));
-      
-      // Only show properties assigned to the selected crew or unassigned
-      const crewProperties = selectedCrew 
-        ? formattedProperties.filter(p => p.crew_id === selectedCrew.id || !p.crew_id)
-        : formattedProperties;
-      
-      setUnassignedJobs(crewProperties);
     }
-  }, [properties, crews, propertiesLoading, crewsLoading, selectedCrew]);
+  }, [properties, crews, propertiesLoading, crewsLoading]);
+  
+  // Load saved schedule when crew changes or schedule data loads
+  useEffect(() => {
+    if (!scheduleLoading && savedSchedule && selectedCrew) {
+      // Load the saved schedule
+      const newSchedule = {
+        Monday: savedSchedule.Monday || [],
+        Tuesday: savedSchedule.Tuesday || [],
+        Wednesday: savedSchedule.Wednesday || [],
+        Thursday: savedSchedule.Thursday || [],
+        Friday: savedSchedule.Friday || []
+      };
+      
+      setWeekSchedule(newSchedule);
+      setUnassignedJobs(savedSchedule.unassigned || []);
+      setHasChanges(false);
+    }
+  }, [savedSchedule, scheduleLoading, selectedCrew]);
 
   // Sign out handler
   const handleSignOut = async () => {
@@ -99,18 +99,70 @@ export default function SchedulePage() {
     router.push('/login');
   };
 
+  // Save schedule handler
+  const handleSaveSchedule = async () => {
+    if (!selectedCrew) return;
+    
+    setIsSaving(true);
+    setSaveMessage(null);
+    
+    const result = await saveWeeklySchedule(selectedCrew.id, weekSchedule);
+    
+    if (result.success) {
+      setSaveMessage({ type: 'success', text: 'Schedule saved successfully!' });
+      setHasChanges(false);
+    } else {
+      setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
+    }
+    
+    setIsSaving(false);
+    
+    // Clear message after 3 seconds
+    setTimeout(() => setSaveMessage(null), 3000);
+  };
+  
+  // Clear schedule handler
+  const handleClearSchedule = async () => {
+    if (!selectedCrew || !window.confirm('Are you sure you want to clear the entire schedule?')) return;
+    
+    setIsSaving(true);
+    const result = await clearCrewSchedule(selectedCrew.id);
+    
+    if (result.success) {
+      // Reset to unassigned
+      const allJobs = [...unassignedJobs];
+      Object.values(weekSchedule).flat().forEach(job => {
+        allJobs.push(job);
+      });
+      
+      setWeekSchedule({
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+      });
+      setUnassignedJobs(allJobs);
+      setHasChanges(true);
+      setSaveMessage({ type: 'success', text: 'Schedule cleared!' });
+    }
+    
+    setIsSaving(false);
+    setTimeout(() => setSaveMessage(null), 3000);
+  };
+
   // Calculate daily crew hours
   const dailyCrewHours = selectedCrew ? selectedCrew.size * 8 * DRIVE_TIME_FACTOR : 0;
 
-  // Drag and Drop handlers
-  const handleDragStart = (e, job, sourceDay) => {
+  // Drag and Drop handlers - Updated for better compatibility
+  const handleDragStart = (job, sourceDay) => {
     setDraggedItem({ job, sourceDay });
-    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    return false;
   };
 
   const handleDragEnter = (e, day) => {
@@ -118,39 +170,59 @@ export default function SchedulePage() {
     setDragOverDay(day);
   };
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e, day) => {
     e.preventDefault();
-    if (e.currentTarget === e.target) {
+    // Only clear if we're leaving the actual drop zone, not just hovering over a child
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
       setDragOverDay(null);
     }
   };
 
   const handleDrop = (e, targetDay) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOverDay(null);
 
     if (!draggedItem) return;
 
     const { job, sourceDay } = draggedItem;
+    
+    // Don't do anything if dropping in the same location
+    if (sourceDay === targetDay) {
+      setDraggedItem(null);
+      return;
+    }
+    
     let newSchedule = { ...weekSchedule };
     let newUnassigned = [...unassignedJobs];
 
     // Remove from source
     if (sourceDay === 'unassigned') {
       newUnassigned = newUnassigned.filter(j => j.id !== job.id);
-    } else if (sourceDay) {
+    } else if (sourceDay && newSchedule[sourceDay]) {
       newSchedule[sourceDay] = newSchedule[sourceDay].filter(j => j.id !== job.id);
     }
 
     // Add to target
     if (targetDay === 'unassigned') {
       newUnassigned = [...newUnassigned, job];
-    } else if (targetDay) {
+    } else if (targetDay && newSchedule[targetDay]) {
       newSchedule[targetDay] = [...newSchedule[targetDay], job];
     }
 
     setWeekSchedule(newSchedule);
     setUnassignedJobs(newUnassigned);
+    setDraggedItem(null);
+    setHasChanges(true);
+  };
+
+  const handleDragEnd = (e) => {
+    // Clean up
+    setDragOverDay(null);
     setDraggedItem(null);
   };
 
@@ -183,24 +255,37 @@ export default function SchedulePage() {
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
-  // Job Card Component
-  const JobCard = ({ job, sourceDay }) => (
-    <div
-      draggable
-      onDragStart={(e) => handleDragStart(e, job, sourceDay)}
-      className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
-    >
-      <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
-      <div className="text-xs text-gray-500 truncate">{job.address}</div>
-      <div className="flex justify-between items-center mt-1">
-        <span className="text-xs font-semibold text-blue-600">{job.current_hours.toFixed(1)} hrs</span>
-        <span className="text-xs text-green-600">${job.monthly_invoice.toLocaleString()}</span>
+  // Job Card Component - moved outside and memoized for better performance
+  const JobCard = React.memo(({ job, sourceDay, onDragStart }) => {
+    const handleDragStartLocal = (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+      onDragStart(job, sourceDay);
+    };
+
+    return (
+      <div
+        draggable={true}
+        onDragStart={handleDragStartLocal}
+        className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
+        style={{ userSelect: 'none' }}
+      >
+        <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
+        <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-xs font-semibold text-blue-600">
+            {(job.current_hours || 0).toFixed(1)} hrs
+          </span>
+          <span className="text-xs text-green-600">
+            ${(job.monthly_invoice || 0).toLocaleString()}
+          </span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  });
 
   // Loading state
-  if (propertiesLoading || crewsLoading || branchesLoading) {
+  if (propertiesLoading || crewsLoading || branchesLoading || scheduleLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-blue-100">
         <div className="p-8 bg-white shadow-lg rounded-lg">
@@ -214,7 +299,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 bg-blue-100 min-h-screen">
+    <div className="max-w-7xl mx-auto p-4 bg-blue-100 min-h-screen" onDragEnd={handleDragEnd}>
       <div className="bg-white rounded-xl shadow-lg p-6">
         {/* Navigation Header */}
         <div className="mb-6 pb-4 border-b border-gray-200">
@@ -269,28 +354,69 @@ export default function SchedulePage() {
 
         {/* Crew Selector */}
         <div className="mb-6">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-700">Select Crew:</label>
-            <select
-              value={selectedCrew?.id || ''}
-              onChange={(e) => {
-                const crew = crews.find(c => c.id === parseInt(e.target.value));
-                setSelectedCrew(crew);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              {crews.map(crew => (
-                <option key={crew.id} value={crew.id}>
-                  {crew.name} ({crew.crew_type}, {crew.size} members)
-                </option>
-              ))}
-            </select>
-            {selectedCrew && (
-              <span className="text-sm text-gray-600">
-                Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
-              </span>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <label className="text-sm font-medium text-gray-700">Select Crew:</label>
+              <select
+                value={selectedCrew?.id || ''}
+                onChange={(e) => {
+                  const crew = crews.find(c => c.id === parseInt(e.target.value));
+                  setSelectedCrew(crew);
+                  setHasChanges(false);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                {crews.map(crew => (
+                  <option key={crew.id} value={crew.id}>
+                    {crew.name} ({crew.crew_type}, {crew.size} members)
+                  </option>
+                ))}
+              </select>
+              {selectedCrew && (
+                <span className="text-sm text-gray-600">
+                  Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
+                </span>
+              )}
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2">
+              {hasChanges && (
+                <span className="text-sm text-yellow-600 font-medium mr-2">
+                  ⚠️ Unsaved changes
+                </span>
+              )}
+              <button
+                onClick={handleSaveSchedule}
+                disabled={isSaving || !hasChanges}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  hasChanges 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isSaving ? 'Saving...' : 'Save Schedule'}
+              </button>
+              <button
+                onClick={handleClearSchedule}
+                disabled={isSaving}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
           </div>
+          
+          {/* Save message */}
+          {saveMessage && (
+            <div className={`mt-2 p-2 rounded-lg text-sm ${
+              saveMessage.type === 'success' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {saveMessage.text}
+            </div>
+          )}
         </div>
 
         {/* Stats Bar */}
@@ -337,7 +463,7 @@ export default function SchedulePage() {
             <div
               onDragOver={handleDragOver}
               onDragEnter={(e) => handleDragEnter(e, 'unassigned')}
-              onDragLeave={handleDragLeave}
+              onDragLeave={(e) => handleDragLeave(e, 'unassigned')}
               onDrop={(e) => handleDrop(e, 'unassigned')}
               className={`border-2 rounded-lg p-2 min-h-[500px] transition-colors ${
                 dragOverDay === 'unassigned' ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-yellow-50'
@@ -345,7 +471,12 @@ export default function SchedulePage() {
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {unassignedJobs.map((job) => (
-                  <JobCard key={job.id} job={job} sourceDay="unassigned" />
+                  <JobCard 
+                    key={job.id} 
+                    job={job} 
+                    sourceDay="unassigned" 
+                    onDragStart={handleDragStart}
+                  />
                 ))}
               </div>
             </div>
@@ -418,6 +549,7 @@ export default function SchedulePage() {
           <ul className="text-xs text-gray-600 space-y-1">
             <li>• Drag properties from "Unassigned" to schedule them on specific days</li>
             <li>• Move properties between days by dragging them</li>
+            <li>• Click "Save Schedule" to save changes to the database</li>
             <li>• The schedule shows properties assigned to {selectedCrew?.name || 'the selected crew'}</li>
             <li>• Color coding: <span className="text-green-600 font-medium">Green = Good</span>, <span className="text-yellow-600 font-medium">Yellow = High utilization</span>, <span className="text-red-600 font-medium">Red = Over capacity</span></li>
             <li>• Direct Labor % target is {TARGET_DIRECT_LABOR_PERCENT}% - stay below for optimal profitability</li>

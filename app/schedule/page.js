@@ -837,6 +837,12 @@ export default function SchedulePage() {
                         <span className="text-gray-600">Jobs:</span>
                         <span className="font-medium">{dayJobs.length}</span>
                       </div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-600">Crew Hours:</span>
+                        <span className="font-medium text-purple-600">
+                          {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
+                        </span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Utilization:</span>
                         <span className={`font-medium ${

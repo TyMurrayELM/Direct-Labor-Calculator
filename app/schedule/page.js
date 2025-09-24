@@ -1,4 +1,36 @@
-"use client";
+// Initialize unassigned jobs when no saved schedule exists
+  useEffect(() => {
+    if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
+      console.log('No saved schedule found, initializing with all properties as unassigned');
+      // If there's no saved schedule, put all properties in unassigned
+      setUnassignedJobs(properties);
+      setWeekSchedule({
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+      });
+      setHasChanges(false);
+    }
+  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);
+  
+  // Initialize unassigned jobs when no saved schedule exists
+  useEffect(() => {
+    if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
+      console.log('No saved schedule found, initializing with all properties as unassigned');
+      // If there's no saved schedule, put all properties in unassigned
+      setUnassignedJobs(properties);
+      setWeekSchedule({
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+      });
+      setHasChanges(false);
+    }
+  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);"use client";
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -69,7 +101,14 @@ export default function SchedulePage() {
   useEffect(() => {
     if (!propertiesLoading && !crewsLoading && properties.length > 0 && crews.length > 0) {
       // Debug: Check the structure of properties
+      console.log('Properties loaded:', properties.length, 'properties');
       console.log('Sample property structure:', properties[0]);
+      
+      // Verify all properties have IDs
+      const propertiesWithoutIds = properties.filter(p => !p || !p.id);
+      if (propertiesWithoutIds.length > 0) {
+        console.error('Properties without IDs:', propertiesWithoutIds);
+      }
       
       // Set initial selected crew
       if (!selectedCrew && crews.length > 0) {
@@ -80,29 +119,70 @@ export default function SchedulePage() {
   
   // Load saved schedule when crew changes or schedule data loads
   useEffect(() => {
-    if (!scheduleLoading && savedSchedule && selectedCrew) {
+    if (!scheduleLoading && savedSchedule && selectedCrew && properties.length > 0) {
       console.log('Loading saved schedule:', savedSchedule);
+      console.log('Available properties:', properties);
       
-      // Check if savedSchedule contains full property objects or just IDs
-      const sampleDay = savedSchedule.Monday?.[0];
-      if (sampleDay) {
-        console.log('Sample saved schedule item:', sampleDay);
-      }
+      // Create a map of properties by ID for quick lookup
+      const propertyMap = {};
+      properties.forEach(prop => {
+        if (prop && prop.id) {
+          propertyMap[prop.id] = prop;
+        }
+      });
       
-      // Load the saved schedule
-      const newSchedule = {
-        Monday: savedSchedule.Monday || [],
-        Tuesday: savedSchedule.Tuesday || [],
-        Wednesday: savedSchedule.Wednesday || [],
-        Thursday: savedSchedule.Thursday || [],
-        Friday: savedSchedule.Friday || []
+      // Helper function to convert IDs to full property objects
+      const idsToProperties = (ids) => {
+        if (!ids || !Array.isArray(ids)) return [];
+        return ids
+          .map(id => {
+            // Handle both cases: id might be a number or an object
+            const propId = typeof id === 'object' ? id.id : id;
+            return propertyMap[propId];
+          })
+          .filter(prop => prop !== undefined);
       };
       
-      setWeekSchedule(newSchedule);
-      setUnassignedJobs(savedSchedule.unassigned || []);
+      // Check if savedSchedule contains full objects or just IDs
+      const sampleItem = savedSchedule.Monday?.[0];
+      const isFullObject = sampleItem && typeof sampleItem === 'object' && sampleItem.name;
+      
+      if (isFullObject) {
+        // If we already have full objects, use them directly
+        const newSchedule = {
+          Monday: savedSchedule.Monday || [],
+          Tuesday: savedSchedule.Tuesday || [],
+          Wednesday: savedSchedule.Wednesday || [],
+          Thursday: savedSchedule.Thursday || [],
+          Friday: savedSchedule.Friday || []
+        };
+        
+        setWeekSchedule(newSchedule);
+        setUnassignedJobs(savedSchedule.unassigned || []);
+      } else {
+        // Convert IDs to full property objects
+        const newSchedule = {
+          Monday: idsToProperties(savedSchedule.Monday),
+          Tuesday: idsToProperties(savedSchedule.Tuesday),
+          Wednesday: idsToProperties(savedSchedule.Wednesday),
+          Thursday: idsToProperties(savedSchedule.Thursday),
+          Friday: idsToProperties(savedSchedule.Friday)
+        };
+        
+        setWeekSchedule(newSchedule);
+        
+        // Handle unassigned - if it's IDs, convert them; otherwise use as is
+        const unassignedItems = savedSchedule.unassigned || [];
+        if (unassignedItems.length > 0 && typeof unassignedItems[0] !== 'object') {
+          setUnassignedJobs(idsToProperties(unassignedItems));
+        } else {
+          setUnassignedJobs(unassignedItems);
+        }
+      }
+      
       setHasChanges(false);
     }
-  }, [savedSchedule, scheduleLoading, selectedCrew]);
+  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);
 
   // Sign out handler
   const handleSignOut = async () => {
@@ -117,63 +197,65 @@ export default function SchedulePage() {
     setIsSaving(true);
     setSaveMessage(null);
     
-    // Debug: Log the structure of a job to see what fields are available
-    if (weekSchedule.Monday.length > 0 || unassignedJobs.length > 0) {
-      const sampleJob = weekSchedule.Monday[0] || unassignedJobs[0];
-      console.log('Sample job structure:', sampleJob);
-    }
+    // Debug: Log the structure to understand what we're working with
+    console.log('Current weekSchedule:', weekSchedule);
+    console.log('Current unassignedJobs:', unassignedJobs);
+    
+    // Helper function to safely extract ID from a property object
+    const extractPropertyId = (item) => {
+      if (!item) return null;
+      
+      // If it's already a number, return it
+      if (typeof item === 'number') return item;
+      
+      // If it's an object, try different possible ID fields
+      if (typeof item === 'object') {
+        // Try common ID field names
+        const id = item.id || item.property_id || item.propertyId;
+        if (id !== undefined && id !== null) {
+          const parsedId = parseInt(id);
+          if (!isNaN(parsedId)) {
+            return parsedId;
+          }
+        }
+      }
+      
+      console.error('Could not extract ID from:', item);
+      return null;
+    };
     
     // Convert the schedule to use only property IDs with validation
     const scheduleWithIds = {};
+    let hasInvalidIds = false;
+    
     for (const day of days) {
       scheduleWithIds[day] = weekSchedule[day]
-        .filter(job => {
-          // Check if job has a valid ID
-          if (!job || job.id === undefined || job.id === null) {
-            console.error('Job missing ID:', job);
+        .map(job => extractPropertyId(job))
+        .filter(id => {
+          if (id === null) {
+            hasInvalidIds = true;
             return false;
           }
           return true;
-        })
-        .map(job => {
-          // Ensure ID is an integer
-          const id = parseInt(job.id);
-          if (isNaN(id)) {
-            console.error('Invalid job ID:', job.id, 'for job:', job);
-            return null;
-          }
-          return id;
-        })
-        .filter(id => id !== null); // Remove any null IDs
+        });
     }
     
     // Also send unassigned job IDs with validation
     const unassignedIds = unassignedJobs
-      .filter(job => {
-        if (!job || job.id === undefined || job.id === null) {
-          console.error('Unassigned job missing ID:', job);
+      .map(job => extractPropertyId(job))
+      .filter(id => {
+        if (id === null) {
+          hasInvalidIds = true;
           return false;
         }
         return true;
-      })
-      .map(job => {
-        const id = parseInt(job.id);
-        if (isNaN(id)) {
-          console.error('Invalid unassigned job ID:', job.id, 'for job:', job);
-          return null;
-        }
-        return id;
-      })
-      .filter(id => id !== null);
+      });
     
-    // Check if we have any valid IDs
-    const totalScheduledIds = Object.values(scheduleWithIds).flat().length;
-    const totalIds = totalScheduledIds + unassignedIds.length;
-    
-    if (totalIds === 0 && (Object.values(weekSchedule).flat().length > 0 || unassignedJobs.length > 0)) {
+    if (hasInvalidIds) {
+      console.error('Some properties have invalid IDs. Check the console for details.');
       setSaveMessage({ 
         type: 'error', 
-        text: 'Error: No valid property IDs found. Please check the console for details.' 
+        text: 'Error: Some properties have invalid IDs. Check the console for details.' 
       });
       setIsSaving(false);
       return;
@@ -181,8 +263,12 @@ export default function SchedulePage() {
     
     // Create the payload with both scheduled and unassigned IDs
     const scheduleData = {
-      ...scheduleWithIds,
-      unassigned: unassignedIds
+      Monday: scheduleWithIds.Monday || [],
+      Tuesday: scheduleWithIds.Tuesday || [],
+      Wednesday: scheduleWithIds.Wednesday || [],
+      Thursday: scheduleWithIds.Thursday || [],
+      Friday: scheduleWithIds.Friday || [],
+      unassigned: unassignedIds || []
     };
     
     console.log('Saving schedule data:', scheduleData);
@@ -194,6 +280,7 @@ export default function SchedulePage() {
         setSaveMessage({ type: 'success', text: 'Schedule saved successfully!' });
         setHasChanges(false);
       } else {
+        console.error('Save failed:', result.error);
         setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
       }
     } catch (error) {
@@ -217,10 +304,13 @@ export default function SchedulePage() {
       const result = await clearCrewSchedule(selectedCrew.id);
       
       if (result.success) {
-        // Reset to unassigned
+        // Reset to unassigned - combine all scheduled jobs with existing unassigned
         const allJobs = [...unassignedJobs];
         Object.values(weekSchedule).flat().forEach(job => {
-          allJobs.push(job);
+          // Check if job is valid and not already in unassigned
+          if (job && job.id && !allJobs.some(j => j.id === job.id)) {
+            allJobs.push(job);
+          }
         });
         
         setWeekSchedule({

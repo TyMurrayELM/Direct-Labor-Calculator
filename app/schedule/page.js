@@ -188,20 +188,29 @@ export default function SchedulePage() {
     
     // Helper function to safely extract ID from a property object
     const extractPropertyId = (item) => {
-      if (!item) return null;
+      if (!item) {
+        console.error('Item is null or undefined');
+        return null;
+      }
       
       // If it's already a number, return it
       if (typeof item === 'number') return item;
       
       // If it's an object, try different possible ID fields
       if (typeof item === 'object') {
+        console.log('Extracting ID from object:', item);
         // Try common ID field names
         const id = item.id || item.property_id || item.propertyId;
         if (id !== undefined && id !== null) {
           const parsedId = parseInt(id);
           if (!isNaN(parsedId)) {
+            console.log('Successfully extracted ID:', parsedId);
             return parsedId;
+          } else {
+            console.error('Failed to parse ID as integer:', id);
           }
+        } else {
+          console.error('No ID field found in object:', item);
         }
       }
       
@@ -212,32 +221,59 @@ export default function SchedulePage() {
     // Convert the schedule to use only property IDs with validation
     const scheduleWithIds = {};
     let hasInvalidIds = false;
+    let allExtractedIds = [];
     
     for (const day of days) {
-      scheduleWithIds[day] = weekSchedule[day]
-        .map(job => extractPropertyId(job))
-        .filter(id => {
-          if (id === null) {
-            hasInvalidIds = true;
-            return false;
-          }
-          return true;
-        });
+      console.log(`Processing ${day} with ${weekSchedule[day].length} jobs`);
+      scheduleWithIds[day] = [];
+      
+      for (const job of weekSchedule[day]) {
+        const id = extractPropertyId(job);
+        if (id === null) {
+          console.error(`Invalid job on ${day}:`, job);
+          hasInvalidIds = true;
+        } else {
+          scheduleWithIds[day].push(id);
+          allExtractedIds.push(id);
+        }
+      }
     }
     
-    // Also send unassigned job IDs with validation
-    const unassignedIds = unassignedJobs
-      .map(job => extractPropertyId(job))
-      .filter(id => {
-        if (id === null) {
-          hasInvalidIds = true;
-          return false;
-        }
-        return true;
+    // Also process unassigned job IDs with validation
+    const unassignedIds = [];
+    console.log(`Processing ${unassignedJobs.length} unassigned jobs`);
+    
+    for (const job of unassignedJobs) {
+      const id = extractPropertyId(job);
+      if (id === null) {
+        console.error('Invalid unassigned job:', job);
+        hasInvalidIds = true;
+      } else {
+        unassignedIds.push(id);
+        allExtractedIds.push(id);
+      }
+    }
+    
+    // Check for undefined values in the arrays
+    const undefinedScheduledCount = Object.values(scheduleWithIds).flat().filter(id => id === undefined || id === null).length;
+    const undefinedUnassignedCount = unassignedIds.filter(id => id === undefined || id === null).length;
+    
+    if (undefinedScheduledCount > 0 || undefinedUnassignedCount > 0) {
+      console.error('Found undefined IDs in the data to save!');
+      console.error('Scheduled undefined count:', undefinedScheduledCount);
+      console.error('Unassigned undefined count:', undefinedUnassignedCount);
+      console.error('Full schedule data:', scheduleWithIds);
+      console.error('Unassigned IDs:', unassignedIds);
+      setSaveMessage({ 
+        type: 'error', 
+        text: 'Error: Some properties have undefined IDs. Check the console for details.' 
       });
+      setIsSaving(false);
+      return;
+    }
     
     if (hasInvalidIds) {
-      console.error('Some properties have invalid IDs. Check the console for details.');
+      console.error('Some properties have invalid IDs. Cannot save.');
       setSaveMessage({ 
         type: 'error', 
         text: 'Error: Some properties have invalid IDs. Check the console for details.' 
@@ -247,16 +283,39 @@ export default function SchedulePage() {
     }
     
     // Create the payload with both scheduled and unassigned IDs
+    // Ensure no undefined values slip through
     const scheduleData = {
-      Monday: scheduleWithIds.Monday || [],
-      Tuesday: scheduleWithIds.Tuesday || [],
-      Wednesday: scheduleWithIds.Wednesday || [],
-      Thursday: scheduleWithIds.Thursday || [],
-      Friday: scheduleWithIds.Friday || [],
-      unassigned: unassignedIds || []
+      Monday: (scheduleWithIds.Monday || []).filter(id => id !== undefined && id !== null),
+      Tuesday: (scheduleWithIds.Tuesday || []).filter(id => id !== undefined && id !== null),
+      Wednesday: (scheduleWithIds.Wednesday || []).filter(id => id !== undefined && id !== null),
+      Thursday: (scheduleWithIds.Thursday || []).filter(id => id !== undefined && id !== null),
+      Friday: (scheduleWithIds.Friday || []).filter(id => id !== undefined && id !== null),
+      unassigned: (unassignedIds || []).filter(id => id !== undefined && id !== null)
     };
     
-    console.log('Saving schedule data:', scheduleData);
+    console.log('Final schedule data to save:', scheduleData);
+    console.log('All extracted IDs:', allExtractedIds);
+    
+    // Final validation - check if any arrays contain undefined
+    const finalCheck = [
+      ...scheduleData.Monday,
+      ...scheduleData.Tuesday,
+      ...scheduleData.Wednesday,
+      ...scheduleData.Thursday,
+      ...scheduleData.Friday,
+      ...scheduleData.unassigned
+    ];
+    
+    const hasUndefined = finalCheck.some(id => id === undefined || id === null || isNaN(id));
+    if (hasUndefined) {
+      console.error('CRITICAL: Found undefined/null/NaN in final data!', finalCheck);
+      setSaveMessage({ 
+        type: 'error', 
+        text: 'Critical error: Invalid IDs detected. Cannot save schedule.' 
+      });
+      setIsSaving(false);
+      return;
+    }
     
     try {
       const result = await saveWeeklySchedule(selectedCrew.id, scheduleData);

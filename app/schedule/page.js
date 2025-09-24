@@ -644,7 +644,7 @@ export default function SchedulePage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Weekly Revenue</div>
+            <div className="text-xs text-gray-600 font-medium">Monthly Revenue</div>
             <div className="text-lg font-bold text-green-600">${stats.totalRevenue.toLocaleString()}</div>
           </div>
           <div>

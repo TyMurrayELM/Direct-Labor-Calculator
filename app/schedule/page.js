@@ -410,10 +410,10 @@ export default function SchedulePage() {
     }
   };
 
-  const onDrop = (e, targetDay) => {
+  const onDrop = (e, targetDay, insertIndex = null) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Drop on:', targetDay);
+    console.log('Drop on:', targetDay, 'insertIndex:', insertIndex);
     setDragOverDay(null);
     
     // Use the state variable if dataTransfer doesn't work
@@ -424,16 +424,10 @@ export default function SchedulePage() {
     
     const { job, sourceDay } = draggedItem;
     
-    // Don't do anything if dropping in the same location
-    if (sourceDay === targetDay) {
-      setDraggedItem(null);
-      return;
-    }
-    
     let newSchedule = { ...weekSchedule };
     let newUnassigned = [...unassignedJobs];
 
-    // Remove from source
+    // Remove from source first
     if (sourceDay === 'unassigned') {
       newUnassigned = newUnassigned.filter(j => j.id !== job.id);
     } else if (sourceDay && newSchedule[sourceDay]) {
@@ -444,7 +438,13 @@ export default function SchedulePage() {
     if (targetDay === 'unassigned') {
       newUnassigned.push(job);
     } else if (targetDay && newSchedule[targetDay]) {
-      newSchedule[targetDay] = [...newSchedule[targetDay], job];
+      if (insertIndex !== null && insertIndex >= 0) {
+        // Insert at specific position for reordering
+        newSchedule[targetDay].splice(insertIndex, 0, job);
+      } else {
+        // Add to the end
+        newSchedule[targetDay] = [...newSchedule[targetDay], job];
+      }
     }
 
     setWeekSchedule(newSchedule);
@@ -732,27 +732,70 @@ export default function SchedulePage() {
                   }`}
                 >
                   <div className="space-y-2">
-                    {dayJobs.map((job) => (
-                      <div
-                        key={job.id}
-                        draggable={true}
-                        onDragStart={(e) => onDragStart(e, job, day)}
-                        onDragEnd={onDragEnd}
-                        className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
-                        style={{ userSelect: 'none' }}
-                      >
-                        <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs font-semibold text-blue-600">
-                            {(job.current_hours || 0).toFixed(1)} hrs
-                          </span>
-                          <span className="text-xs text-green-600">
-                            ${(job.monthly_invoice || 0).toLocaleString()}
-                          </span>
+                    {dayJobs.map((job, index) => (
+                      <div key={job.id}>
+                        {/* Drop zone before each item */}
+                        <div
+                          className="h-1 transition-all"
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.currentTarget.style.height = '30px';
+                            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+                            e.currentTarget.style.borderRadius = '4px';
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.style.height = '4px';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          onDrop={(e) => {
+                            e.currentTarget.style.height = '4px';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            onDrop(e, day, index);
+                          }}
+                        />
+                        <div
+                          draggable={true}
+                          onDragStart={(e) => onDragStart(e, job, day)}
+                          onDragEnd={onDragEnd}
+                          className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
+                          style={{ userSelect: 'none' }}
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-xs font-semibold text-blue-600">
+                              {(job.current_hours || 0).toFixed(1)} hrs
+                            </span>
+                            <span className="text-xs text-green-600">
+                              ${(job.monthly_invoice || 0).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
+                    {/* Drop zone at the end */}
+                    {dayJobs.length > 0 && (
+                      <div
+                        className="h-1 transition-all"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.currentTarget.style.height = '30px';
+                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+                          e.currentTarget.style.borderRadius = '4px';
+                        }}
+                        onDragLeave={(e) => {
+                          e.currentTarget.style.height = '4px';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        onDrop={(e) => {
+                          e.currentTarget.style.height = '4px';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          onDrop(e, day, dayJobs.length);
+                        }}
+                      />
+                    )}
                   </div>
                   
                   {/* Day Footer with Utilization */}

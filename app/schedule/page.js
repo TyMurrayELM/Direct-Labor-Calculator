@@ -68,6 +68,9 @@ export default function SchedulePage() {
   // Initialize data when loaded
   useEffect(() => {
     if (!propertiesLoading && !crewsLoading && properties.length > 0 && crews.length > 0) {
+      // Debug: Check the structure of properties
+      console.log('Sample property structure:', properties[0]);
+      
       // Set initial selected crew
       if (!selectedCrew && crews.length > 0) {
         setSelectedCrew(crews[0]);
@@ -78,6 +81,14 @@ export default function SchedulePage() {
   // Load saved schedule when crew changes or schedule data loads
   useEffect(() => {
     if (!scheduleLoading && savedSchedule && selectedCrew) {
+      console.log('Loading saved schedule:', savedSchedule);
+      
+      // Check if savedSchedule contains full property objects or just IDs
+      const sampleDay = savedSchedule.Monday?.[0];
+      if (sampleDay) {
+        console.log('Sample saved schedule item:', sampleDay);
+      }
+      
       // Load the saved schedule
       const newSchedule = {
         Monday: savedSchedule.Monday || [],
@@ -99,27 +110,82 @@ export default function SchedulePage() {
     router.push('/login');
   };
 
-  // Save schedule handler - FIXED to send only IDs
+  // Save schedule handler - FIXED to send only IDs with validation
   const handleSaveSchedule = async () => {
     if (!selectedCrew) return;
     
     setIsSaving(true);
     setSaveMessage(null);
     
-    // Convert the schedule to use only property IDs
-    const scheduleWithIds = {};
-    for (const day of days) {
-      scheduleWithIds[day] = weekSchedule[day].map(job => job.id);
+    // Debug: Log the structure of a job to see what fields are available
+    if (weekSchedule.Monday.length > 0 || unassignedJobs.length > 0) {
+      const sampleJob = weekSchedule.Monday[0] || unassignedJobs[0];
+      console.log('Sample job structure:', sampleJob);
     }
     
-    // Also send unassigned job IDs
-    const unassignedIds = unassignedJobs.map(job => job.id);
+    // Convert the schedule to use only property IDs with validation
+    const scheduleWithIds = {};
+    for (const day of days) {
+      scheduleWithIds[day] = weekSchedule[day]
+        .filter(job => {
+          // Check if job has a valid ID
+          if (!job || job.id === undefined || job.id === null) {
+            console.error('Job missing ID:', job);
+            return false;
+          }
+          return true;
+        })
+        .map(job => {
+          // Ensure ID is an integer
+          const id = parseInt(job.id);
+          if (isNaN(id)) {
+            console.error('Invalid job ID:', job.id, 'for job:', job);
+            return null;
+          }
+          return id;
+        })
+        .filter(id => id !== null); // Remove any null IDs
+    }
+    
+    // Also send unassigned job IDs with validation
+    const unassignedIds = unassignedJobs
+      .filter(job => {
+        if (!job || job.id === undefined || job.id === null) {
+          console.error('Unassigned job missing ID:', job);
+          return false;
+        }
+        return true;
+      })
+      .map(job => {
+        const id = parseInt(job.id);
+        if (isNaN(id)) {
+          console.error('Invalid unassigned job ID:', job.id, 'for job:', job);
+          return null;
+        }
+        return id;
+      })
+      .filter(id => id !== null);
+    
+    // Check if we have any valid IDs
+    const totalScheduledIds = Object.values(scheduleWithIds).flat().length;
+    const totalIds = totalScheduledIds + unassignedIds.length;
+    
+    if (totalIds === 0 && (Object.values(weekSchedule).flat().length > 0 || unassignedJobs.length > 0)) {
+      setSaveMessage({ 
+        type: 'error', 
+        text: 'Error: No valid property IDs found. Please check the console for details.' 
+      });
+      setIsSaving(false);
+      return;
+    }
     
     // Create the payload with both scheduled and unassigned IDs
     const scheduleData = {
       ...scheduleWithIds,
       unassigned: unassignedIds
     };
+    
+    console.log('Saving schedule data:', scheduleData);
     
     try {
       const result = await saveWeeklySchedule(selectedCrew.id, scheduleData);

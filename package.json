@@ -12,6 +12,7 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.49.1",
+    "googleapis": "^160.0.0",
     "lodash": "^4.17.21",
     "next": "15.2.1",
     "react": "^19.0.0",

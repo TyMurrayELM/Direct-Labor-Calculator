@@ -99,20 +99,40 @@ export default function SchedulePage() {
     router.push('/login');
   };
 
-  // Save schedule handler
+  // Save schedule handler - FIXED to send only IDs
   const handleSaveSchedule = async () => {
     if (!selectedCrew) return;
     
     setIsSaving(true);
     setSaveMessage(null);
     
-    const result = await saveWeeklySchedule(selectedCrew.id, weekSchedule);
+    // Convert the schedule to use only property IDs
+    const scheduleWithIds = {};
+    for (const day of days) {
+      scheduleWithIds[day] = weekSchedule[day].map(job => job.id);
+    }
     
-    if (result.success) {
-      setSaveMessage({ type: 'success', text: 'Schedule saved successfully!' });
-      setHasChanges(false);
-    } else {
-      setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
+    // Also send unassigned job IDs
+    const unassignedIds = unassignedJobs.map(job => job.id);
+    
+    // Create the payload with both scheduled and unassigned IDs
+    const scheduleData = {
+      ...scheduleWithIds,
+      unassigned: unassignedIds
+    };
+    
+    try {
+      const result = await saveWeeklySchedule(selectedCrew.id, scheduleData);
+      
+      if (result.success) {
+        setSaveMessage({ type: 'success', text: 'Schedule saved successfully!' });
+        setHasChanges(false);
+      } else {
+        setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveMessage({ type: 'error', text: 'Failed to save schedule: ' + error.message });
     }
     
     setIsSaving(false);
@@ -126,25 +146,33 @@ export default function SchedulePage() {
     if (!selectedCrew || !window.confirm('Are you sure you want to clear the entire schedule?')) return;
     
     setIsSaving(true);
-    const result = await clearCrewSchedule(selectedCrew.id);
     
-    if (result.success) {
-      // Reset to unassigned
-      const allJobs = [...unassignedJobs];
-      Object.values(weekSchedule).flat().forEach(job => {
-        allJobs.push(job);
-      });
+    try {
+      const result = await clearCrewSchedule(selectedCrew.id);
       
-      setWeekSchedule({
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: [],
-      });
-      setUnassignedJobs(allJobs);
-      setHasChanges(true);
-      setSaveMessage({ type: 'success', text: 'Schedule cleared!' });
+      if (result.success) {
+        // Reset to unassigned
+        const allJobs = [...unassignedJobs];
+        Object.values(weekSchedule).flat().forEach(job => {
+          allJobs.push(job);
+        });
+        
+        setWeekSchedule({
+          Monday: [],
+          Tuesday: [],
+          Wednesday: [],
+          Thursday: [],
+          Friday: [],
+        });
+        setUnassignedJobs(allJobs);
+        setHasChanges(true);
+        setSaveMessage({ type: 'success', text: 'Schedule cleared!' });
+      } else {
+        setSaveMessage({ type: 'error', text: result.error || 'Failed to clear schedule' });
+      }
+    } catch (error) {
+      console.error('Clear error:', error);
+      setSaveMessage({ type: 'error', text: 'Failed to clear schedule: ' + error.message });
     }
     
     setIsSaving(false);

@@ -806,6 +806,7 @@ export default function SchedulePage() {
                         style={{ height: '2px', transition: 'all 0.2s' }}
                       />
                     )}
+                  </div>
                     ))}
                   </div>
                   

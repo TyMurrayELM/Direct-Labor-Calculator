@@ -807,8 +807,6 @@ export default function SchedulePage() {
                       />
                     )}
                   </div>
-                    ))}
-                  </div>
                   
                   {/* Day Footer with Utilization */}
                   <div className="border-t mt-3 pt-2">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect } from 'react';
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { 
   useProperties, 
@@ -427,23 +428,46 @@ export default function SchedulePage() {
     let newSchedule = { ...weekSchedule };
     let newUnassigned = [...unassignedJobs];
 
-    // Remove from source
-    if (sourceDay === 'unassigned') {
-      newUnassigned = newUnassigned.filter(j => j.id !== job.id);
-    } else if (sourceDay && newSchedule[sourceDay]) {
-      newSchedule[sourceDay] = newSchedule[sourceDay].filter(j => j.id !== job.id);
-    }
+    // Handle same-day reordering
+    if (sourceDay === targetDay && sourceDay !== 'unassigned' && targetIndex !== null) {
+      const dayJobs = [...newSchedule[sourceDay]];
+      const currentIndex = dayJobs.findIndex(j => j.id === job.id);
+      
+      if (currentIndex !== -1) {
+        // Remove from current position
+        dayJobs.splice(currentIndex, 1);
+        
+        // Adjust target index if we removed an item before it
+        let adjustedIndex = targetIndex;
+        if (currentIndex < targetIndex) {
+          adjustedIndex = targetIndex - 1;
+        }
+        
+        // Insert at new position
+        dayJobs.splice(adjustedIndex, 0, job);
+        newSchedule[sourceDay] = dayJobs;
+      }
+    } else {
+      // Handle moving between different days or from/to unassigned
+      
+      // Remove from source
+      if (sourceDay === 'unassigned') {
+        newUnassigned = newUnassigned.filter(j => j.id !== job.id);
+      } else if (sourceDay && newSchedule[sourceDay]) {
+        newSchedule[sourceDay] = newSchedule[sourceDay].filter(j => j.id !== job.id);
+      }
 
-    // Add to target
-    if (targetDay === 'unassigned') {
-      newUnassigned.push(job);
-    } else if (targetDay && newSchedule[targetDay]) {
-      // If we have a specific target index, insert at that position
-      if (targetIndex !== null && targetIndex >= 0) {
-        newSchedule[targetDay].splice(targetIndex, 0, job);
-      } else {
-        // Otherwise, add to the end
-        newSchedule[targetDay].push(job);
+      // Add to target
+      if (targetDay === 'unassigned') {
+        newUnassigned.push(job);
+      } else if (targetDay && newSchedule[targetDay]) {
+        // If we have a specific target index, insert at that position
+        if (targetIndex !== null && targetIndex >= 0) {
+          newSchedule[targetDay].splice(targetIndex, 0, job);
+        } else {
+          // Otherwise, add to the end
+          newSchedule[targetDay].push(job);
+        }
       }
     }
 

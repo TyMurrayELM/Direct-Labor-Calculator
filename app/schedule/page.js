@@ -1,36 +1,4 @@
-// Initialize unassigned jobs when no saved schedule exists
-  useEffect(() => {
-    if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
-      console.log('No saved schedule found, initializing with all properties as unassigned');
-      // If there's no saved schedule, put all properties in unassigned
-      setUnassignedJobs(properties);
-      setWeekSchedule({
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: [],
-      });
-      setHasChanges(false);
-    }
-  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);
-  
-  // Initialize unassigned jobs when no saved schedule exists
-  useEffect(() => {
-    if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
-      console.log('No saved schedule found, initializing with all properties as unassigned');
-      // If there's no saved schedule, put all properties in unassigned
-      setUnassignedJobs(properties);
-      setWeekSchedule({
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: [],
-      });
-      setHasChanges(false);
-    }
-  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -180,6 +148,23 @@ export default function SchedulePage() {
         }
       }
       
+      setHasChanges(false);
+    }
+  }, [savedSchedule, scheduleLoading, selectedCrew, properties]);
+  
+  // Initialize unassigned jobs when no saved schedule exists
+  useEffect(() => {
+    if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
+      console.log('No saved schedule found, initializing with all properties as unassigned');
+      // If there's no saved schedule, put all properties in unassigned
+      setUnassignedJobs(properties);
+      setWeekSchedule({
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+      });
       setHasChanges(false);
     }
   }, [savedSchedule, scheduleLoading, selectedCrew, properties]);

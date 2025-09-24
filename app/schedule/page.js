@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { 
   useProperties, 
@@ -410,10 +410,10 @@ export default function SchedulePage() {
     }
   };
 
-  const onDrop = (e, targetDay) => {
+  const onDrop = (e, targetDay, targetIndex = null) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Drop on:', targetDay);
+    console.log('Drop on:', targetDay, 'at index:', targetIndex);
     setDragOverDay(null);
     
     // Use the state variable if dataTransfer doesn't work
@@ -423,12 +423,6 @@ export default function SchedulePage() {
     }
     
     const { job, sourceDay } = draggedItem;
-    
-    // Don't do anything if dropping in the same location
-    if (sourceDay === targetDay) {
-      setDraggedItem(null);
-      return;
-    }
     
     let newSchedule = { ...weekSchedule };
     let newUnassigned = [...unassignedJobs];
@@ -444,7 +438,13 @@ export default function SchedulePage() {
     if (targetDay === 'unassigned') {
       newUnassigned.push(job);
     } else if (targetDay && newSchedule[targetDay]) {
-      newSchedule[targetDay] = [...newSchedule[targetDay], job];
+      // If we have a specific target index, insert at that position
+      if (targetIndex !== null && targetIndex >= 0) {
+        newSchedule[targetDay].splice(targetIndex, 0, job);
+      } else {
+        // Otherwise, add to the end
+        newSchedule[targetDay].push(job);
+      }
     }
 
     setWeekSchedule(newSchedule);
@@ -723,7 +723,13 @@ export default function SchedulePage() {
                   onDragOver={onDragOver}
                   onDragEnter={(e) => onDragEnter(e, day)}
                   onDragLeave={onDragLeave}
-                  onDrop={(e) => onDrop(e, day)}
+                  onDrop={(e) => {
+                    // Only handle drops on the container itself if there are no jobs
+                    // Otherwise, the drop zones between jobs will handle it
+                    if (dayJobs.length === 0) {
+                      onDrop(e, day);
+                    }
+                  }}
                   className={`border-2 rounded-lg p-2 min-h-[500px] transition-colors ${
                     dragOverDay === day ? 'border-blue-400 bg-blue-50' : 
                     utilizationPercent > 100 ? 'border-red-300 bg-red-50' :
@@ -732,26 +738,74 @@ export default function SchedulePage() {
                   }`}
                 >
                   <div className="space-y-2">
-                    {dayJobs.map((job) => (
-                      <div
-                        key={job.id}
-                        draggable={true}
-                        onDragStart={(e) => onDragStart(e, job, day)}
-                        onDragEnd={onDragEnd}
-                        className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
-                        style={{ userSelect: 'none' }}
-                      >
-                        <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs font-semibold text-blue-600">
-                            {(job.current_hours || 0).toFixed(1)} hrs
-                          </span>
-                          <span className="text-xs text-green-600">
-                            ${(job.monthly_invoice || 0).toLocaleString()}
-                          </span>
+                    {dayJobs.map((job, index) => (
+                      <Fragment key={job.id}>
+                        {/* Invisible drop zone above each item */}
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.height = '20px';
+                            e.currentTarget.style.backgroundColor = '#3B82F6';
+                            e.currentTarget.style.opacity = '0.2';
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.height = '2px';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.opacity = '1';
+                          }}
+                          onDrop={(e) => {
+                            e.currentTarget.style.height = '2px';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.opacity = '1';
+                            onDrop(e, day, index);
+                          }}
+                          style={{ height: '2px', transition: 'all 0.2s' }}
+                        />
+                        <div
+                          draggable={true}
+                          onDragStart={(e) => onDragStart(e, job, day)}
+                          onDragEnd={onDragEnd}
+                          className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
+                          style={{ userSelect: 'none' }}
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-xs font-semibold text-blue-600">
+                              {(job.current_hours || 0).toFixed(1)} hrs
+                            </span>
+                            <span className="text-xs text-green-600">
+                              ${(job.monthly_invoice || 0).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      </Fragment>
+                    ))}
+                    {/* Drop zone at the bottom of the list */}
+                    {dayJobs.length > 0 && (
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.style.height = '20px';
+                          e.currentTarget.style.backgroundColor = '#3B82F6';
+                          e.currentTarget.style.opacity = '0.2';
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.style.height = '2px';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.opacity = '1';
+                        }}
+                        onDrop={(e) => {
+                          e.currentTarget.style.height = '2px';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.opacity = '1';
+                          onDrop(e, day, dayJobs.length);
+                        }}
+                        style={{ height: '2px', transition: 'all 0.2s' }}
+                      />
+                    )}
                     ))}
                   </div>
                   

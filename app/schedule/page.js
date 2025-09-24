@@ -688,12 +688,28 @@ export default function SchedulePage() {
                     <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                     <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-xs font-semibold text-blue-600">
-                        {(job.current_hours || 0).toFixed(1)} hrs
-                      </span>
-                      <span className="text-xs text-green-600">
-                        ${(job.monthly_invoice || 0).toLocaleString()}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-blue-600">
+                          MH: {(job.current_hours || 0).toFixed(1)}
+                        </span>
+                        <span className="text-xs text-purple-600">
+                          CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-green-600">
+                          ${(job.monthly_invoice || 0).toLocaleString()}
+                        </span>
+                        <span className={`text-xs font-semibold ${
+                          ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                            ? 'text-red-600' 
+                            : 'text-green-600'
+                        }`}>
+                          DL: {job.monthly_invoice > 0 
+                            ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
+                            : '0.0'}%
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -764,12 +780,28 @@ export default function SchedulePage() {
                           <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                           <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
                           <div className="flex justify-between items-center mt-1">
-                            <span className="text-xs font-semibold text-blue-600">
-                              {(job.current_hours || 0).toFixed(1)} hrs
-                            </span>
-                            <span className="text-xs text-green-600">
-                              ${(job.monthly_invoice || 0).toLocaleString()}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-xs text-blue-600">
+                                MH: {(job.current_hours || 0).toFixed(1)}
+                              </span>
+                              <span className="text-xs text-purple-600">
+                                CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs text-green-600">
+                                ${(job.monthly_invoice || 0).toLocaleString()}
+                              </span>
+                              <span className={`text-xs font-semibold ${
+                                ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                                  ? 'text-red-600' 
+                                  : 'text-green-600'
+                              }`}>
+                                DL: {job.monthly_invoice > 0 
+                                  ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
+                                  : '0.0'}%
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>

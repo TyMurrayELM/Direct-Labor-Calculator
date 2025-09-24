@@ -446,7 +446,9 @@ export default function SchedulePage() {
               }`}
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {unassignedJobs.map((job) => (
+                {unassignedJobs
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((job) => (
                   <div
                     key={job.id}
                     draggable={true}

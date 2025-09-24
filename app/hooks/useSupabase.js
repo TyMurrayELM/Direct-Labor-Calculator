@@ -953,48 +953,88 @@ export function useCrewSchedule(crewId) {
   return { schedule, loading, error };
 }
 
-// Function to save entire weekly schedule
+// FIXED: Function to save entire weekly schedule - now accepts IDs directly
 export async function saveWeeklySchedule(crewId, weekSchedule) {
   try {
-    // Start a transaction-like operation
-    const updates = [];
+    console.log('saveWeeklySchedule called with:', { crewId, weekSchedule });
     
-    // Process each day
-    for (const [day, properties] of Object.entries(weekSchedule)) {
-      if (day === 'unassigned') continue; // Skip unassigned
-      
-      properties.forEach((property, index) => {
-        updates.push({
-          id: property.id,
-          service_day: day,
-          route_order: index + 1
-        });
-      });
+    // Validate input
+    if (!crewId) {
+      throw new Error('Crew ID is required');
     }
     
-    // Update all properties in batch
-    for (const update of updates) {
-      const { error } = await supabase
-        .from('properties')
-        .update({
-          service_day: update.service_day,
-          route_order: update.route_order
-        })
-        .eq('id', update.id);
-        
-      if (error) throw error;
-    }
+    // Extract all property IDs that are in this schedule (both scheduled and unassigned)
+    const allScheduledIds = [
+      ...(weekSchedule.Monday || []),
+      ...(weekSchedule.Tuesday || []),
+      ...(weekSchedule.Wednesday || []),
+      ...(weekSchedule.Thursday || []),
+      ...(weekSchedule.Friday || []),
+      ...(weekSchedule.unassigned || [])
+    ];
     
-    // Clear service day for unassigned properties
-    const assignedIds = updates.map(u => u.id);
-    const { error: clearError } = await supabase
+    // Filter out any undefined, null, or invalid IDs
+    const validScheduledIds = allScheduledIds.filter(id => {
+      const isValid = id !== undefined && id !== null && !isNaN(parseInt(id));
+      if (!isValid) {
+        console.warn('Invalid ID found:', id);
+      }
+      return isValid;
+    });
+    
+    console.log('Valid scheduled IDs:', validScheduledIds);
+    
+    // First, clear service_day for ALL properties of this crew
+    const { error: clearAllError } = await supabase
       .from('properties')
-      .update({ service_day: null, route_order: 0 })
-      .eq('crew_id', crewId)
-      .not('id', 'in', assignedIds.length > 0 ? assignedIds : [-1]);
-      
-    if (clearError) throw clearError;
+      .update({ 
+        service_day: null,
+        route_order: 0 
+      })
+      .eq('crew_id', crewId);
     
+    if (clearAllError) {
+      console.error('Error clearing all crew properties:', clearAllError);
+      throw clearAllError;
+    }
+    
+    // Now update each day's properties
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    
+    for (const day of days) {
+      const dayPropertyIds = weekSchedule[day] || [];
+      
+      // Filter and validate IDs for this day
+      const validDayIds = dayPropertyIds.filter(id => {
+        return id !== undefined && id !== null && !isNaN(parseInt(id));
+      });
+      
+      if (validDayIds.length > 0) {
+        // Update each property individually with its route order
+        for (let i = 0; i < validDayIds.length; i++) {
+          const propertyId = parseInt(validDayIds[i]);
+          const { error: updateError } = await supabase
+            .from('properties')
+            .update({ 
+              service_day: day,
+              route_order: i + 1
+            })
+            .eq('id', propertyId)
+            .eq('crew_id', crewId); // Double-check it belongs to this crew
+          
+          if (updateError) {
+            console.error(`Error updating property ${propertyId} for ${day}:`, updateError);
+            throw updateError;
+          }
+        }
+      }
+    }
+    
+    // Handle unassigned properties - these should remain with crew but no service day
+    // They're already set to null service_day from the clear operation above
+    // So we don't need to do anything else for unassigned properties
+    
+    console.log('Schedule saved successfully');
     return { success: true, message: 'Schedule saved successfully!' };
   } catch (error) {
     console.error('Error saving weekly schedule:', error);

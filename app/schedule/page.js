@@ -673,7 +673,7 @@ export default function SchedulePage() {
                 dragOverDay === 'unassigned' ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-yellow-50'
               }`}
             >
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              <div className="space-y-2">
                 {unassignedJobs
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((job) => (

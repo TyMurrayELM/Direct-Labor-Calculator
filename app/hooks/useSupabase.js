@@ -821,3 +821,324 @@ export async function getDashboardStats() {
     return { success: false, error: error.message };
   }
 }
+
+// ============================================
+// SCHEDULE OPERATIONS
+// ============================================
+
+// Function to update property service day
+export async function updatePropertyServiceDay(propertyId, serviceDay, routeOrder = 0) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .update({ 
+        service_day: serviceDay,
+        route_order: routeOrder 
+      })
+      .eq('id', propertyId)
+      .select();
+      
+    if (error) throw error;
+    
+    // Log the change in history
+    await supabase
+      .from('schedule_history')
+      .insert({
+        property_id: propertyId,
+        new_service_day: serviceDay,
+        notes: `Schedule updated via drag-drop interface`
+      });
+    
+    return { success: true, property: data[0] };
+  } catch (error) {
+    console.error('Error updating property service day:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to bulk update schedule for a crew
+export async function updateCrewSchedule(crewId, scheduleData) {
+  try {
+    // scheduleData is an object like:
+    // { Monday: [propIds], Tuesday: [propIds], ... }
+    
+    const updates = [];
+    
+    // First, clear all service days for this crew's properties
+    await supabase
+      .from('properties')
+      .update({ service_day: null, route_order: 0 })
+      .eq('crew_id', crewId);
+    
+    // Then set the new schedule
+    for (const [day, propertyIds] of Object.entries(scheduleData)) {
+      for (let i = 0; i < propertyIds.length; i++) {
+        updates.push(
+          updatePropertyServiceDay(propertyIds[i], day, i + 1)
+        );
+      }
+    }
+    
+    await Promise.all(updates);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating crew schedule:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Hook to fetch crew schedule
+export function useCrewSchedule(crewId) {
+  const [schedule, setSchedule] = useState({
+    Monday: [],
+    Tuesday: [],
+    Wednesday: [],
+    Thursday: [],
+    Friday: [],
+    unassigned: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!crewId) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchSchedule() {
+      try {
+        setLoading(true);
+        
+        // Fetch all properties for this crew
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('crew_id', crewId)
+          .order('route_order');
+        
+        if (error) throw error;
+        
+        // Organize by service day
+        const organized = {
+          Monday: [],
+          Tuesday: [],
+          Wednesday: [],
+          Thursday: [],
+          Friday: [],
+          unassigned: []
+        };
+        
+        data.forEach(property => {
+          if (property.service_day && organized[property.service_day]) {
+            organized[property.service_day].push(property);
+          } else {
+            organized.unassigned.push(property);
+          }
+        });
+        
+        setSchedule(organized);
+      } catch (err) {
+        console.error('Error fetching crew schedule:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchSchedule();
+  }, [crewId]);
+  
+  return { schedule, loading, error };
+}
+
+// Function to save entire weekly schedule
+export async function saveWeeklySchedule(crewId, weekSchedule) {
+  try {
+    // Start a transaction-like operation
+    const updates = [];
+    
+    // Process each day
+    for (const [day, properties] of Object.entries(weekSchedule)) {
+      if (day === 'unassigned') continue; // Skip unassigned
+      
+      properties.forEach((property, index) => {
+        updates.push({
+          id: property.id,
+          service_day: day,
+          route_order: index + 1
+        });
+      });
+    }
+    
+    // Update all properties in batch
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          service_day: update.service_day,
+          route_order: update.route_order
+        })
+        .eq('id', update.id);
+        
+      if (error) throw error;
+    }
+    
+    // Clear service day for unassigned properties
+    const assignedIds = updates.map(u => u.id);
+    const { error: clearError } = await supabase
+      .from('properties')
+      .update({ service_day: null, route_order: 0 })
+      .eq('crew_id', crewId)
+      .not('id', 'in', assignedIds.length > 0 ? assignedIds : [-1]);
+      
+    if (clearError) throw clearError;
+    
+    return { success: true, message: 'Schedule saved successfully!' };
+  } catch (error) {
+    console.error('Error saving weekly schedule:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to duplicate schedule to another crew
+export async function duplicateSchedule(fromCrewId, toCrewId) {
+  try {
+    // Get source crew's schedule
+    const { data: sourceProperties, error: fetchError } = await supabase
+      .from('properties')
+      .select('service_day, route_order')
+      .eq('crew_id', fromCrewId)
+      .not('service_day', 'is', null);
+      
+    if (fetchError) throw fetchError;
+    
+    // Get target crew's properties
+    const { data: targetProperties, error: targetError } = await supabase
+      .from('properties')
+      .select('id, name')
+      .eq('crew_id', toCrewId);
+      
+    if (targetError) throw targetError;
+    
+    // Apply the schedule pattern to target crew
+    // This is a simple example - you might want more sophisticated matching
+    const updates = targetProperties.slice(0, sourceProperties.length).map((prop, index) => ({
+      id: prop.id,
+      service_day: sourceProperties[index]?.service_day,
+      route_order: sourceProperties[index]?.route_order
+    }));
+    
+    // Apply updates
+    for (const update of updates) {
+      await supabase
+        .from('properties')
+        .update({
+          service_day: update.service_day,
+          route_order: update.route_order
+        })
+        .eq('id', update.id);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error duplicating schedule:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to clear a crew's schedule
+export async function clearCrewSchedule(crewId) {
+  try {
+    const { error } = await supabase
+      .from('properties')
+      .update({ service_day: null, route_order: 0 })
+      .eq('crew_id', crewId);
+      
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error clearing crew schedule:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to get schedule statistics
+export async function getScheduleStats(crewId) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('service_day, current_hours, monthly_invoice')
+      .eq('crew_id', crewId);
+      
+    if (error) throw error;
+    
+    const stats = {
+      Monday: { count: 0, hours: 0, revenue: 0 },
+      Tuesday: { count: 0, hours: 0, revenue: 0 },
+      Wednesday: { count: 0, hours: 0, revenue: 0 },
+      Thursday: { count: 0, hours: 0, revenue: 0 },
+      Friday: { count: 0, hours: 0, revenue: 0 },
+      unassigned: { count: 0, hours: 0, revenue: 0 }
+    };
+    
+    data.forEach(property => {
+      const day = property.service_day || 'unassigned';
+      if (stats[day]) {
+        stats[day].count++;
+        stats[day].hours += property.current_hours || 0;
+        stats[day].revenue += property.monthly_invoice || 0;
+      }
+    });
+    
+    return { success: true, stats };
+  } catch (error) {
+    console.error('Error getting schedule stats:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to export schedule to CSV (bonus feature)
+export async function exportScheduleToCSV(crewId, crewName) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('name, address, service_day, current_hours, monthly_invoice')
+      .eq('crew_id', crewId)
+      .not('service_day', 'is', null)
+      .order('service_day')
+      .order('route_order');
+      
+    if (error) throw error;
+    
+    // Create CSV content
+    const headers = ['Day', 'Property Name', 'Address', 'Hours', 'Monthly Invoice'];
+    const rows = data.map(p => [
+      p.service_day,
+      p.name,
+      p.address || '',
+      p.current_hours,
+      p.monthly_invoice
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${crewName}_schedule.csv`;
+    a.click();
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error exporting schedule:', error);
+    return { success: false, error: error.message };
+  }
+}

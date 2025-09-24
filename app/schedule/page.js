@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useProperties, useCrews, useBranches } from '../hooks/useSupabase';
+import { 
+  useProperties, 
+  useCrews, 
+  useBranches,
+  useCrewSchedule,
+  saveWeeklySchedule,
+  clearCrewSchedule 
+} from '../hooks/useSupabase';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 
@@ -30,6 +37,12 @@ export default function SchedulePage() {
   const [unassignedJobs, setUnassignedJobs] = useState([]);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverDay, setDragOverDay] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  
+  // Use the crew schedule hook
+  const { schedule: savedSchedule, loading: scheduleLoading } = useCrewSchedule(selectedCrew?.id);
 
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;

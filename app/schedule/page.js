@@ -790,7 +790,7 @@ export default function SchedulePage() {
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
                     <span className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-                      DL: {dlPercent.toFixed(1)}%
+                      jsDL: {dlPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -944,7 +944,7 @@ export default function SchedulePage() {
             <li>• Click "Save Schedule" to save changes to the database</li>
             <li>• The schedule shows properties assigned to the selected crew</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
-            <li>• Direct Labor (DL) target is 40% - stay below for optimal profitability</li>
+            <li>• Job Scheduled DL (jsDL) target is 40% - based on scheduled hours only</li>
             <li>• Effective DL (eDL) shows the actual labor cost based on full crew capacity</li>
           </ul>
         </div>

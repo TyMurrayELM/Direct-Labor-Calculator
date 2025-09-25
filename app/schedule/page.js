@@ -93,8 +93,8 @@ export default function SchedulePage() {
   // Load saved schedule when crew changes or schedule data loads
   useEffect(() => {
     if (!scheduleLoading && savedSchedule && selectedCrew && properties.length > 0) {
-      console.log('Loading saved schedule:', savedSchedule);
-      console.log('Available properties:', properties);
+      console.log('Loading saved schedule for crew:', selectedCrew.name);
+      console.log('Crew branch_id:', selectedCrew.branch_id);
       
       // Create a map of properties by ID for quick lookup
       const propertyMap = {};
@@ -109,7 +109,6 @@ export default function SchedulePage() {
         if (!ids || !Array.isArray(ids)) return [];
         return ids
           .map(id => {
-            // Handle both cases: id might be a number or an object
             const propId = typeof id === 'object' ? id.id : id;
             return propertyMap[propId];
           })
@@ -131,7 +130,13 @@ export default function SchedulePage() {
         };
         
         setWeekSchedule(newSchedule);
-        setUnassignedJobs(savedSchedule.unassigned || []);
+        
+        // For unassigned, get ALL properties from the same branch that don't have a service_day
+        const branchUnassigned = properties.filter(prop => 
+          prop.branch_id === selectedCrew.branch_id && 
+          !prop.service_day
+        );
+        setUnassignedJobs(branchUnassigned);
       } else {
         // Convert IDs to full property objects
         const newSchedule = {
@@ -144,13 +149,12 @@ export default function SchedulePage() {
         
         setWeekSchedule(newSchedule);
         
-        // Handle unassigned - if it's IDs, convert them; otherwise use as is
-        const unassignedItems = savedSchedule.unassigned || [];
-        if (unassignedItems.length > 0 && typeof unassignedItems[0] !== 'object') {
-          setUnassignedJobs(idsToProperties(unassignedItems));
-        } else {
-          setUnassignedJobs(unassignedItems);
-        }
+        // For unassigned, get ALL properties from the same branch that don't have a service_day
+        const branchUnassigned = properties.filter(prop => 
+          prop.branch_id === selectedCrew.branch_id && 
+          !prop.service_day
+        );
+        setUnassignedJobs(branchUnassigned);
       }
       
       setHasChanges(false);
@@ -160,9 +164,14 @@ export default function SchedulePage() {
   // Initialize unassigned jobs when no saved schedule exists
   useEffect(() => {
     if (!scheduleLoading && !savedSchedule && selectedCrew && properties.length > 0) {
-      console.log('No saved schedule found, initializing with all properties as unassigned');
-      // If there's no saved schedule, put all properties in unassigned
-      setUnassignedJobs(properties);
+      console.log('No saved schedule found, loading all branch unassigned properties');
+      // Get all properties from the same branch that don't have a service_day
+      const branchUnassigned = properties.filter(prop => 
+        prop.branch_id === selectedCrew.branch_id && 
+        !prop.service_day
+      );
+      
+      setUnassignedJobs(branchUnassigned);
       setWeekSchedule({
         Monday: [],
         Tuesday: [],
@@ -180,7 +189,7 @@ export default function SchedulePage() {
     router.push('/login');
   };
 
-  // Save schedule handler - FIXED to send only IDs with validation
+  // Save schedule handler - Updated to also assign crew_id
   const handleSaveSchedule = async () => {
     if (!selectedCrew) return;
     
@@ -227,6 +236,7 @@ export default function SchedulePage() {
     const scheduleWithIds = {};
     let hasInvalidIds = false;
     let allExtractedIds = [];
+    let scheduledPropertyIds = []; // Track all properties that are scheduled
     
     for (const day of days) {
       console.log(`Processing ${day} with ${weekSchedule[day].length} jobs`);
@@ -239,6 +249,7 @@ export default function SchedulePage() {
           hasInvalidIds = true;
         } else {
           scheduleWithIds[day].push(id);
+          scheduledPropertyIds.push(id); // Track scheduled properties
           allExtractedIds.push(id);
         }
       }
@@ -288,18 +299,19 @@ export default function SchedulePage() {
     }
     
     // Create the payload with both scheduled and unassigned IDs
-    // Ensure no undefined values slip through
+    // Include the scheduled property IDs so we can update their crew_id
     const scheduleData = {
       Monday: (scheduleWithIds.Monday || []).filter(id => id !== undefined && id !== null),
       Tuesday: (scheduleWithIds.Tuesday || []).filter(id => id !== undefined && id !== null),
       Wednesday: (scheduleWithIds.Wednesday || []).filter(id => id !== undefined && id !== null),
       Thursday: (scheduleWithIds.Thursday || []).filter(id => id !== undefined && id !== null),
       Friday: (scheduleWithIds.Friday || []).filter(id => id !== undefined && id !== null),
-      unassigned: (unassignedIds || []).filter(id => id !== undefined && id !== null)
+      unassigned: (unassignedIds || []).filter(id => id !== undefined && id !== null),
+      scheduledPropertyIds: scheduledPropertyIds // Pass the IDs of properties to assign to this crew
     };
     
     console.log('Final schedule data to save:', scheduleData);
-    console.log('All extracted IDs:', allExtractedIds);
+    console.log('Properties to assign to crew:', scheduledPropertyIds);
     
     // Final validation - check if any arrays contain undefined
     const finalCheck = [
@@ -326,8 +338,13 @@ export default function SchedulePage() {
       const result = await saveWeeklySchedule(selectedCrew.id, scheduleData);
       
       if (result.success) {
-        setSaveMessage({ type: 'success', text: 'Schedule saved successfully!' });
+        setSaveMessage({ type: 'success', text: 'Schedule saved and properties assigned to crew!' });
         setHasChanges(false);
+        
+        // Reload the page to refresh all data with updated crew assignments
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         console.error('Save failed:', result.error);
         setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
@@ -345,7 +362,8 @@ export default function SchedulePage() {
   
   // Clear schedule handler
   const handleClearSchedule = async () => {
-    if (!selectedCrew || !window.confirm('Are you sure you want to clear the entire schedule?')) return;
+    if (!selectedCrew || !window.confirm('Are you sure you want to clear the entire schedule? Properties will remain assigned to this crew but will be unscheduled.')) 
+      return;
     
     setIsSaving(true);
     
@@ -511,6 +529,12 @@ export default function SchedulePage() {
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
+  // Get crew name for display
+  const getCrewName = (crewId) => {
+    const crew = crews.find(c => c.id === crewId);
+    return crew ? crew.name : 'Unassigned';
+  };
+
   // Quick Crew Edit Modal Component
   const QuickCrewEditModal = ({ crew, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
@@ -665,6 +689,9 @@ export default function SchedulePage() {
       </div>
     );
   }
+
+  // Get the branch name for display
+  const selectedBranchName = selectedCrew && branches.find(b => b.id === selectedCrew.branch_id)?.name || 'Unknown Branch';
 
   return (
     <div className="max-w-7xl mx-auto p-4 bg-blue-100 min-h-screen">
@@ -890,13 +917,17 @@ export default function SchedulePage() {
 
         {/* Main Schedule Grid */}
         <div className="grid grid-cols-6 gap-3">
-          {/* Unassigned Jobs Column */}
+          {/* Unassigned Jobs Column - Updated to show branch-wide unassigned */}
           <div>
             <h3 className="font-semibold text-gray-700 mb-2 text-sm">
-              Unassigned ({unassignedJobs.filter(job => 
-                !selectedCrew || !job.branch_id || job.branch_id === selectedCrew.branch_id
-              ).length})
+              <div className="flex flex-col">
+                <span>Branch Unassigned</span>
+                <span className="text-xs font-normal text-gray-500">({selectedBranchName})</span>
+              </div>
             </h3>
+            <div className="text-xs text-gray-500 mb-2">
+              Total: {unassignedJobs.length} properties
+            </div>
             <div
               onDragOver={onDragOver}
               onDragEnter={(e) => onDragEnter(e, 'unassigned')}
@@ -908,21 +939,37 @@ export default function SchedulePage() {
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {unassignedJobs
-                  .filter(job => 
-                    !selectedCrew || !job.branch_id || job.branch_id === selectedCrew.branch_id
-                  )
-                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .sort((a, b) => {
+                    // Sort by crew first, then by name
+                    const crewCompare = getCrewName(a.crew_id).localeCompare(getCrewName(b.crew_id));
+                    if (crewCompare !== 0) return crewCompare;
+                    return a.name.localeCompare(b.name);
+                  })
                   .map((job) => (
                   <div
                     key={job.id}
                     draggable={true}
                     onDragStart={(e) => onDragStart(e, job, 'unassigned')}
                     onDragEnd={onDragEnd}
-                    className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
+                    className={`bg-white p-2 rounded shadow-sm border cursor-move transition-all hover:shadow-md hover:border-blue-300 ${
+                      job.crew_id === selectedCrew?.id 
+                        ? 'border-green-400 bg-green-50' 
+                        : job.crew_id 
+                          ? 'border-orange-300 bg-orange-50' 
+                          : 'border-gray-200'
+                    }`}
                     style={{ userSelect: 'none' }}
+                    title={job.crew_id ? `Currently assigned to: ${getCrewName(job.crew_id)}` : 'Not assigned to any crew'}
                   >
                     <div className="flex justify-between items-start">
-                      <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
+                      <div className="text-xs font-medium text-gray-900 truncate flex-1">
+                        {job.name}
+                        {job.crew_id && job.crew_id !== selectedCrew?.id && (
+                          <span className="ml-1 text-orange-600 text-xs">
+                            ({getCrewName(job.crew_id)})
+                          </span>
+                        )}
+                      </div>
                       <Link 
                         href={`/properties?edit=${job.id}&return=/schedule`}
                         className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
@@ -1159,17 +1206,17 @@ export default function SchedulePage() {
           })}
         </div>
 
-        {/* Legend */}
+        {/* Updated Legend */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <h4 className="font-medium text-gray-700 mb-2 text-sm">How to Use:</h4>
           <ul className="text-xs text-gray-600 space-y-1">
-            <li>• Drag properties from "Unassigned" to schedule them on specific days</li>
-            <li>• Move properties between days by dragging them</li>
-            <li>• Click "Save Schedule" to save changes to the database</li>
-            <li>• The schedule shows properties assigned to the selected crew</li>
+            <li>• The "Branch Unassigned" column shows ALL unscheduled properties from the {selectedBranchName} branch</li>
+            <li>• Properties with green backgrounds are already assigned to {selectedCrew?.name || 'this crew'}</li>
+            <li>• Properties with orange backgrounds belong to other crews - dragging them will reassign them to {selectedCrew?.name || 'this crew'}</li>
+            <li>• When you save, scheduled properties are automatically assigned to {selectedCrew?.name || 'the selected crew'}</li>
+            <li>• Drag properties between days to reorganize your schedule</li>
+            <li>• Click "Save Schedule" to save changes and crew assignments to the database</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
-            <li>• Job Scheduled DL (jsDL) target is 40% - based on scheduled hours only</li>
-            <li>• Effective DL (eDL) shows the actual labor cost based on full crew capacity</li>
           </ul>
         </div>
       </div>

@@ -888,7 +888,7 @@ export async function updateCrewSchedule(crewId, scheduleData) {
   }
 }
 
-// Hook to fetch crew schedule
+// Hook to fetch crew schedule - Updated to fetch branch-wide unassigned
 export function useCrewSchedule(crewId) {
   const [schedule, setSchedule] = useState({
     Monday: [],
@@ -911,14 +911,36 @@ export function useCrewSchedule(crewId) {
       try {
         setLoading(true);
         
-        // Fetch all properties for this crew
-        const { data, error } = await supabase
+        // First, get the crew details to know its branch
+        const { data: crewData, error: crewError } = await supabase
+          .from('crews')
+          .select('branch_id')
+          .eq('id', crewId)
+          .single();
+        
+        if (crewError) throw crewError;
+        
+        const branchId = crewData.branch_id;
+        
+        // Fetch all properties for this crew that are scheduled
+        const { data: crewProperties, error: crewPropsError } = await supabase
           .from('properties')
           .select('*')
           .eq('crew_id', crewId)
+          .not('service_day', 'is', null)
           .order('route_order');
         
-        if (error) throw error;
+        if (crewPropsError) throw crewPropsError;
+        
+        // Fetch ALL unassigned properties from the same branch
+        const { data: unassignedProperties, error: unassignedError } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('branch_id', branchId)
+          .is('service_day', null)
+          .order('name');
+        
+        if (unassignedError) throw unassignedError;
         
         // Organize by service day
         const organized = {
@@ -927,14 +949,13 @@ export function useCrewSchedule(crewId) {
           Wednesday: [],
           Thursday: [],
           Friday: [],
-          unassigned: []
+          unassigned: unassignedProperties || []
         };
         
-        data.forEach(property => {
+        // Add scheduled properties to their respective days
+        crewProperties.forEach(property => {
           if (property.service_day && organized[property.service_day]) {
             organized[property.service_day].push(property);
-          } else {
-            organized.unassigned.push(property);
           }
         });
         
@@ -953,7 +974,7 @@ export function useCrewSchedule(crewId) {
   return { schedule, loading, error };
 }
 
-// FIXED: Function to save entire weekly schedule - now accepts IDs directly
+// UPDATED: Function to save entire weekly schedule with auto-crew assignment
 export async function saveWeeklySchedule(crewId, weekSchedule) {
   try {
     console.log('saveWeeklySchedule called with:', { crewId, weekSchedule });
@@ -963,28 +984,38 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
       throw new Error('Crew ID is required');
     }
     
-    // Extract all property IDs that are in this schedule (both scheduled and unassigned)
-    const allScheduledIds = [
-      ...(weekSchedule.Monday || []),
-      ...(weekSchedule.Tuesday || []),
-      ...(weekSchedule.Wednesday || []),
-      ...(weekSchedule.Thursday || []),
-      ...(weekSchedule.Friday || []),
-      ...(weekSchedule.unassigned || [])
-    ];
+    // Extract scheduledPropertyIds if provided (properties that should be assigned to this crew)
+    const scheduledPropertyIds = weekSchedule.scheduledPropertyIds || [];
     
-    // Filter out any undefined, null, or invalid IDs
-    const validScheduledIds = allScheduledIds.filter(id => {
+    // Filter out any undefined, null, or invalid IDs from scheduled properties
+    const validScheduledPropertyIds = scheduledPropertyIds.filter(id => {
       const isValid = id !== undefined && id !== null && !isNaN(parseInt(id));
       if (!isValid) {
-        console.warn('Invalid ID found:', id);
+        console.warn('Invalid scheduled property ID found:', id);
       }
       return isValid;
     });
     
-    console.log('Valid scheduled IDs:', validScheduledIds);
+    console.log('Properties to assign to crew:', validScheduledPropertyIds);
     
-    // First, clear service_day for ALL properties of this crew
+    // Step 1: If there are scheduled properties, assign them to this crew first
+    if (validScheduledPropertyIds.length > 0) {
+      console.log(`Assigning ${validScheduledPropertyIds.length} properties to crew ${crewId}`);
+      
+      const { error: assignError } = await supabase
+        .from('properties')
+        .update({ crew_id: crewId })
+        .in('id', validScheduledPropertyIds);
+      
+      if (assignError) {
+        console.error('Error assigning properties to crew:', assignError);
+        throw assignError;
+      }
+      
+      console.log('Properties successfully assigned to crew');
+    }
+    
+    // Step 2: Clear service_day for ALL properties currently belonging to this crew
     const { error: clearAllError } = await supabase
       .from('properties')
       .update({ 
@@ -998,7 +1029,7 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
       throw clearAllError;
     }
     
-    // Now update each day's properties
+    // Step 3: Now update each day's properties with their schedule
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     
     for (const day of days) {
@@ -1013,14 +1044,16 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
         // Update each property individually with its route order
         for (let i = 0; i < validDayIds.length; i++) {
           const propertyId = parseInt(validDayIds[i]);
+          
+          // Update both service_day and ensure it's assigned to this crew
           const { error: updateError } = await supabase
             .from('properties')
             .update({ 
               service_day: day,
-              route_order: i + 1
+              route_order: i + 1,
+              crew_id: crewId  // Ensure the property is assigned to this crew
             })
-            .eq('id', propertyId)
-            .eq('crew_id', crewId); // Double-check it belongs to this crew
+            .eq('id', propertyId);
           
           if (updateError) {
             console.error(`Error updating property ${propertyId} for ${day}:`, updateError);
@@ -1032,10 +1065,10 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
     
     // Handle unassigned properties - these should remain with crew but no service day
     // They're already set to null service_day from the clear operation above
-    // So we don't need to do anything else for unassigned properties
+    // The crew_id assignment happened in Step 1 if they were in scheduledPropertyIds
     
-    console.log('Schedule saved successfully');
-    return { success: true, message: 'Schedule saved successfully!' };
+    console.log('Schedule saved successfully with crew assignments');
+    return { success: true, message: 'Schedule saved and properties assigned successfully!' };
   } catch (error) {
     console.error('Error saving weekly schedule:', error);
     return { success: false, error: error.message };

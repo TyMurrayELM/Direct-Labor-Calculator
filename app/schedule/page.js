@@ -731,6 +731,8 @@ export default function SchedulePage() {
           {days.map(day => {
             const dayJobs = weekSchedule[day];
             const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
+            const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
+            const dailyCrewCost = selectedCrew ? selectedCrew.size * 8 * HOURLY_COST : 0;
             const utilizationPercent = dailyCrewHours > 0 ? (dayHours / dailyCrewHours) * 100 : 0;
             const dlPercent = calculateDailyDL(dayJobs);
             const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0);
@@ -754,6 +756,18 @@ export default function SchedulePage() {
                     </span>
                   </div>
                   <div className="border-t mt-1 pt-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Crew Cost:</span>
+                      <span className="font-medium text-red-600">
+                        ${dailyCrewCost.toFixed(0)}/day
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Revenue:</span>
+                      <span className="font-medium text-green-600">
+                        ${dayRevenue.toLocaleString()}/mo
+                      </span>
+                    </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">Jobs:</span>
                       <span className="font-medium">{dayJobs.length}</span>

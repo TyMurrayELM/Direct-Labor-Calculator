@@ -736,7 +736,9 @@ export default function SchedulePage() {
           {/* Unassigned Jobs Column */}
           <div>
             <h3 className="font-semibold text-gray-700 mb-2 text-sm">
-              Unassigned ({unassignedJobs.length})
+              Unassigned ({unassignedJobs.filter(job => 
+                !selectedCrew || !job.branch_id || job.branch_id === selectedCrew.branch_id
+              ).length})
             </h3>
             <div
               onDragOver={onDragOver}
@@ -749,6 +751,9 @@ export default function SchedulePage() {
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {unassignedJobs
+                  .filter(job => 
+                    !selectedCrew || !job.branch_id || job.branch_id === selectedCrew.branch_id
+                  )
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((job) => (
                   <div

@@ -682,7 +682,7 @@ export default function SchedulePage() {
               Utilization
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title="Percentage of total weekly capacity being used. Target: 85-95%"
+                title="Percentage of total weekly capacity being used. Target: 90%+"
               >ⓘ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -703,10 +703,10 @@ export default function SchedulePage() {
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
-              Direct Labor %
+              Job Scheduled Direct Labor %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title="Labor cost based on scheduled hours only. Shows efficiency if fully utilized. Target: <40%"
+                title="Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %"
               >ⓘ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -720,7 +720,7 @@ export default function SchedulePage() {
               Effective DL %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title="Actual labor cost based on full crew capacity. This is what you're really paying. Target: <40%"
+                title="Effective Direct Labor: Full crew cost regardless of utilization. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%"
               >ⓘ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -762,10 +762,10 @@ export default function SchedulePage() {
                     <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex flex-col">
-                        <span className="text-xs text-blue-600" title="Man Hours: Total hours needed for this job">
+                        <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">
                           MH: {(job.current_hours || 0).toFixed(1)}
                         </span>
-                        <span className="text-xs text-purple-600" title="Crew Hours: Hours needed per crew member">
+                        <span className="text-xs text-purple-600" title="Crew Hours: Total Hours for a crew for this job">
                           CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
                         </span>
                       </div>
@@ -779,7 +779,7 @@ export default function SchedulePage() {
                               ? 'text-red-600' 
                               : 'text-green-600'
                           }`}
-                          title="Direct Labor % for this specific job"
+                          title="Direct Labor Cost vs Revenue for this specific job"
                         >
                           DL: {job.monthly_invoice > 0 
                             ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
@@ -914,10 +914,10 @@ export default function SchedulePage() {
                           <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex flex-col">
-                              <span className="text-xs text-blue-600" title="Man Hours: Total hours needed for this job">
+                              <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">
                                 MH: {(job.current_hours || 0).toFixed(1)}
                               </span>
-                              <span className="text-xs text-purple-600" title="Crew Hours: Hours needed per crew member">
+                              <span className="text-xs text-purple-600" title="Crew Hours: Total Hours for a crew for this job">
                                 CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
                               </span>
                             </div>
@@ -931,7 +931,7 @@ export default function SchedulePage() {
                                     ? 'text-red-600' 
                                     : 'text-green-600'
                                 }`}
-                                title="Direct Labor % for this specific job"
+                                title="Direct Labor Cost vs Revenue for this specific job"
                               >
                                 DL: {job.monthly_invoice > 0 
                                   ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 

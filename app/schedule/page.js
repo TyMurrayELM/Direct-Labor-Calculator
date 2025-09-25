@@ -42,6 +42,10 @@ export default function SchedulePage() {
   const [saveMessage, setSaveMessage] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   
+  // State for crew quick edit modal
+  const [showCrewEditModal, setShowCrewEditModal] = useState(false);
+  const [editingSaving, setEditingSaving] = useState(false);
+  
   // Use the crew schedule hook
   const { schedule: savedSchedule, loading: scheduleLoading } = useCrewSchedule(selectedCrew?.id);
 
@@ -507,6 +511,147 @@ export default function SchedulePage() {
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
+  // Quick Crew Edit Modal Component
+  const QuickCrewEditModal = ({ crew, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+      size: crew?.size || 1,
+      supervisor: crew?.supervisor || ''
+    });
+    const [error, setError] = useState(null);
+    
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      
+      if (!formData.size || formData.size < 1) {
+        setError("Crew size must be at least 1");
+        return;
+      }
+      
+      setEditingSaving(true);
+      setError(null);
+      
+      try {
+        const updatedCrew = {
+          ...crew,
+          size: parseInt(formData.size),
+          supervisor: formData.supervisor
+        };
+        
+        const result = await updateCrew(crew.id, updatedCrew);
+        
+        if (result.success) {
+          onSave(updatedCrew);
+        } else {
+          setError(result.error || 'Failed to update crew');
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setEditingSaving(false);
+      }
+    };
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <h3 className="text-lg font-semibold mb-4">Quick Edit: {crew?.name}</h3>
+          
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Crew Size
+                </label>
+                <input
+                  type="number"
+                  value={formData.size}
+                  onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                  max="10"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Current capacity: {formData.size * 8 * DRIVE_TIME_FACTOR} hours/day
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Supervisor
+                </label>
+                <input
+                  type="text"
+                  value={formData.supervisor}
+                  onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter supervisor name"
+                />
+              </div>
+              
+              <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                <p className="text-blue-900 font-medium">Impact of changes:</p>
+                <p className="text-blue-700 text-xs mt-1">
+                  • Weekly capacity will {formData.size > crew.size ? 'increase' : formData.size < crew.size ? 'decrease' : 'stay the same'}
+                </p>
+                <p className="text-blue-700 text-xs">
+                  • All metrics will recalculate automatically
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={editingSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                disabled={editingSaving}
+              >
+                {editingSaving ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+  
+  // Handler for saving crew changes
+  const handleCrewEditSave = (updatedCrew) => {
+    // Update the selected crew with new data
+    setSelectedCrew(updatedCrew);
+    setShowCrewEditModal(false);
+    setSaveMessage({ type: 'success', text: 'Crew updated successfully!' });
+    
+    // Reload the page to refresh all data with the updated crew
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
   // Loading state
   if (propertiesLoading || crewsLoading || branchesLoading || scheduleLoading) {
     return (
@@ -617,14 +762,25 @@ export default function SchedulePage() {
                 })()}
               </select>
               {selectedCrew && (
-                <span className="text-sm text-gray-600">
-                  Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
-                  {branches.find(b => b.id === selectedCrew.branch_id) && (
-                    <> | Branch: <span className="font-medium">
-                      {branches.find(b => b.id === selectedCrew.branch_id)?.name}
-                    </span></>
-                  )}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">
+                    Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
+                    {branches.find(b => b.id === selectedCrew.branch_id) && (
+                      <> | Branch: <span className="font-medium">
+                        {branches.find(b => b.id === selectedCrew.branch_id)?.name}
+                      </span></>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => setShowCrewEditModal(true)}
+                    className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors rounded hover:bg-gray-100"
+                    title="Quick edit crew size & supervisor"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </button>
+                </div>
               )}
             </div>
             
@@ -1017,6 +1173,15 @@ export default function SchedulePage() {
           </ul>
         </div>
       </div>
+      
+      {/* Quick Crew Edit Modal */}
+      {showCrewEditModal && selectedCrew && (
+        <QuickCrewEditModal
+          crew={selectedCrew}
+          onSave={handleCrewEditSave}
+          onCancel={() => setShowCrewEditModal(false)}
+        />
+      )}
     </div>
   );
 }

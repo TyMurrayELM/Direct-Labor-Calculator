@@ -8,7 +8,8 @@ import {
   useBranches,
   useCrewSchedule,
   saveWeeklySchedule,
-  clearCrewSchedule 
+  clearCrewSchedule,
+  updateCrew 
 } from '../hooks/useSupabase';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';

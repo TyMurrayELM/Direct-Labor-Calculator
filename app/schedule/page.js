@@ -939,12 +939,7 @@ export default function SchedulePage() {
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {unassignedJobs
-                  .sort((a, b) => {
-                    // Sort by crew first, then by name
-                    const crewCompare = getCrewName(a.crew_id).localeCompare(getCrewName(b.crew_id));
-                    if (crewCompare !== 0) return crewCompare;
-                    return a.name.localeCompare(b.name);
-                  })
+                  .sort((a, b) => a.name.localeCompare(b.name))
                   .map((job) => (
                   <div
                     key={job.id}

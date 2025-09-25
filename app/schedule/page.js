@@ -466,13 +466,18 @@ export default function SchedulePage() {
     const weeklyCapacity = dailyCrewHours * 5;
     const utilizationPercent = weeklyCapacity > 0 ? (totalScheduledHours / weeklyCapacity) * 100 : 0;
     const directLaborPercent = totalRevenue > 0 ? ((totalScheduledHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
+    
+    // Calculate effective DL based on full crew cost for the week
+    const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * 5 : 0; // 5 days, no drive time factor
+    const effectiveDirectLaborPercent = totalRevenue > 0 ? ((fullWeekHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
 
     return {
       totalScheduledHours,
       totalRevenue,
       weeklyCapacity,
       utilizationPercent,
-      directLaborPercent
+      directLaborPercent,
+      effectiveDirectLaborPercent
     };
   };
 
@@ -635,7 +640,7 @@ export default function SchedulePage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-5 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
+        <div className="grid grid-cols-6 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
           <div>
             <div className="text-xs text-gray-600 font-medium">Weekly Capacity</div>
             <div className="text-lg font-bold text-gray-800">{stats.weeklyCapacity.toFixed(1)} hrs</div>
@@ -664,6 +669,14 @@ export default function SchedulePage() {
               stats.directLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600' : 'text-green-600'
             }`}>
               {stats.directLaborPercent.toFixed(1)}%
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-600 font-medium">Effective DL %</div>
+            <div className={`text-lg font-bold ${
+              stats.effectiveDirectLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
+            }`}>
+              {stats.effectiveDirectLaborPercent.toFixed(1)}%
             </div>
           </div>
         </div>

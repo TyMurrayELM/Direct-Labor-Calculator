@@ -469,6 +469,7 @@ export default function SchedulePage() {
     
     // Calculate effective DL based on full crew cost for the week
     const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * 5 : 0; // 5 days, no drive time factor
+    const weeklyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST : 0; // Weekly cost
     const effectiveDirectLaborPercent = totalRevenue > 0 ? ((fullWeekHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
 
     return {
@@ -477,7 +478,8 @@ export default function SchedulePage() {
       weeklyCapacity,
       utilizationPercent,
       directLaborPercent,
-      effectiveDirectLaborPercent
+      effectiveDirectLaborPercent,
+      weeklyCrewCost
     };
   };
 
@@ -666,7 +668,7 @@ export default function SchedulePage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-6 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
+        <div className="grid grid-cols-7 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
           <div>
             <div className="text-xs text-gray-600 font-medium">Weekly Capacity</div>
             <div className="text-lg font-bold text-gray-800">{stats.weeklyCapacity.toFixed(1)} hrs</div>
@@ -684,6 +686,10 @@ export default function SchedulePage() {
             }`}>
               {stats.utilizationPercent.toFixed(1)}%
             </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-600 font-medium">Weekly Crew Cost</div>
+            <div className="text-lg font-bold text-red-600">${stats.weeklyCrewCost.toLocaleString()}</div>
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium">Monthly Revenue</div>

@@ -678,7 +678,13 @@ export default function SchedulePage() {
             <div className="text-lg font-bold text-blue-600">{stats.totalScheduledHours.toFixed(1)} hrs</div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Utilization</div>
+            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+              Utilization
+              <span 
+                className="cursor-help text-gray-400 hover:text-gray-600" 
+                title="Percentage of total weekly capacity being used. Target: 85-95%"
+              >ⓘ</span>
+            </div>
             <div className={`text-lg font-bold ${
               stats.utilizationPercent > 100 ? 'text-red-600' : 
               stats.utilizationPercent > 90 ? 'text-yellow-600' : 
@@ -696,7 +702,13 @@ export default function SchedulePage() {
             <div className="text-lg font-bold text-green-600">${stats.totalRevenue.toLocaleString()}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Direct Labor %</div>
+            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+              Direct Labor %
+              <span 
+                className="cursor-help text-gray-400 hover:text-gray-600" 
+                title="Labor cost based on scheduled hours only. Shows efficiency if fully utilized. Target: <40%"
+              >ⓘ</span>
+            </div>
             <div className={`text-lg font-bold ${
               stats.directLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600' : 'text-green-600'
             }`}>
@@ -704,7 +716,13 @@ export default function SchedulePage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Effective DL %</div>
+            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+              Effective DL %
+              <span 
+                className="cursor-help text-gray-400 hover:text-gray-600" 
+                title="Actual labor cost based on full crew capacity. This is what you're really paying. Target: <40%"
+              >ⓘ</span>
+            </div>
             <div className={`text-lg font-bold ${
               stats.effectiveDirectLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
             }`}>
@@ -744,10 +762,10 @@ export default function SchedulePage() {
                     <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex flex-col">
-                        <span className="text-xs text-blue-600">
+                        <span className="text-xs text-blue-600" title="Man Hours: Total hours needed for this job">
                           MH: {(job.current_hours || 0).toFixed(1)}
                         </span>
-                        <span className="text-xs text-purple-600">
+                        <span className="text-xs text-purple-600" title="Crew Hours: Hours needed per crew member">
                           CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
                         </span>
                       </div>
@@ -755,11 +773,14 @@ export default function SchedulePage() {
                         <span className="text-xs text-green-600">
                           ${(job.monthly_invoice || 0).toLocaleString()}
                         </span>
-                        <span className={`text-xs font-semibold ${
-                          ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
-                            ? 'text-red-600' 
-                            : 'text-green-600'
-                        }`}>
+                        <span 
+                          className={`text-xs font-semibold ${
+                            ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                              ? 'text-red-600' 
+                              : 'text-green-600'
+                          }`}
+                          title="Direct Labor % for this specific job"
+                        >
                           DL: {job.monthly_invoice > 0 
                             ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
                             : '0.0'}%
@@ -893,10 +914,10 @@ export default function SchedulePage() {
                           <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex flex-col">
-                              <span className="text-xs text-blue-600">
+                              <span className="text-xs text-blue-600" title="Man Hours: Total hours needed for this job">
                                 MH: {(job.current_hours || 0).toFixed(1)}
                               </span>
-                              <span className="text-xs text-purple-600">
+                              <span className="text-xs text-purple-600" title="Crew Hours: Hours needed per crew member">
                                 CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
                               </span>
                             </div>
@@ -904,11 +925,14 @@ export default function SchedulePage() {
                               <span className="text-xs text-green-600">
                                 ${(job.monthly_invoice || 0).toLocaleString()}
                               </span>
-                              <span className={`text-xs font-semibold ${
-                                ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
-                                  ? 'text-red-600' 
-                                  : 'text-green-600'
-                              }`}>
+                              <span 
+                                className={`text-xs font-semibold ${
+                                  ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                                    ? 'text-red-600' 
+                                    : 'text-green-600'
+                                }`}
+                                title="Direct Labor % for this specific job"
+                              >
                                 DL: {job.monthly_invoice > 0 
                                   ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
                                   : '0.0'}%

@@ -488,6 +488,17 @@ export default function SchedulePage() {
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
+  // Calculate Effective Direct Labor percentage for each day
+  const calculateDailyEffectiveDL = (dayJobs, crewSize) => {
+    const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
+    if (dayRevenue === 0) return 0;
+    
+    // Use full crew capacity regardless of utilization
+    const fullDayHours = crewSize * 8 * DRIVE_TIME_FACTOR;
+    const dailyLaborCost = fullDayHours * HOURLY_COST * WEEKS_PER_MONTH;
+    return (dailyLaborCost / dayRevenue) * 100;
+  };
+
   // Loading state
   if (propertiesLoading || crewsLoading || branchesLoading || scheduleLoading) {
     return (
@@ -686,7 +697,6 @@ export default function SchedulePage() {
                     style={{ userSelect: 'none' }}
                   >
                     <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
-                    <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex flex-col">
                         <span className="text-xs text-blue-600">
@@ -723,6 +733,7 @@ export default function SchedulePage() {
             const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
             const utilizationPercent = dailyCrewHours > 0 ? (dayHours / dailyCrewHours) * 100 : 0;
             const dlPercent = calculateDailyDL(dayJobs);
+            const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0);
 
             return (
               <div key={day}>
@@ -732,6 +743,14 @@ export default function SchedulePage() {
                     <span>{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
                     <span className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
                       DL: {dlPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">eDL:</span>
+                    <span className={`font-medium ${
+                      eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
+                    }`}>
+                      {eDLPercent.toFixed(1)}%
                     </span>
                   </div>
                 </div>
@@ -778,7 +797,6 @@ export default function SchedulePage() {
                           style={{ userSelect: 'none' }}
                         >
                           <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
-                          <div className="text-xs text-gray-500 truncate">{job.address || 'No address'}</div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex flex-col">
                               <span className="text-xs text-blue-600">
@@ -870,7 +888,8 @@ export default function SchedulePage() {
             <li>• Click "Save Schedule" to save changes to the database</li>
             <li>• The schedule shows properties assigned to the selected crew</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
-            <li>• Direct Labor target is 40% - stay below for optimal profitability</li>
+            <li>• Direct Labor (DL) target is 40% - stay below for optimal profitability</li>
+            <li>• Effective DL (eDL) shows the actual labor cost based on full crew capacity</li>
           </ul>
         </div>
       </div>

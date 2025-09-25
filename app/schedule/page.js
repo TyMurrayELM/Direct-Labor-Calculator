@@ -791,26 +791,35 @@ export default function SchedulePage() {
                     <span className="text-xs text-gray-500">{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">jsDL:</span>
-                    <span className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                    <span className="text-gray-600" title="Job Scheduled Direct Labor: Labor cost based on actual scheduled hours">jsDL:</span>
+                    <span 
+                      className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}
+                      title={`Scheduled hours (${dayHours.toFixed(1)}) × ${HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${dlPercent.toFixed(1)}%`}
+                    >
                       {dlPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">eDL:</span>
-                    <span className={`font-medium ${
-                      eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
-                    }`}>
+                    <span className="text-gray-600" title="Effective Direct Labor: Labor cost based on full crew capacity (what you actually pay)">eDL:</span>
+                    <span 
+                      className={`font-medium ${
+                        eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
+                      }`}
+                      title={`Full crew (${selectedCrew?.size || 0} × 8hrs) × ${HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${eDLPercent.toFixed(1)}%`}
+                    >
                       {eDLPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Utilization:</span>
-                    <span className={`font-medium ${
-                      utilizationPercent > 100 ? 'text-red-600' : 
-                      utilizationPercent > 90 ? 'text-yellow-600' : 
-                      'text-green-600'
-                    }`}>
+                    <span className="text-gray-600" title="Percentage of available crew hours that are scheduled">Utilization:</span>
+                    <span 
+                      className={`font-medium ${
+                        utilizationPercent > 100 ? 'text-red-600' : 
+                        utilizationPercent > 90 ? 'text-yellow-600' : 
+                        'text-green-600'
+                      }`}
+                      title={`${dayHours.toFixed(1)} scheduled hours ÷ ${dailyCrewHours.toFixed(1)} available hours = ${utilizationPercent.toFixed(1)}%`}
+                    >
                       {utilizationPercent.toFixed(1)}%
                     </span>
                   </div>

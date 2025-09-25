@@ -586,15 +586,41 @@ export default function SchedulePage() {
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                {crews.map(crew => (
-                  <option key={crew.id} value={crew.id}>
-                    {crew.name} ({crew.crew_type}, {crew.size} members)
-                  </option>
-                ))}
+                {(() => {
+                  // Group crews by branch
+                  const crewsByBranch = crews.reduce((acc, crew) => {
+                    const branchName = branches.find(b => b.id === crew.branch_id)?.name || 'Unknown Branch';
+                    if (!acc[branchName]) {
+                      acc[branchName] = [];
+                    }
+                    acc[branchName].push(crew);
+                    return acc;
+                  }, {});
+                  
+                  // Sort branch names and render optgroups
+                  return Object.keys(crewsByBranch)
+                    .sort()
+                    .map(branchName => (
+                      <optgroup key={branchName} label={branchName}>
+                        {crewsByBranch[branchName]
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(crew => (
+                            <option key={crew.id} value={crew.id}>
+                              {crew.name} ({crew.crew_type}, {crew.size} members)
+                            </option>
+                          ))}
+                      </optgroup>
+                    ));
+                })()}
               </select>
               {selectedCrew && (
                 <span className="text-sm text-gray-600">
                   Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
+                  {branches.find(b => b.id === selectedCrew.branch_id) && (
+                    <> | Branch: <span className="font-medium">
+                      {branches.find(b => b.id === selectedCrew.branch_id)?.name}
+                    </span></>
+                  )}
                 </span>
               )}
             </div>

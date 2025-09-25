@@ -11,7 +11,7 @@ import {
   usePropertyOptions
 } from '../hooks/useSupabase';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation'; // Add this import
+import { useSearchParams, useRouter } from 'next/navigation'; // Add useRouter import
 
 // Property Form component - you can create this as a separate component file later
 const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
@@ -398,6 +398,8 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
 };
 
 export default function PropertiesPage() {
+  // Add useRouter hook for navigation
+  const router = useRouter();
   // Add useSearchParams hook to access query parameters
   const searchParams = useSearchParams();
   
@@ -416,6 +418,9 @@ export default function PropertiesPage() {
   // State to control if we're in edit mode directly from URL
   const [editFromUrl, setEditFromUrl] = useState(false);
   
+  // State for return URL
+  const [returnUrl, setReturnUrl] = useState(null);
+  
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews();
@@ -426,9 +431,16 @@ export default function PropertiesPage() {
     sortOrder
   });
   
-  // Check for edit parameter on component mount and when searchParams changes
+  // Check for edit and return parameters on component mount and when searchParams changes
   useEffect(() => {
     const editId = searchParams.get('edit');
+    const returnPath = searchParams.get('return');
+    
+    // Store return URL if provided
+    if (returnPath) {
+      setReturnUrl(returnPath);
+    }
+    
     if (editId && properties && !propertiesLoading) {
       const propertyId = parseInt(editId);
       // Find the property in our loaded properties
@@ -502,10 +514,10 @@ export default function PropertiesPage() {
   };
   
   const handleDeleteProperty = async (property) => {
-// Just for testing to get the build to pass
-if (false) { // Always continue with deletion for now
-  return;
-}
+    // Just for testing to get the build to pass
+    if (false) { // Always continue with deletion for now
+      return;
+    }
     
     const result = await deleteProperty(property.id);
     if (result.success) {
@@ -513,7 +525,7 @@ if (false) { // Always continue with deletion for now
         text: `Property "${property.name}" successfully deleted!`,
         type: 'success'
       });
-      // Reload to refresh the property list test
+      // Reload to refresh the property list
       window.location.reload();
     } else {
       setMessage({
@@ -531,30 +543,44 @@ if (false) { // Always continue with deletion for now
     setShowForm(false);
     setSelectedProperty(null);
     
-    // If we came directly from URL, navigate back
-    if (editFromUrl) {
+    // If we have a return URL, navigate back to it
+    if (returnUrl) {
+      router.push(returnUrl);
+    } else if (editFromUrl) {
+      // If we came directly from URL but no return URL, navigate back to main properties view
       window.history.pushState({}, '', '/properties');
       setEditFromUrl(false);
     }
+    
+    // Clear the return URL
+    setReturnUrl(null);
     
     // Clear the message after 3 seconds
     setTimeout(() => {
       setMessage({ text: '', type: '' });
     }, 3000);
     
-    // Reload to refresh the property list
-    window.location.reload();
+    // Only reload if we're staying on the properties page
+    if (!returnUrl) {
+      window.location.reload();
+    }
   };
   
   const handleCancelForm = () => {
     setShowForm(false);
     setSelectedProperty(null);
     
-    // If we came directly from URL, navigate back to main properties view
-    if (editFromUrl) {
+    // If we have a return URL, navigate back to it
+    if (returnUrl) {
+      router.push(returnUrl);
+    } else if (editFromUrl) {
+      // If we came directly from URL but no return URL, navigate back to main properties view
       window.history.pushState({}, '', '/properties');
       setEditFromUrl(false);
     }
+    
+    // Clear the return URL
+    setReturnUrl(null);
   };
   
   // Function to handle sorting

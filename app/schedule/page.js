@@ -469,7 +469,7 @@ export default function SchedulePage() {
     
     // Calculate effective DL based on full crew cost for the week
     const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * 5 : 0; // 5 days, no drive time factor
-    const weeklyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST : 0; // Weekly cost
+    const monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0; // Monthly cost
     const effectiveDirectLaborPercent = totalRevenue > 0 ? ((fullWeekHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
 
     return {
@@ -479,7 +479,7 @@ export default function SchedulePage() {
       utilizationPercent,
       directLaborPercent,
       effectiveDirectLaborPercent,
-      weeklyCrewCost
+      monthlyCrewCost
     };
   };
 
@@ -688,8 +688,8 @@ export default function SchedulePage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Weekly Crew Cost</div>
-            <div className="text-lg font-bold text-red-600">${stats.weeklyCrewCost.toLocaleString()}</div>
+            <div className="text-xs text-gray-600 font-medium">Monthly Crew Cost</div>
+            <div className="text-lg font-bold text-red-600">${stats.monthlyCrewCost.toLocaleString()}</div>
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium">Monthly Revenue</div>

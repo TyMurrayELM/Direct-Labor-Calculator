@@ -513,6 +513,17 @@ export default function PropertiesPage() {
     setShowForm(true);
   };
   
+  const handleCopyProperty = (property) => {
+    // Create a copy of the property without the ID and add (Copy) to the name
+    const copiedProperty = {
+      ...property,
+      id: null, // Remove ID so it creates a new property
+      name: `${property.name} (Copy)`
+    };
+    setSelectedProperty(copiedProperty);
+    setShowForm(true);
+  };
+  
   const handleDeleteProperty = async (property) => {
     // Just for testing to get the build to pass
     if (false) { // Always continue with deletion for now
@@ -786,6 +797,15 @@ export default function PropertiesPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
                               Edit
+                            </button>
+                            <button
+                              onClick={() => handleCopyProperty(property)}
+                              className="flex items-center px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Copy
                             </button>
                             <button
                               onClick={() => handleDeleteProperty(property)}

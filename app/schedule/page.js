@@ -764,7 +764,20 @@ export default function SchedulePage() {
                     className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
                     style={{ userSelect: 'none' }}
                   >
-                    <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
+                    <div className="flex justify-between items-start">
+                      <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
+                      <Link 
+                        href={`/properties?edit=${job.id}`}
+                        className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Edit property"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </Link>
+                    </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex flex-col">
                         <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">
@@ -916,7 +929,20 @@ export default function SchedulePage() {
                           className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
                           style={{ userSelect: 'none' }}
                         >
-                          <div className="text-xs font-medium text-gray-900 truncate">{job.name}</div>
+                          <div className="flex justify-between items-start">
+                            <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
+                            <Link 
+                              href={`/properties?edit=${job.id}`}
+                              className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Edit property"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
+                            </Link>
+                          </div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex flex-col">
                               <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">

@@ -493,8 +493,8 @@ export default function SchedulePage() {
     const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     if (dayRevenue === 0) return 0;
     
-    // Use full crew capacity regardless of utilization
-    const fullDayHours = crewSize * 8 * DRIVE_TIME_FACTOR;
+    // Use full crew capacity without drive time factor - full cost of crew for the day
+    const fullDayHours = crewSize * 8;
     const dailyLaborCost = fullDayHours * HOURLY_COST * WEEKS_PER_MONTH;
     return (dailyLaborCost / dayRevenue) * 100;
   };

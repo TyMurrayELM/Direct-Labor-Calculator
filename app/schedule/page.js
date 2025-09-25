@@ -786,11 +786,14 @@ export default function SchedulePage() {
             return (
               <div key={day}>
                 <div className="mb-2">
-                  <h3 className="font-semibold text-gray-700 text-sm">{day}</h3>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-700 text-sm">{day}</h3>
+                    <span className="text-xs text-gray-500">{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">jsDL:</span>
                     <span className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-                      jsDL: {dlPercent.toFixed(1)}%
+                      {dlPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -799,6 +802,16 @@ export default function SchedulePage() {
                       eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
                     }`}>
                       {eDLPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Utilization:</span>
+                    <span className={`font-medium ${
+                      utilizationPercent > 100 ? 'text-red-600' : 
+                      utilizationPercent > 90 ? 'text-yellow-600' : 
+                      'text-green-600'
+                    }`}>
+                      {utilizationPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="border-t mt-1 pt-1">
@@ -822,16 +835,6 @@ export default function SchedulePage() {
                       <span className="text-gray-600">Crew Hrs:</span>
                       <span className="font-medium text-purple-600">
                         {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Utilization:</span>
-                      <span className={`font-medium ${
-                        utilizationPercent > 100 ? 'text-red-600' : 
-                        utilizationPercent > 90 ? 'text-yellow-600' : 
-                        'text-green-600'
-                      }`}>
-                        {utilizationPercent.toFixed(1)}%
                       </span>
                     </div>
                   </div>

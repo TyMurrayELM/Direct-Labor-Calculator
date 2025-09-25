@@ -767,7 +767,7 @@ export default function SchedulePage() {
                     <div className="flex justify-between items-start">
                       <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
                       <Link 
-                        href={`/properties?edit=${job.id}`}
+                        href={`/properties?edit=${job.id}&return=/schedule`}
                         className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
                         title="Edit property"
                         onClick={(e) => e.stopPropagation()}
@@ -932,7 +932,7 @@ export default function SchedulePage() {
                           <div className="flex justify-between items-start">
                             <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
                             <Link 
-                              href={`/properties?edit=${job.id}`}
+                              href={`/properties?edit=${job.id}&return=/schedule`}
                               className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
                               title="Edit property"
                               onClick={(e) => e.stopPropagation()}

@@ -753,6 +753,28 @@ export default function SchedulePage() {
                       {eDLPercent.toFixed(1)}%
                     </span>
                   </div>
+                  <div className="border-t mt-1 pt-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Jobs:</span>
+                      <span className="font-medium">{dayJobs.length}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Crew Hrs:</span>
+                      <span className="font-medium text-purple-600">
+                        {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Utilization:</span>
+                      <span className={`font-medium ${
+                        utilizationPercent > 100 ? 'text-red-600' : 
+                        utilizationPercent > 90 ? 'text-yellow-600' : 
+                        'text-green-600'
+                      }`}>
+                        {utilizationPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div
                   onDragOver={onDragOver}
@@ -846,32 +868,6 @@ export default function SchedulePage() {
                         }}
                       />
                     )}
-                  </div>
-                  
-                  {/* Day Footer with Utilization */}
-                  <div className="border-t mt-3 pt-2">
-                    <div className="text-xs">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600">Jobs:</span>
-                        <span className="font-medium">{dayJobs.length}</span>
-                      </div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600">Crew Hours:</span>
-                        <span className="font-medium text-purple-600">
-                          {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Utilization:</span>
-                        <span className={`font-medium ${
-                          utilizationPercent > 100 ? 'text-red-600' : 
-                          utilizationPercent > 90 ? 'text-yellow-600' : 
-                          'text-green-600'
-                        }`}>
-                          {utilizationPercent.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

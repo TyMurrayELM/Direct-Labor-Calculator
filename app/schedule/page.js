@@ -719,10 +719,8 @@ export default function SchedulePage() {
     setShowCrewEditModal(false);
     setSaveMessage({ type: 'success', text: 'Crew updated successfully!' });
     
-    // Reload the page to refresh all data with the updated crew
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
+    // Clear message after 3 seconds
+    setTimeout(() => setSaveMessage(null), 3000);
   };
 
   // Loading state
@@ -1117,7 +1115,6 @@ export default function SchedulePage() {
                   {isSaturday && (
                     <div className="bg-orange-50 border border-orange-200 rounded px-1 py-0.5 mb-1">
                       <div className="text-xs text-orange-700 font-medium">⚠️ Overtime Rates (1.5x)</div>
-                      <div className="text-xs text-orange-600">Rate: ${OVERTIME_HOURLY_COST}/hr</div>
                     </div>
                   )}
                   <div className="flex justify-between text-xs">

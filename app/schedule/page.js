@@ -938,11 +938,11 @@ export default function SchedulePage() {
                 title={`Based on ${stats.workDaysInWeek}-day work week${stats.hasSaturdayWork ? ' (Saturday at 1.5x OT rate)' : ''}`}
               >ℹ</span>
             </div>
-            <div className="text-lg font-bold text-red-600">${stats.monthlyCrewCost.toLocaleString()}</div>
+            <div className="text-lg font-bold text-red-600">${Math.round(stats.monthlyCrewCost).toLocaleString()}</div>
             {stats.hasSaturdayWork && (
               <div className="text-xs text-gray-600 mt-1">
-                <div>Reg: ${stats.monthlyRegularCrewCost.toLocaleString()}</div>
-                <div className="text-orange-600">OT: ${stats.monthlySaturdayCrewCost.toLocaleString()}</div>
+                <div>Reg: ${Math.round(stats.monthlyRegularCrewCost).toLocaleString()}</div>
+                <div className="text-orange-600">OT: ${Math.round(stats.monthlySaturdayCrewCost).toLocaleString()}</div>
               </div>
             )}
           </div>

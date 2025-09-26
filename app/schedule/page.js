@@ -496,10 +496,13 @@ export default function SchedulePage() {
     const totalScheduledHours = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.current_hours || 0), 0);
     const totalRevenue = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     
-    // Get Saturday scheduled hours specifically for OT calculation
+    // Get Saturday scheduled hours and revenue specifically for OT calculation
     const saturdayScheduledHours = weekSchedule.Saturday ? 
       weekSchedule.Saturday.reduce((sum, job) => sum + (job.current_hours || 0), 0) : 0;
+    const saturdayRevenue = weekSchedule.Saturday ?
+      weekSchedule.Saturday.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0) : 0;
     const regularScheduledHours = totalScheduledHours - saturdayScheduledHours;
+    const regularRevenue = totalRevenue - saturdayRevenue;
     
     // Dynamically calculate work days - only count Saturday if it has properties
     const hasSaturdayWork = weekSchedule.Saturday && weekSchedule.Saturday.length > 0;
@@ -515,15 +518,25 @@ export default function SchedulePage() {
     const directLaborPercent = totalRevenue > 0 ? (totalLaborCost / totalRevenue) * 100 : 0;
     
     // Calculate effective DL based on full crew cost with OT for Saturday
-    let monthlyCrewCost;
+    let monthlyCrewCost, monthlyRegularCrewCost, monthlySaturdayCrewCost;
+    let regularEffectiveDL = 0;
+    let saturdayEffectiveDL = 0;
+    
     if (hasSaturdayWork) {
       // 5 regular days + 1 OT day
-      const regularDaysCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
-      const saturdayOTCost = selectedCrew ? selectedCrew.size * 8 * 1 * OVERTIME_HOURLY_COST * WEEKS_PER_MONTH : 0;
-      monthlyCrewCost = regularDaysCost + saturdayOTCost;
+      monthlyRegularCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
+      monthlySaturdayCrewCost = selectedCrew ? selectedCrew.size * 8 * 1 * OVERTIME_HOURLY_COST * WEEKS_PER_MONTH : 0;
+      monthlyCrewCost = monthlyRegularCrewCost + monthlySaturdayCrewCost;
+      
+      // Calculate separate eDL percentages
+      regularEffectiveDL = regularRevenue > 0 ? (monthlyRegularCrewCost / regularRevenue) * 100 : 0;
+      saturdayEffectiveDL = saturdayRevenue > 0 ? (monthlySaturdayCrewCost / saturdayRevenue) * 100 : 0;
     } else {
       // Just 5 regular days
-      monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
+      monthlyRegularCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
+      monthlySaturdayCrewCost = 0;
+      monthlyCrewCost = monthlyRegularCrewCost;
+      regularEffectiveDL = totalRevenue > 0 ? (monthlyCrewCost / totalRevenue) * 100 : 0;
     }
     
     const effectiveDirectLaborPercent = totalRevenue > 0 ? (monthlyCrewCost / totalRevenue) * 100 : 0;
@@ -536,7 +549,11 @@ export default function SchedulePage() {
       directLaborPercent,
       effectiveDirectLaborPercent,
       monthlyCrewCost,
-      workDaysInWeek, // Include this for display purposes
+      monthlyRegularCrewCost,
+      monthlySaturdayCrewCost,
+      regularEffectiveDL,
+      saturdayEffectiveDL,
+      workDaysInWeek,
       hasSaturdayWork
     };
   };
@@ -929,6 +946,12 @@ export default function SchedulePage() {
               >ℹ</span>
             </div>
             <div className="text-lg font-bold text-red-600">${stats.monthlyCrewCost.toLocaleString()}</div>
+            {stats.hasSaturdayWork && (
+              <div className="text-xs text-gray-600 mt-1">
+                <div>Reg: ${stats.monthlyRegularCrewCost.toLocaleString()}</div>
+                <div className="text-orange-600">OT: ${stats.monthlySaturdayCrewCost.toLocaleString()}</div>
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium">Monthly Revenue</div>
@@ -961,6 +984,14 @@ export default function SchedulePage() {
             }`}>
               {stats.effectiveDirectLaborPercent.toFixed(1)}%
             </div>
+            {stats.hasSaturdayWork && (
+              <div className="text-xs text-gray-600 mt-1">
+                <div>M-F: {stats.regularEffectiveDL.toFixed(1)}%</div>
+                <div className={`${stats.saturdayEffectiveDL > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'}`}>
+                  Sat: {stats.saturdayEffectiveDL.toFixed(1)}%
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

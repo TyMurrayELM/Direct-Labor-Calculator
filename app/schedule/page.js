@@ -53,6 +53,8 @@ export default function SchedulePage() {
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;
   const HOURLY_COST = 24.75;
+  const OVERTIME_MULTIPLIER = 1.5;
+  const OVERTIME_HOURLY_COST = HOURLY_COST * OVERTIME_MULTIPLIER; // $37.125
   const WEEKS_PER_MONTH = 4.33;
   const TARGET_DIRECT_LABOR_PERCENT = 40;
 
@@ -867,7 +869,13 @@ export default function SchedulePage() {
         {/* Stats Bar */}
         <div className="grid grid-cols-7 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
           <div>
-            <div className="text-xs text-gray-600 font-medium">Weekly Capacity</div>
+            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+              Weekly Capacity
+              <span 
+                className="cursor-help text-gray-400 hover:text-gray-600" 
+                title={`Based on ${stats.workDaysInWeek} work days (${stats.workDaysInWeek === 6 ? 'includes Saturday' : 'Mon-Fri only'})`}
+              >ℹ</span>
+            </div>
             <div className="text-lg font-bold text-gray-800">{stats.weeklyCapacity.toFixed(1)} hrs</div>
           </div>
           <div>
@@ -891,7 +899,13 @@ export default function SchedulePage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Monthly Crew Cost</div>
+            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+              Monthly Crew Cost
+              <span 
+                className="cursor-help text-gray-400 hover:text-gray-600" 
+                title={`Based on ${stats.workDaysInWeek}-day work week`}
+              >ℹ</span>
+            </div>
             <div className="text-lg font-bold text-red-600">${stats.monthlyCrewCost.toLocaleString()}</div>
           </div>
           <div>
@@ -917,7 +931,7 @@ export default function SchedulePage() {
               Effective DL %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title="Effective Direct Labor: Full crew cost regardless of utilization. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%"
+                title={`Effective Direct Labor: Full crew cost for ${stats.workDaysInWeek} days regardless of utilization. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%`}
               >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${

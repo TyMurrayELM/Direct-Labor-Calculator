@@ -349,10 +349,8 @@ export default function SchedulePage() {
         setSaveMessage({ type: 'success', text: 'Schedule saved and properties assigned to crew!' });
         setHasChanges(false);
         
-        // Reload the page to refresh all data with updated crew assignments
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        // Clear message after 3 seconds
+        setTimeout(() => setSaveMessage(null), 3000);
       } else {
         console.error('Save failed:', result.error);
         setSaveMessage({ type: 'error', text: result.error || 'Failed to save schedule' });
@@ -363,9 +361,6 @@ export default function SchedulePage() {
     }
     
     setIsSaving(false);
-    
-    // Clear message after 3 seconds
-    setTimeout(() => setSaveMessage(null), 3000);
   };
   
   // Clear schedule handler

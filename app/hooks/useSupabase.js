@@ -860,7 +860,7 @@ export async function updatePropertyServiceDay(propertyId, serviceDay, routeOrde
 export async function updateCrewSchedule(crewId, scheduleData) {
   try {
     // scheduleData is an object like:
-    // { Monday: [propIds], Tuesday: [propIds], ... }
+    // { Monday: [propIds], Tuesday: [propIds], ... Saturday: [propIds] }
     
     const updates = [];
     
@@ -888,7 +888,7 @@ export async function updateCrewSchedule(crewId, scheduleData) {
   }
 }
 
-// Hook to fetch crew schedule - Updated to fetch branch-wide unassigned
+// Hook to fetch crew schedule - Updated to include Saturday
 export function useCrewSchedule(crewId) {
   const [schedule, setSchedule] = useState({
     Monday: [],
@@ -896,6 +896,7 @@ export function useCrewSchedule(crewId) {
     Wednesday: [],
     Thursday: [],
     Friday: [],
+    Saturday: [],  // Added Saturday
     unassigned: []
   });
   const [loading, setLoading] = useState(true);
@@ -942,13 +943,14 @@ export function useCrewSchedule(crewId) {
         
         if (unassignedError) throw unassignedError;
         
-        // Organize by service day
+        // Organize by service day - including Saturday
         const organized = {
           Monday: [],
           Tuesday: [],
           Wednesday: [],
           Thursday: [],
           Friday: [],
+          Saturday: [],  // Added Saturday
           unassigned: unassignedProperties || []
         };
         
@@ -974,7 +976,7 @@ export function useCrewSchedule(crewId) {
   return { schedule, loading, error };
 }
 
-// UPDATED: Function to save entire weekly schedule with auto-crew assignment
+// UPDATED: Function to save entire weekly schedule with auto-crew assignment - includes Saturday
 export async function saveWeeklySchedule(crewId, weekSchedule) {
   try {
     console.log('saveWeeklySchedule called with:', { crewId, weekSchedule });
@@ -1029,8 +1031,8 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
       throw clearAllError;
     }
     
-    // Step 3: Now update each day's properties with their schedule
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    // Step 3: Now update each day's properties with their schedule - INCLUDING SATURDAY
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; // Added Saturday
     
     for (const day of days) {
       const dayPropertyIds = weekSchedule[day] || [];
@@ -1138,7 +1140,7 @@ export async function clearCrewSchedule(crewId) {
   }
 }
 
-// Function to get schedule statistics
+// Function to get schedule statistics - Updated to include Saturday
 export async function getScheduleStats(crewId) {
   try {
     const { data, error } = await supabase
@@ -1154,6 +1156,7 @@ export async function getScheduleStats(crewId) {
       Wednesday: { count: 0, hours: 0, revenue: 0 },
       Thursday: { count: 0, hours: 0, revenue: 0 },
       Friday: { count: 0, hours: 0, revenue: 0 },
+      Saturday: { count: 0, hours: 0, revenue: 0 },  // Added Saturday
       unassigned: { count: 0, hours: 0, revenue: 0 }
     };
     

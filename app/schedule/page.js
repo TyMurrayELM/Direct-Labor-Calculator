@@ -34,6 +34,7 @@ export default function SchedulePage() {
     Wednesday: [],
     Thursday: [],
     Friday: [],
+    Saturday: [],
   });
   const [unassignedJobs, setUnassignedJobs] = useState([]);
   const [draggedItem, setDraggedItem] = useState(null);
@@ -55,7 +56,7 @@ export default function SchedulePage() {
   const WEEKS_PER_MONTH = 4.33;
   const TARGET_DIRECT_LABOR_PERCENT = 40;
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   // Check authentication
   useEffect(() => {
@@ -126,7 +127,8 @@ export default function SchedulePage() {
           Tuesday: savedSchedule.Tuesday || [],
           Wednesday: savedSchedule.Wednesday || [],
           Thursday: savedSchedule.Thursday || [],
-          Friday: savedSchedule.Friday || []
+          Friday: savedSchedule.Friday || [],
+          Saturday: savedSchedule.Saturday || []
         };
         
         setWeekSchedule(newSchedule);
@@ -144,7 +146,8 @@ export default function SchedulePage() {
           Tuesday: idsToProperties(savedSchedule.Tuesday),
           Wednesday: idsToProperties(savedSchedule.Wednesday),
           Thursday: idsToProperties(savedSchedule.Thursday),
-          Friday: idsToProperties(savedSchedule.Friday)
+          Friday: idsToProperties(savedSchedule.Friday),
+          Saturday: idsToProperties(savedSchedule.Saturday)
         };
         
         setWeekSchedule(newSchedule);
@@ -178,6 +181,7 @@ export default function SchedulePage() {
         Wednesday: [],
         Thursday: [],
         Friday: [],
+        Saturday: [],
       });
       setHasChanges(false);
     }
@@ -306,6 +310,7 @@ export default function SchedulePage() {
       Wednesday: (scheduleWithIds.Wednesday || []).filter(id => id !== undefined && id !== null),
       Thursday: (scheduleWithIds.Thursday || []).filter(id => id !== undefined && id !== null),
       Friday: (scheduleWithIds.Friday || []).filter(id => id !== undefined && id !== null),
+      Saturday: (scheduleWithIds.Saturday || []).filter(id => id !== undefined && id !== null),
       unassigned: (unassignedIds || []).filter(id => id !== undefined && id !== null),
       scheduledPropertyIds: scheduledPropertyIds // Pass the IDs of properties to assign to this crew
     };
@@ -320,6 +325,7 @@ export default function SchedulePage() {
       ...scheduleData.Wednesday,
       ...scheduleData.Thursday,
       ...scheduleData.Friday,
+      ...scheduleData.Saturday,
       ...scheduleData.unassigned
     ];
     
@@ -386,6 +392,7 @@ export default function SchedulePage() {
           Wednesday: [],
           Thursday: [],
           Friday: [],
+          Saturday: [],
         });
         setUnassignedJobs(allJobs);
         setHasChanges(true);
@@ -486,13 +493,18 @@ export default function SchedulePage() {
   const calculateWeeklyStats = () => {
     const totalScheduledHours = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.current_hours || 0), 0);
     const totalRevenue = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
-    const weeklyCapacity = dailyCrewHours * 5;
+    
+    // Dynamically calculate work days - only count Saturday if it has properties
+    const hasSaturdayWork = weekSchedule.Saturday && weekSchedule.Saturday.length > 0;
+    const workDaysInWeek = hasSaturdayWork ? 6 : 5;
+    
+    const weeklyCapacity = dailyCrewHours * workDaysInWeek;
     const utilizationPercent = weeklyCapacity > 0 ? (totalScheduledHours / weeklyCapacity) * 100 : 0;
     const directLaborPercent = totalRevenue > 0 ? ((totalScheduledHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
     
-    // Calculate effective DL based on full crew cost for the week
-    const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * 5 : 0; // 5 days, no drive time factor
-    const monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0; // Monthly cost
+    // Calculate effective DL based on full crew cost for the actual work week
+    const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * workDaysInWeek : 0; // Dynamic days, no drive time factor
+    const monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * workDaysInWeek * HOURLY_COST * WEEKS_PER_MONTH : 0; // Monthly cost
     const effectiveDirectLaborPercent = totalRevenue > 0 ? ((fullWeekHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
 
     return {
@@ -502,7 +514,8 @@ export default function SchedulePage() {
       utilizationPercent,
       directLaborPercent,
       effectiveDirectLaborPercent,
-      monthlyCrewCost
+      monthlyCrewCost,
+      workDaysInWeek // Include this for display purposes
     };
   };
 
@@ -867,7 +880,7 @@ export default function SchedulePage() {
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
                 title="Percentage of total weekly capacity being used. Target: 90%+"
-              >ⓘ</span>
+              >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
               stats.utilizationPercent > 100 ? 'text-red-600' : 
@@ -891,7 +904,7 @@ export default function SchedulePage() {
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
                 title="Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %"
-              >ⓘ</span>
+              >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
               stats.directLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600' : 'text-green-600'
@@ -905,7 +918,7 @@ export default function SchedulePage() {
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
                 title="Effective Direct Labor: Full crew cost regardless of utilization. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%"
-              >ⓘ</span>
+              >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
               stats.effectiveDirectLaborPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
@@ -916,7 +929,7 @@ export default function SchedulePage() {
         </div>
 
         {/* Main Schedule Grid */}
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-7 gap-3">
           {/* Unassigned Jobs Column - Updated to show branch-wide unassigned */}
           <div>
             <h3 className="font-semibold text-gray-700 mb-2 text-sm">
@@ -957,7 +970,10 @@ export default function SchedulePage() {
                     title={job.crew_id ? `Currently assigned to: ${getCrewName(job.crew_id)}` : 'Not assigned to any crew'}
                   >
                     <div className="flex justify-between items-start">
-                      <div className="text-xs font-medium text-gray-900 truncate flex-1">
+                      <div 
+                        className="text-xs font-medium text-gray-900 truncate flex-1"
+                        title={job.name}
+                      >
                         {job.name}
                         {job.crew_id && job.crew_id !== selectedCrew?.id && (
                           <span className="ml-1 text-orange-600 text-xs">
@@ -1129,7 +1145,12 @@ export default function SchedulePage() {
                           style={{ userSelect: 'none' }}
                         >
                           <div className="flex justify-between items-start">
-                            <div className="text-xs font-medium text-gray-900 truncate flex-1">{job.name}</div>
+                            <div 
+                              className="text-xs font-medium text-gray-900 truncate flex-1"
+                              title={job.name}
+                            >
+                              {job.name}
+                            </div>
                             <Link 
                               href={`/properties?edit=${job.id}&return=/schedule`}
                               className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
@@ -1210,6 +1231,7 @@ export default function SchedulePage() {
             <li>• Properties with orange backgrounds belong to other crews - dragging them will reassign them to {selectedCrew?.name || 'this crew'}</li>
             <li>• When you save, scheduled properties are automatically assigned to {selectedCrew?.name || 'the selected crew'}</li>
             <li>• Drag properties between days to reorganize your schedule</li>
+            <li>• Hover over property names to see the full name</li>
             <li>• Click "Save Schedule" to save changes and crew assignments to the database</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
           </ul>

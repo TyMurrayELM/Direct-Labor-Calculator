@@ -496,18 +496,37 @@ export default function SchedulePage() {
     const totalScheduledHours = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.current_hours || 0), 0);
     const totalRevenue = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     
+    // Get Saturday scheduled hours specifically for OT calculation
+    const saturdayScheduledHours = weekSchedule.Saturday ? 
+      weekSchedule.Saturday.reduce((sum, job) => sum + (job.current_hours || 0), 0) : 0;
+    const regularScheduledHours = totalScheduledHours - saturdayScheduledHours;
+    
     // Dynamically calculate work days - only count Saturday if it has properties
     const hasSaturdayWork = weekSchedule.Saturday && weekSchedule.Saturday.length > 0;
     const workDaysInWeek = hasSaturdayWork ? 6 : 5;
     
     const weeklyCapacity = dailyCrewHours * workDaysInWeek;
     const utilizationPercent = weeklyCapacity > 0 ? (totalScheduledHours / weeklyCapacity) * 100 : 0;
-    const directLaborPercent = totalRevenue > 0 ? ((totalScheduledHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
     
-    // Calculate effective DL based on full crew cost for the actual work week
-    const fullWeekHours = selectedCrew ? selectedCrew.size * 8 * workDaysInWeek : 0; // Dynamic days, no drive time factor
-    const monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * workDaysInWeek * HOURLY_COST * WEEKS_PER_MONTH : 0; // Monthly cost
-    const effectiveDirectLaborPercent = totalRevenue > 0 ? ((fullWeekHours * HOURLY_COST * WEEKS_PER_MONTH) / totalRevenue) * 100 : 0;
+    // Calculate direct labor with OT for Saturday scheduled hours
+    const regularLaborCost = regularScheduledHours * HOURLY_COST * WEEKS_PER_MONTH;
+    const saturdayLaborCost = saturdayScheduledHours * OVERTIME_HOURLY_COST * WEEKS_PER_MONTH;
+    const totalLaborCost = regularLaborCost + saturdayLaborCost;
+    const directLaborPercent = totalRevenue > 0 ? (totalLaborCost / totalRevenue) * 100 : 0;
+    
+    // Calculate effective DL based on full crew cost with OT for Saturday
+    let monthlyCrewCost;
+    if (hasSaturdayWork) {
+      // 5 regular days + 1 OT day
+      const regularDaysCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
+      const saturdayOTCost = selectedCrew ? selectedCrew.size * 8 * 1 * OVERTIME_HOURLY_COST * WEEKS_PER_MONTH : 0;
+      monthlyCrewCost = regularDaysCost + saturdayOTCost;
+    } else {
+      // Just 5 regular days
+      monthlyCrewCost = selectedCrew ? selectedCrew.size * 8 * 5 * HOURLY_COST * WEEKS_PER_MONTH : 0;
+    }
+    
+    const effectiveDirectLaborPercent = totalRevenue > 0 ? (monthlyCrewCost / totalRevenue) * 100 : 0;
 
     return {
       totalScheduledHours,
@@ -517,30 +536,33 @@ export default function SchedulePage() {
       directLaborPercent,
       effectiveDirectLaborPercent,
       monthlyCrewCost,
-      workDaysInWeek // Include this for display purposes
+      workDaysInWeek, // Include this for display purposes
+      hasSaturdayWork
     };
   };
 
   const stats = calculateWeeklyStats();
 
   // Calculate Direct Labor percentage for each day
-  const calculateDailyDL = (dayJobs) => {
+  const calculateDailyDL = (dayJobs, isOvertimeDay = false) => {
     const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
     const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     if (dayRevenue === 0) return 0;
     
-    const dailyLaborCost = dayHours * HOURLY_COST * WEEKS_PER_MONTH;
+    const hourlyRate = isOvertimeDay ? OVERTIME_HOURLY_COST : HOURLY_COST;
+    const dailyLaborCost = dayHours * hourlyRate * WEEKS_PER_MONTH;
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
   // Calculate Effective Direct Labor percentage for each day
-  const calculateDailyEffectiveDL = (dayJobs, crewSize) => {
+  const calculateDailyEffectiveDL = (dayJobs, crewSize, isOvertimeDay = false) => {
     const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     if (dayRevenue === 0) return 0;
     
     // Use full crew capacity without drive time factor - full cost of crew for the day
     const fullDayHours = crewSize * 8;
-    const dailyLaborCost = fullDayHours * HOURLY_COST * WEEKS_PER_MONTH;
+    const hourlyRate = isOvertimeDay ? OVERTIME_HOURLY_COST : HOURLY_COST;
+    const dailyLaborCost = fullDayHours * hourlyRate * WEEKS_PER_MONTH;
     return (dailyLaborCost / dayRevenue) * 100;
   };
 
@@ -873,7 +895,7 @@ export default function SchedulePage() {
               Weekly Capacity
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title={`Based on ${stats.workDaysInWeek} work days (${stats.workDaysInWeek === 6 ? 'includes Saturday' : 'Mon-Fri only'})`}
+                title={`Based on ${stats.workDaysInWeek} work days (${stats.hasSaturdayWork ? 'includes Saturday' : 'Mon-Fri only'})`}
               >ℹ</span>
             </div>
             <div className="text-lg font-bold text-gray-800">{stats.weeklyCapacity.toFixed(1)} hrs</div>
@@ -903,7 +925,7 @@ export default function SchedulePage() {
               Monthly Crew Cost
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title={`Based on ${stats.workDaysInWeek}-day work week`}
+                title={`Based on ${stats.workDaysInWeek}-day work week${stats.hasSaturdayWork ? ' (Saturday at 1.5x OT rate)' : ''}`}
               >ℹ</span>
             </div>
             <div className="text-lg font-bold text-red-600">${stats.monthlyCrewCost.toLocaleString()}</div>
@@ -917,7 +939,7 @@ export default function SchedulePage() {
               Job Scheduled Direct Labor %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title="Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %"
+                title={`Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %${stats.hasSaturdayWork ? '. Saturday hours calculated at 1.5x OT rate.' : ''}`}
               >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -931,7 +953,7 @@ export default function SchedulePage() {
               Effective DL %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title={`Effective Direct Labor: Full crew cost for ${stats.workDaysInWeek} days regardless of utilization. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%`}
+                title={`Effective Direct Labor: Full crew cost for ${stats.workDaysInWeek} days regardless of utilization${stats.hasSaturdayWork ? ' (Saturday at 1.5x OT rate)' : ''}. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%`}
               >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -1042,38 +1064,52 @@ export default function SchedulePage() {
 
           {/* Days of Week Columns */}
           {days.map(day => {
+            const isSaturday = day === 'Saturday';
             const dayJobs = weekSchedule[day];
             const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
             const dayMonthlyRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
             const dayWeeklyRevenue = dayMonthlyRevenue / WEEKS_PER_MONTH;
-            const dailyCrewCost = selectedCrew ? selectedCrew.size * 8 * HOURLY_COST : 0;
+            // Explicitly calculate Saturday at OT rate
+            const hourlyRate = isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST;
+            const dailyCrewCost = selectedCrew ? selectedCrew.size * 8 * hourlyRate : 0;
             const utilizationPercent = dailyCrewHours > 0 ? (dayHours / dailyCrewHours) * 100 : 0;
-            const dlPercent = calculateDailyDL(dayJobs);
-            const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0);
+            const dlPercent = calculateDailyDL(dayJobs, isSaturday);
+            const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0, isSaturday);
 
             return (
               <div key={day}>
                 <div className="mb-2">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-700 text-sm">{day}</h3>
+                    <h3 className="font-semibold text-gray-700 text-sm">
+                      {day}
+                      {isSaturday && (
+                        <span className="ml-1 text-xs font-normal text-orange-600">(OT)</span>
+                      )}
+                    </h3>
                     <span className="text-xs text-gray-500">{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
                   </div>
+                  {isSaturday && (
+                    <div className="bg-orange-50 border border-orange-200 rounded px-1 py-0.5 mb-1">
+                      <div className="text-xs text-orange-700 font-medium">⚠️ Overtime Rates (1.5x)</div>
+                      <div className="text-xs text-orange-600">Rate: ${OVERTIME_HOURLY_COST}/hr</div>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600" title="Job Scheduled Direct Labor: Labor cost based on actual scheduled hours">jsDL:</span>
+                    <span className="text-gray-600" title={`Job Scheduled Direct Labor: Labor cost based on actual scheduled hours${isSaturday ? ' at OT rate' : ''}`}>jsDL:</span>
                     <span 
                       className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}
-                      title={`Scheduled hours (${dayHours.toFixed(1)}) × ${HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${dlPercent.toFixed(1)}%`}
+                      title={`Scheduled hours (${dayHours.toFixed(1)}) × ${isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${dlPercent.toFixed(1)}%`}
                     >
                       {dlPercent.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600" title="Effective Direct Labor: Labor cost based on full crew capacity (what you actually pay)">eDL:</span>
+                    <span className="text-gray-600" title={`Effective Direct Labor: Labor cost based on full crew capacity${isSaturday ? ' at OT rate' : ''} (what you actually pay)`}>eDL:</span>
                     <span 
                       className={`font-medium ${
                         eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
                       }`}
-                      title={`Full crew (${selectedCrew?.size || 0} × 8hrs) × ${HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${eDLPercent.toFixed(1)}%`}
+                      title={`Full crew (${selectedCrew?.size || 0} × 8hrs) × ${isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${eDLPercent.toFixed(1)}%`}
                     >
                       {eDLPercent.toFixed(1)}%
                     </span>
@@ -1093,11 +1129,19 @@ export default function SchedulePage() {
                   </div>
                   <div className="border-t mt-1 pt-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Crew Cost:</span>
-                      <span className="font-medium text-red-600">
+                      <span className="text-gray-600">
+                        Crew Cost{isSaturday ? ' (OT)' : ''}:
+                      </span>
+                      <span className={`font-medium ${isSaturday ? 'text-orange-600' : 'text-red-600'}`}>
                         ${dailyCrewCost.toFixed(0)}/day
                       </span>
                     </div>
+                    {isSaturday && (
+                      <div className="flex justify-between text-xs text-orange-500">
+                        <span>Rate:</span>
+                        <span>${OVERTIME_HOURLY_COST.toFixed(2)}/hr</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">Revenue:</span>
                       <span className="font-medium text-green-600">
@@ -1114,6 +1158,24 @@ export default function SchedulePage() {
                         {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
                       </span>
                     </div>
+                    {isSaturday && (
+                      <>
+                        <div className="flex justify-between text-xs text-orange-500">
+                          <span>Rate:</span>
+                          <span>${OVERTIME_HOURLY_COST.toFixed(2)}/hr</span>
+                        </div>
+                        <div className="flex justify-between text-xs mt-1 pt-1 border-t border-orange-200">
+                          <span className="text-orange-600">OT Premium:</span>
+                          <span className="font-medium text-orange-600">
+                            +${((dailyCrewCost - (selectedCrew?.size || 0) * 8 * HOURLY_COST)).toFixed(0)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs text-orange-500">
+                          <span>Breakdown:</span>
+                          <span>{selectedCrew?.size || 0} × 8hrs × $37.13</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div
@@ -1123,6 +1185,7 @@ export default function SchedulePage() {
                   onDrop={(e) => onDrop(e, day)}
                   className={`border-2 rounded-lg p-2 min-h-[500px] transition-colors ${
                     dragOverDay === day ? 'border-blue-400 bg-blue-50' : 
+                    isSaturday ? 'border-orange-300 bg-orange-50' :
                     utilizationPercent > 100 ? 'border-red-300 bg-red-50' :
                     utilizationPercent > 90 ? 'border-yellow-300 bg-yellow-50' :
                     'border-gray-200 bg-gray-50'

@@ -1159,12 +1159,6 @@ export default function SchedulePage() {
                         ${dailyCrewCost.toFixed(0)}/day
                       </span>
                     </div>
-                    {isSaturday && (
-                      <div className="flex justify-between text-xs text-orange-500">
-                        <span>Rate:</span>
-                        <span>${OVERTIME_HOURLY_COST.toFixed(2)}/hr</span>
-                      </div>
-                    )}
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">Revenue:</span>
                       <span className="font-medium text-green-600">
@@ -1182,22 +1176,12 @@ export default function SchedulePage() {
                       </span>
                     </div>
                     {isSaturday && (
-                      <>
-                        <div className="flex justify-between text-xs text-orange-500">
-                          <span>Rate:</span>
-                          <span>${OVERTIME_HOURLY_COST.toFixed(2)}/hr</span>
-                        </div>
-                        <div className="flex justify-between text-xs mt-1 pt-1 border-t border-orange-200">
-                          <span className="text-orange-600">OT Premium:</span>
-                          <span className="font-medium text-orange-600">
-                            +${((dailyCrewCost - (selectedCrew?.size || 0) * 8 * HOURLY_COST)).toFixed(0)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs text-orange-500">
-                          <span>Breakdown:</span>
-                          <span>{selectedCrew?.size || 0} × 8hrs × $37.13</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between text-xs mt-1 pt-1 border-t border-orange-200">
+                        <span className="text-orange-600">OT Premium:</span>
+                        <span className="font-medium text-orange-600">
+                          +${((dailyCrewCost - (selectedCrew?.size || 0) * 8 * HOURLY_COST)).toFixed(0)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

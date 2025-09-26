@@ -959,7 +959,7 @@ export default function SchedulePage() {
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
-              Job Scheduled Direct Labor %
+              js Direct Labor %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
                 title={`Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %${stats.hasSaturdayWork ? '. Saturday hours calculated at 1.5x OT rate.' : ''}`}

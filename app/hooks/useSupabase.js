@@ -59,16 +59,16 @@ export function useProperties({
           query = query.in('crew_id', crewIds);
         } else {
           // If no crews match the type, return no results
-          query = query.eq('id', -1); // This will match no properties
+          query = query.eq('id', -1); // This will return no results
         }
       }
       
       if (region) {
-        query = query.ilike('region', `%${region}%`);
+        query = query.eq('region', region);
       }
       
       if (accountManager) {
-        query = query.ilike('account_manager', `%${accountManager}%`);
+        query = query.eq('account_manager', accountManager);
       }
       
       if (propertyType) {
@@ -76,24 +76,16 @@ export function useProperties({
       }
       
       if (company) {
-        query = query.ilike('company', `%${company}%`);
+        query = query.eq('company', company);
       }
       
       if (client) {
-        query = query.ilike('client', `%${client}%`);
+        query = query.eq('client', client);
       }
       
-      // Add search query filtering - FIXED SYNTAX
+      // Add search functionality (searches name and client fields)
       if (searchQuery) {
-        // The correct syntax for Supabase OR filters
-        query = query.or([
-          { name: { ilike: `%${searchQuery}%` } },
-          { property_type: { ilike: `%${searchQuery}%` } },
-          { account_manager: { ilike: `%${searchQuery}%` } },
-          { region: { ilike: `%${searchQuery}%` } },
-          { company: { ilike: `%${searchQuery}%` } },
-          { client: { ilike: `%${searchQuery}%` } }
-        ]);
+        query = query.or(`name.ilike.%${searchQuery}%, client.ilike.%${searchQuery}%`);
       }
       
       // Apply sorting
@@ -140,16 +132,16 @@ export function useProperties({
           totalsQuery = totalsQuery.in('crew_id', crewIds);
         } else {
           // If no crews match the type, return no results
-          totalsQuery = totalsQuery.eq('id', -1); // This will match no properties
+          totalsQuery = totalsQuery.eq('id', -1); // This will return no results
         }
       }
       
       if (region) {
-        totalsQuery = totalsQuery.ilike('region', `%${region}%`);
+        totalsQuery = totalsQuery.eq('region', region);
       }
       
       if (accountManager) {
-        totalsQuery = totalsQuery.ilike('account_manager', `%${accountManager}%`);
+        totalsQuery = totalsQuery.eq('account_manager', accountManager);
       }
       
       if (propertyType) {
@@ -157,34 +149,30 @@ export function useProperties({
       }
       
       if (company) {
-        totalsQuery = totalsQuery.ilike('company', `%${company}%`);
+        totalsQuery = totalsQuery.eq('company', company);
       }
       
       if (client) {
-        totalsQuery = totalsQuery.ilike('client', `%${client}%`);
+        totalsQuery = totalsQuery.eq('client', client);
       }
       
-      // Add the same search query to totals calculation - FIXED SYNTAX
       if (searchQuery) {
-        totalsQuery = totalsQuery.or([
-          { name: { ilike: `%${searchQuery}%` } },
-          { property_type: { ilike: `%${searchQuery}%` } },
-          { account_manager: { ilike: `%${searchQuery}%` } },
-          { region: { ilike: `%${searchQuery}%` } },
-          { company: { ilike: `%${searchQuery}%` } },
-          { client: { ilike: `%${searchQuery}%` } }
-        ]);
+        totalsQuery = totalsQuery.or(`name.ilike.%${searchQuery}%, client.ilike.%${searchQuery}%`);
       }
       
-      const { data: allData, error: totalsError } = await totalsQuery;
+      const { data: totalsData, error: totalsError } = await totalsQuery;
       
-      if (totalsError) throw totalsError;
+      if (totalsError) {
+        console.error('Error fetching totals:', totalsError);
+        // Continue anyway, totals will be 0
+      }
       
-      // Calculate totals from all matching properties
-      const calculatedMonthlyInvoice = allData.reduce((sum, prop) => sum + (prop.monthly_invoice || 0), 0);
-      const calculatedCurrentHours = allData.reduce((sum, prop) => sum + (prop.current_hours || 0), 0);
-      const calculatedAdjustedHours = allData.reduce((sum, prop) => {
-        const hours = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
+      // Calculate totals from the totals query
+      const calculatedMonthlyInvoice = (totalsData || []).reduce((sum, prop) => sum + (prop.monthly_invoice || 0), 0);
+      const calculatedCurrentHours = (totalsData || []).reduce((sum, prop) => sum + (prop.current_hours || 0), 0);
+      const calculatedAdjustedHours = (totalsData || []).reduce((sum, prop) => {
+        const hours = prop.adjusted_hours !== null && prop.adjusted_hours !== undefined ? 
+          prop.adjusted_hours : prop.current_hours;
         return sum + (hours || 0);
       }, 0);
       
@@ -328,21 +316,21 @@ export function usePropertyOptions() {
         
         if (regionsError) throw regionsError;
         
-        const { data: accountManagers, error: managersError } = await supabase
+        const { data: accountManagers, error: accountManagersError } = await supabase
           .from('properties')
           .select('account_manager')
           .not('account_manager', 'is', null)
           .order('account_manager');
         
-        if (managersError) throw managersError;
+        if (accountManagersError) throw accountManagersError;
         
-        const { data: propertyTypes, error: typesError } = await supabase
+        const { data: propertyTypes, error: propertyTypesError } = await supabase
           .from('properties')
           .select('property_type')
           .not('property_type', 'is', null)
           .order('property_type');
         
-        if (typesError) throw typesError;
+        if (propertyTypesError) throw propertyTypesError;
         
         const { data: companies, error: companiesError } = await supabase
           .from('properties')
@@ -360,23 +348,21 @@ export function usePropertyOptions() {
         
         if (clientsError) throw clientsError;
         
-        // Extract unique values and filter empty strings
-        const uniqueRegions = [...new Set(regions.map(r => r.region).filter(Boolean))];
-        const uniqueManagers = [...new Set(accountManagers.map(m => m.account_manager).filter(Boolean))];
-        const uniqueTypes = [...new Set(propertyTypes.map(t => t.property_type).filter(Boolean))];
-        const uniqueCompanies = [...new Set(companies.map(c => c.company).filter(Boolean))];
-        const uniqueClients = [...new Set(clients.map(c => c.client).filter(Boolean))];
+        // Extract unique values
+        const uniqueRegions = [...new Set(regions.map(r => r.region))].filter(Boolean);
+        const uniqueAccountManagers = [...new Set(accountManagers.map(a => a.account_manager))].filter(Boolean);
+        const uniquePropertyTypes = [...new Set(propertyTypes.map(p => p.property_type))].filter(Boolean);
+        const uniqueCompanies = [...new Set(companies.map(c => c.company))].filter(Boolean);
+        const uniqueClients = [...new Set(clients.map(c => c.client))].filter(Boolean);
         
         setRegions(uniqueRegions);
-        setAccountManagers(uniqueManagers);
-        setPropertyTypes(uniqueTypes);
+        setAccountManagers(uniqueAccountManagers);
+        setPropertyTypes(uniquePropertyTypes);
         setCompanies(uniqueCompanies);
         setClients(uniqueClients);
       } catch (err) {
         console.error('Error fetching property options:', err);
         setError(err.message);
-        
-        // Set empty arrays as fallback
         setRegions([]);
         setAccountManagers([]);
         setPropertyTypes([]);
@@ -760,59 +746,51 @@ export async function deleteBranch(branchId) {
   }
 }
 
-// DASHBOARD STATISTICS
+// DASHBOARD OPERATIONS
+// Function to get dashboard statistics
 export async function getDashboardStats() {
   try {
-    // Get total properties count
-    const { count: totalProperties, error: propertiesError } = await supabase
+    // Get property counts and totals
+    const { data: properties, error: propError } = await supabase
       .from('properties')
-      .select('*', { count: 'exact' });
+      .select('monthly_invoice, current_hours, branch_id, crew_id');
       
-    if (propertiesError) throw propertiesError;
+    if (propError) throw propError;
     
-    // Get total crews count
-    const { count: totalCrews, error: crewsError } = await supabase
+    // Get crew counts
+    const { count: crewCount, error: crewError } = await supabase
       .from('crews')
       .select('*', { count: 'exact' });
       
-    if (crewsError) throw crewsError;
+    if (crewError) throw crewError;
     
-    // Get total branches count
-    const { count: totalBranches, error: branchesError } = await supabase
+    // Get branch counts
+    const { count: branchCount, error: branchError } = await supabase
       .from('branches')
       .select('*', { count: 'exact' });
       
-    if (branchesError) throw branchesError;
+    if (branchError) throw branchError;
     
-    // Get sum of monthly invoices
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from('properties')
-      .select('monthly_invoice');
-      
-    if (invoiceError) throw invoiceError;
+    // Calculate totals
+    const totalMonthlyInvoice = properties.reduce((sum, p) => sum + (p.monthly_invoice || 0), 0);
+    const totalCurrentHours = properties.reduce((sum, p) => sum + (p.current_hours || 0), 0);
     
-    const totalMonthlyInvoice = invoiceData.reduce((sum, prop) => sum + (prop.monthly_invoice || 0), 0);
-    
-    // Get properties by branch
-    const { data: branchData, error: branchDistError } = await supabase
-      .from('properties')
-      .select('branch_id, branches!inner(name)');
-      
-    if (branchDistError) throw branchDistError;
-    
+    // Count properties by branch
     const propertiesByBranch = {};
-    branchData.forEach(prop => {
-      const branchName = prop.branches.name;
-      propertiesByBranch[branchName] = (propertiesByBranch[branchName] || 0) + 1;
+    properties.forEach(p => {
+      if (p.branch_id) {
+        propertiesByBranch[p.branch_id] = (propertiesByBranch[p.branch_id] || 0) + 1;
+      }
     });
     
     return {
       success: true,
       stats: {
-        totalProperties,
-        totalCrews,
-        totalBranches,
+        totalProperties: properties.length,
+        totalCrews: crewCount,
+        totalBranches: branchCount,
         totalMonthlyInvoice,
+        totalCurrentHours,
         propertiesByBranch
       }
     };
@@ -1222,4 +1200,167 @@ export async function exportScheduleToCSV(crewId, crewName) {
     console.error('Error exporting schedule:', error);
     return { success: false, error: error.message };
   }
+}
+
+// ============================================
+// CREW DAY DATA OPERATIONS (Drive Time, etc.)
+// ============================================
+
+/**
+ * Get drive time data for a specific crew
+ * @param {number} crewId - The crew ID (integer)
+ * @returns {Promise<Object>} - Object with drive times by day
+ */
+export async function getCrewDayData(crewId) {
+  try {
+    const { data, error } = await supabase
+      .from('crew_day_data')
+      .select('*')
+      .eq('crew_id', crewId);
+      
+    if (error) throw error;
+    
+    // Convert array to object keyed by service_day for easier access
+    const driveTimeByDay = {
+      Monday: 0,
+      Tuesday: 0,
+      Wednesday: 0,
+      Thursday: 0,
+      Friday: 0,
+      Saturday: 0
+    };
+    
+    if (data) {
+      data.forEach(record => {
+        if (record.service_day && driveTimeByDay.hasOwnProperty(record.service_day)) {
+          driveTimeByDay[record.service_day] = record.drive_time || 0;
+        }
+      });
+    }
+    
+    return { success: true, driveTimeByDay };
+  } catch (error) {
+    console.error('Error fetching crew day data:', error);
+    return { success: false, error: error.message, driveTimeByDay: {} };
+  }
+}
+
+/**
+ * Update or insert drive time for a crew on a specific day
+ * @param {number} crewId - The crew ID (integer)
+ * @param {string} serviceDay - The day of the week
+ * @param {number} driveTime - The drive time in hours
+ * @returns {Promise<Object>} - Success result
+ */
+export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
+  try {
+    // Validate inputs
+    if (!crewId) {
+      throw new Error('Crew ID is required');
+    }
+    
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    if (!validDays.includes(serviceDay)) {
+      throw new Error('Invalid service day');
+    }
+    
+    const parsedDriveTime = parseFloat(driveTime) || 0;
+    
+    // Use upsert to insert or update
+    const { data, error } = await supabase
+      .from('crew_day_data')
+      .upsert(
+        { 
+          crew_id: crewId, 
+          service_day: serviceDay, 
+          drive_time: parsedDriveTime 
+        },
+        { 
+          onConflict: 'crew_id,service_day',
+          ignoreDuplicates: false 
+        }
+      )
+      .select();
+      
+    if (error) throw error;
+    
+    return { success: true, data: data[0] };
+  } catch (error) {
+    console.error('Error updating crew day drive time:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete drive time data for a crew on a specific day
+ * @param {number} crewId - The crew ID (integer)
+ * @param {string} serviceDay - The day of the week
+ * @returns {Promise<Object>} - Success result
+ */
+export async function deleteCrewDayDriveTime(crewId, serviceDay) {
+  try {
+    const { error } = await supabase
+      .from('crew_day_data')
+      .delete()
+      .eq('crew_id', crewId)
+      .eq('service_day', serviceDay);
+      
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting crew day drive time:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * React hook to fetch crew day data with auto-refresh
+ * @param {number} crewId - The crew ID (integer)
+ * @returns {Object} - Hook result with driveTimeByDay, loading, error, and refetch
+ */
+export function useCrewDayData(crewId) {
+  const [driveTimeByDay, setDriveTimeByDay] = useState({
+    Monday: 0,
+    Tuesday: 0,
+    Wednesday: 0,
+    Thursday: 0,
+    Friday: 0,
+    Saturday: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchDriveTimeData = useCallback(async () => {
+    if (!crewId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const result = await getCrewDayData(crewId);
+      
+      if (result.success) {
+        setDriveTimeByDay(result.driveTimeByDay);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Error in useCrewDayData:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [crewId]);
+
+  useEffect(() => {
+    fetchDriveTimeData();
+  }, [fetchDriveTimeData]);
+  
+  const refetchDriveTimeData = useCallback(async () => {
+    return await fetchDriveTimeData();
+  }, [fetchDriveTimeData]);
+  
+  return { driveTimeByDay, loading, error, refetchDriveTimeData };
 }

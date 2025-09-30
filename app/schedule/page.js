@@ -9,7 +9,9 @@ import {
   useCrewSchedule,
   saveWeeklySchedule,
   clearCrewSchedule,
-  updateCrew 
+  updateCrew,
+  useCrewDayData,
+  updateCrewDayDriveTime
 } from '../hooks/useSupabase';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
@@ -49,6 +51,9 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
   
   // Use the crew schedule hook with refetch
   const { schedule: savedSchedule, loading: scheduleLoading, refetchSchedule } = useCrewSchedule(selectedCrew?.id);
+  
+  // Use the crew day data hook for drive time
+  const { crewDayData, loading: crewDayLoading, refetchCrewDayData } = useCrewDayData(selectedCrew?.id);
 
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;
@@ -193,6 +198,37 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  // Handler for drive time changes
+  const handleDriveTimeChange = async (day, value) => {
+    if (!selectedCrew) return;
+    
+    const driveTime = parseFloat(value) || 0;
+    
+    try {
+      const result = await updateCrewDayDriveTime(selectedCrew.id, day, driveTime);
+      
+      if (result.success) {
+        // Refetch crew day data to update the UI
+        refetchCrewDayData();
+      } else {
+        console.error('Failed to update drive time:', result.error);
+        setSaveMessage({ type: 'error', text: 'Failed to save drive time' });
+        setTimeout(() => setSaveMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error updating drive time:', error);
+      setSaveMessage({ type: 'error', text: 'Error saving drive time' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
+
+  // Helper function to get drive time for a specific day
+  const getDriveTimeForDay = (day) => {
+    if (!crewDayData || crewDayData.length === 0) return 0;
+    const dayData = crewDayData.find(d => d.service_day === day);
+    return dayData?.drive_time || 0;
   };
 
   // Save schedule handler - Updated to refetch after save
@@ -732,7 +768,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
   };
 
   // Loading state
-  if (propertiesLoading || crewsLoading || branchesLoading || scheduleLoading) {
+  if (propertiesLoading || crewsLoading || branchesLoading || scheduleLoading || crewDayLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-blue-100">
         <div className="p-8 bg-white shadow-lg rounded-lg">
@@ -1107,6 +1143,13 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             const utilizationPercent = dailyCrewHours > 0 ? (dayHours / dailyCrewHours) * 100 : 0;
             const dlPercent = calculateDailyDL(dayJobs, isSaturday);
             const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0, isSaturday);
+            
+            // Get drive time for this day
+            const driveTime = getDriveTimeForDay(day);
+            // Calculate crew hours (Man hours / crew size)
+            const crewHours = selectedCrew ? (dayHours / selectedCrew.size) : 0;
+            // Calculate total hours (Crew hours + Drive time)
+            const totalHours = crewHours + driveTime;
 
             return (
               <div key={day}>
@@ -1125,7 +1168,54 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                       <div className="text-xs text-orange-700 font-medium">⚠️ Overtime Rates (1.5x)</div>
                     </div>
                   )}
-                  <div className="flex justify-between text-xs">
+                  <div className="border-t mt-1 pt-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Jobs:</span>
+                      <span className="font-medium">{dayJobs.length}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Revenue:</span>
+                      <span className="font-medium text-green-600">
+                        ${dayWeeklyRevenue.toFixed(0)}/wk
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600" title="Man Hours: Total scheduled hours for all properties">Man Hrs:</span>
+                      <span className="font-medium text-blue-600">
+                        {dayHours.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600" title="Crew Hours: Man hours divided by crew size">Crew Hrs:</span>
+                      <span className="font-medium text-purple-600">
+                        {crewHours.toFixed(1)}
+                      </span>
+                    </div>
+                    
+                    {/* Drive Time Input */}
+                    <div className="flex justify-between text-xs items-center mt-1 pt-1 border-t border-gray-200">
+                      <span className="text-gray-600" title="Drive time between properties">Drive Time:</span>
+                      <input
+                        type="number"
+                        value={driveTime}
+                        onChange={(e) => handleDriveTimeChange(day, e.target.value)}
+                        step="0.5"
+                        min="0"
+                        max="24"
+                        className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium"
+                      />
+                    </div>
+                    
+                    {/* Total Hours Display */}
+                    <div className="flex justify-between text-xs items-center bg-blue-50 px-1 py-0.5 rounded">
+                      <span className="text-gray-700 font-medium" title="Crew Hours + Drive Time">Total Hours:</span>
+                      <span className="font-bold text-blue-700">
+                        {totalHours.toFixed(1)}
+                      </span>
+                    </div>
+                    
+                  </div>
+                  <div className="flex justify-between text-xs mt-1 pt-1 border-t">
                     <span className="text-gray-600" title={`Job Scheduled Direct Labor: Labor cost based on actual scheduled hours${isSaturday ? ' at OT rate' : ''}`}>jsDL:</span>
                     <span 
                       className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}
@@ -1165,22 +1255,6 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                       </span>
                       <span className={`font-medium ${isSaturday ? 'text-orange-600' : 'text-red-600'}`}>
                         ${dailyCrewCost.toFixed(0)}/day
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Revenue:</span>
-                      <span className="font-medium text-green-600">
-                        ${dayWeeklyRevenue.toFixed(0)}/wk
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Jobs:</span>
-                      <span className="font-medium">{dayJobs.length}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Crew Hrs:</span>
-                      <span className="font-medium text-purple-600">
-                        {selectedCrew ? (dayHours / selectedCrew.size).toFixed(1) : '0.0'}
                       </span>
                     </div>
                     {isSaturday && (
@@ -1324,6 +1398,8 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             <li>• When you save, scheduled properties are automatically assigned to {selectedCrew?.name || 'the selected crew'}</li>
             <li>• Drag properties between days to reorganize your schedule</li>
             <li>• Hover over property names to see the full name</li>
+            <li>• Enter drive time for each day to track total crew hours (Crew Hrs + Drive Time)</li>
+            <li>• Drive times are saved automatically per crew and per day</li>
             <li>• Click "Save Schedule" to save changes and crew assignments to the database</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
           </ul>

@@ -47,8 +47,8 @@ export default function SchedulePage() {
   const [showCrewEditModal, setShowCrewEditModal] = useState(false);
   const [editingSaving, setEditingSaving] = useState(false);
   
-  // Use the crew schedule hook
-  const { schedule: savedSchedule, loading: scheduleLoading } = useCrewSchedule(selectedCrew?.id);
+  // Use the crew schedule hook with refetch
+  const { schedule: savedSchedule, loading: scheduleLoading, refetchSchedule } = useCrewSchedule(selectedCrew?.id);
 
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;
@@ -195,7 +195,7 @@ export default function SchedulePage() {
     router.push('/login');
   };
 
-  // Save schedule handler - Updated to also assign crew_id
+  // Save schedule handler - Updated to refetch after save
   const handleSaveSchedule = async () => {
     if (!selectedCrew) return;
     
@@ -348,6 +348,11 @@ export default function SchedulePage() {
       if (result.success) {
         setSaveMessage({ type: 'success', text: 'Schedule saved and properties assigned to crew!' });
         setHasChanges(false);
+        
+        // Refetch the schedule to show updated data
+        console.log('Refetching schedule after successful save...');
+        await refetchSchedule();
+        console.log('Schedule refetch complete');
         
         // Clear message after 3 seconds
         setTimeout(() => setSaveMessage(null), 3000);

@@ -888,7 +888,7 @@ export async function updateCrewSchedule(crewId, scheduleData) {
   }
 }
 
-// Hook to fetch crew schedule - Updated to include Saturday
+// Hook to fetch crew schedule - Updated to include Saturday and refetch capability
 export function useCrewSchedule(crewId) {
   const [schedule, setSchedule] = useState({
     Monday: [],
@@ -896,84 +896,89 @@ export function useCrewSchedule(crewId) {
     Wednesday: [],
     Thursday: [],
     Friday: [],
-    Saturday: [],  // Added Saturday
+    Saturday: [],
     unassigned: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const fetchSchedule = useCallback(async () => {
     if (!crewId) {
       setLoading(false);
       return;
     }
 
-    async function fetchSchedule() {
-      try {
-        setLoading(true);
-        
-        // First, get the crew details to know its branch
-        const { data: crewData, error: crewError } = await supabase
-          .from('crews')
-          .select('branch_id')
-          .eq('id', crewId)
-          .single();
-        
-        if (crewError) throw crewError;
-        
-        const branchId = crewData.branch_id;
-        
-        // Fetch all properties for this crew that are scheduled
-        const { data: crewProperties, error: crewPropsError } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('crew_id', crewId)
-          .not('service_day', 'is', null)
-          .order('route_order');
-        
-        if (crewPropsError) throw crewPropsError;
-        
-        // Fetch ALL unassigned properties from the same branch
-        const { data: unassignedProperties, error: unassignedError } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('branch_id', branchId)
-          .is('service_day', null)
-          .order('name');
-        
-        if (unassignedError) throw unassignedError;
-        
-        // Organize by service day - including Saturday
-        const organized = {
-          Monday: [],
-          Tuesday: [],
-          Wednesday: [],
-          Thursday: [],
-          Friday: [],
-          Saturday: [],  // Added Saturday
-          unassigned: unassignedProperties || []
-        };
-        
-        // Add scheduled properties to their respective days
-        crewProperties.forEach(property => {
-          if (property.service_day && organized[property.service_day]) {
-            organized[property.service_day].push(property);
-          }
-        });
-        
-        setSchedule(organized);
-      } catch (err) {
-        console.error('Error fetching crew schedule:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      setLoading(true);
+      
+      // First, get the crew details to know its branch
+      const { data: crewData, error: crewError } = await supabase
+        .from('crews')
+        .select('branch_id')
+        .eq('id', crewId)
+        .single();
+      
+      if (crewError) throw crewError;
+      
+      const branchId = crewData.branch_id;
+      
+      // Fetch all properties for this crew that are scheduled
+      const { data: crewProperties, error: crewPropsError } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('crew_id', crewId)
+        .not('service_day', 'is', null)
+        .order('route_order');
+      
+      if (crewPropsError) throw crewPropsError;
+      
+      // Fetch ALL unassigned properties from the same branch
+      const { data: unassignedProperties, error: unassignedError } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('branch_id', branchId)
+        .is('service_day', null)
+        .order('name');
+      
+      if (unassignedError) throw unassignedError;
+      
+      // Organize by service day - including Saturday
+      const organized = {
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+        Saturday: [],
+        unassigned: unassignedProperties || []
+      };
+      
+      // Add scheduled properties to their respective days
+      crewProperties.forEach(property => {
+        if (property.service_day && organized[property.service_day]) {
+          organized[property.service_day].push(property);
+        }
+      });
+      
+      setSchedule(organized);
+    } catch (err) {
+      console.error('Error fetching crew schedule:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    
-    fetchSchedule();
   }, [crewId]);
+
+  useEffect(() => {
+    fetchSchedule();
+  }, [fetchSchedule]);
   
-  return { schedule, loading, error };
+  // Expose refetch function
+  const refetchSchedule = useCallback(async () => {
+    return await fetchSchedule();
+  }, [fetchSchedule]);
+  
+  return { schedule, loading, error, refetchSchedule };
 }
 
 // UPDATED: Function to save entire weekly schedule with auto-crew assignment - includes Saturday
@@ -1032,7 +1037,7 @@ export async function saveWeeklySchedule(crewId, weekSchedule) {
     }
     
     // Step 3: Now update each day's properties with their schedule - INCLUDING SATURDAY
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; // Added Saturday
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     for (const day of days) {
       const dayPropertyIds = weekSchedule[day] || [];
@@ -1156,7 +1161,7 @@ export async function getScheduleStats(crewId) {
       Wednesday: { count: 0, hours: 0, revenue: 0 },
       Thursday: { count: 0, hours: 0, revenue: 0 },
       Friday: { count: 0, hours: 0, revenue: 0 },
-      Saturday: { count: 0, hours: 0, revenue: 0 },  // Added Saturday
+      Saturday: { count: 0, hours: 0, revenue: 0 },
       unassigned: { count: 0, hours: 0, revenue: 0 }
     };
     

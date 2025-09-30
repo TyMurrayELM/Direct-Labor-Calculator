@@ -20,9 +20,9 @@ export default function SchedulePage() {
   const [session, setSession] = useState(null);
   
   // Fetch data using your existing hooks
-  const { properties = [], loading: propertiesLoading } = useProperties({
-    pageSize: 1000 // Load all properties
-  });
+const { properties = [], loading: propertiesLoading, refetchProperties } = useProperties({
+  pageSize: 1000
+});
   const { crews = [], loading: crewsLoading } = useCrews();
   const { branches = [], loading: branchesLoading } = useBranches();
 
@@ -349,10 +349,13 @@ export default function SchedulePage() {
         setSaveMessage({ type: 'success', text: 'Schedule saved and properties assigned to crew!' });
         setHasChanges(false);
         
-        // Refetch the schedule to show updated data
-        console.log('Refetching schedule after successful save...');
-        await refetchSchedule();
-        console.log('Schedule refetch complete');
+        // CRITICAL FIX: Refetch BOTH schedule and properties
+        console.log('Refetching schedule and properties...');
+        await Promise.all([
+          refetchSchedule(),
+          refetchProperties()
+        ]);
+        console.log('Refetch complete');
         
         // Clear message after 3 seconds
         setTimeout(() => setSaveMessage(null), 3000);

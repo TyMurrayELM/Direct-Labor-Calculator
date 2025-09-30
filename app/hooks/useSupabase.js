@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase-client';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Hook to fetch properties with comprehensive filtering
 export function useProperties({ 
@@ -1213,6 +1214,9 @@ export async function exportScheduleToCSV(crewId, crewName) {
  */
 export async function getCrewDayData(crewId) {
   try {
+    // Use authenticated client
+    const supabase = createClientComponentClient();
+    
     const { data, error } = await supabase
       .from('crew_day_data')
       .select('*')
@@ -1254,6 +1258,9 @@ export async function getCrewDayData(crewId) {
  */
 export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
   try {
+    // Use authenticated client - CRITICAL FIX
+    const supabase = createClientComponentClient();
+    
     // Validate inputs
     if (!crewId) {
       throw new Error('Crew ID is required');
@@ -1299,6 +1306,9 @@ export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
  */
 export async function deleteCrewDayDriveTime(crewId, serviceDay) {
   try {
+    // Use authenticated client
+    const supabase = createClientComponentClient();
+    
     const { error } = await supabase
       .from('crew_day_data')
       .delete()
@@ -1317,21 +1327,14 @@ export async function deleteCrewDayDriveTime(crewId, serviceDay) {
 /**
  * React hook to fetch crew day data with auto-refresh
  * @param {number} crewId - The crew ID (integer)
- * @returns {Object} - Hook result with driveTimeByDay, loading, error, and refetch
+ * @returns {Object} - Hook result with crewDayData (array), loading, error, and refetch
  */
 export function useCrewDayData(crewId) {
-  const [driveTimeByDay, setDriveTimeByDay] = useState({
-    Monday: 0,
-    Tuesday: 0,
-    Wednesday: 0,
-    Thursday: 0,
-    Friday: 0,
-    Saturday: 0
-  });
+  const [crewDayData, setCrewDayData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchDriveTimeData = useCallback(async () => {
+  const fetchCrewDayData = useCallback(async () => {
     if (!crewId) {
       setLoading(false);
       return;
@@ -1339,13 +1342,19 @@ export function useCrewDayData(crewId) {
 
     try {
       setLoading(true);
-      const result = await getCrewDayData(crewId);
       
-      if (result.success) {
-        setDriveTimeByDay(result.driveTimeByDay);
-      } else {
-        setError(result.error);
-      }
+      // Use authenticated client
+      const supabase = createClientComponentClient();
+      
+      const { data, error } = await supabase
+        .from('crew_day_data')
+        .select('*')
+        .eq('crew_id', crewId);
+      
+      if (error) throw error;
+      
+      // Store as array for easier access in components
+      setCrewDayData(data || []);
     } catch (err) {
       console.error('Error in useCrewDayData:', err);
       setError(err.message);
@@ -1355,12 +1364,12 @@ export function useCrewDayData(crewId) {
   }, [crewId]);
 
   useEffect(() => {
-    fetchDriveTimeData();
-  }, [fetchDriveTimeData]);
+    fetchCrewDayData();
+  }, [fetchCrewDayData]);
   
-  const refetchDriveTimeData = useCallback(async () => {
-    return await fetchDriveTimeData();
-  }, [fetchDriveTimeData]);
+  const refetchCrewDayData = useCallback(async () => {
+    return await fetchCrewDayData();
+  }, [fetchCrewDayData]);
   
-  return { driveTimeByDay, loading, error, refetchDriveTimeData };
+  return { crewDayData, loading, error, refetchCrewDayData };
 }

@@ -1199,7 +1199,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                         type="number"
                         value={driveTime}
                         onChange={(e) => handleDriveTimeChange(day, e.target.value)}
-                        step="0.5"
+                        step="0.1"
                         min="0"
                         max="24"
                         className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium"

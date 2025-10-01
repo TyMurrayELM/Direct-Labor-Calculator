@@ -45,6 +45,16 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
   const [saveMessage, setSaveMessage] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   
+  // Local state for drive time inputs to prevent flickering
+  const [localDriveTimes, setLocalDriveTimes] = useState({
+    Monday: 0,
+    Tuesday: 0,
+    Wednesday: 0,
+    Thursday: 0,
+    Friday: 0,
+    Saturday: 0
+  });
+  
   // State for crew quick edit modal
   const [showCrewEditModal, setShowCrewEditModal] = useState(false);
   const [editingSaving, setEditingSaving] = useState(false);
@@ -54,6 +64,38 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
   
   // Use the crew day data hook for drive time
   const { crewDayData, loading: crewDayLoading, refetchCrewDayData } = useCrewDayData(selectedCrew?.id);
+  
+  // Update local drive times when crew day data changes
+  useEffect(() => {
+    if (crewDayData && crewDayData.length > 0) {
+      const newLocalDriveTimes = {
+        Monday: 0,
+        Tuesday: 0,
+        Wednesday: 0,
+        Thursday: 0,
+        Friday: 0,
+        Saturday: 0
+      };
+      
+      crewDayData.forEach(record => {
+        if (record.service_day && newLocalDriveTimes.hasOwnProperty(record.service_day)) {
+          newLocalDriveTimes[record.service_day] = record.drive_time || 0;
+        }
+      });
+      
+      setLocalDriveTimes(newLocalDriveTimes);
+    } else {
+      // Reset if no data
+      setLocalDriveTimes({
+        Monday: 0,
+        Tuesday: 0,
+        Wednesday: 0,
+        Thursday: 0,
+        Friday: 0,
+        Saturday: 0
+      });
+    }
+  }, [crewDayData]);
 
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;
@@ -200,11 +242,19 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
     router.push('/login');
   };
 
-  // Handler for drive time changes
-  const handleDriveTimeChange = async (day, value) => {
+  // Handler for local drive time changes (updates local state only)
+  const handleDriveTimeLocalChange = (day, value) => {
+    setLocalDriveTimes(prev => ({
+      ...prev,
+      [day]: value
+    }));
+  };
+
+  // Handler to save drive time to database (called on blur)
+  const handleDriveTimeBlur = async (day) => {
     if (!selectedCrew) return;
     
-    const driveTime = parseFloat(value) || 0;
+    const driveTime = parseFloat(localDriveTimes[day]) || 0;
     
     try {
       const result = await updateCrewDayDriveTime(selectedCrew.id, day, driveTime);
@@ -222,13 +272,6 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
       setSaveMessage({ type: 'error', text: 'Error saving drive time' });
       setTimeout(() => setSaveMessage(null), 3000);
     }
-  };
-
-  // Helper function to get drive time for a specific day
-  const getDriveTimeForDay = (day) => {
-    if (!crewDayData || crewDayData.length === 0) return 0;
-    const dayData = crewDayData.find(d => d.service_day === day);
-    return dayData?.drive_time || 0;
   };
 
   // Save schedule handler - Updated to refetch after save
@@ -1145,7 +1188,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0, isSaturday);
             
             // Get drive time for this day
-            const driveTime = getDriveTimeForDay(day);
+            const driveTime = localDriveTimes[day];
             // Calculate crew hours (Man hours / crew size)
             const crewHours = selectedCrew ? (dayHours / selectedCrew.size) : 0;
             // Calculate total hours (Crew hours + Drive time)
@@ -1198,7 +1241,8 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                       <input
                         type="number"
                         value={driveTime}
-                        onChange={(e) => handleDriveTimeChange(day, e.target.value)}
+                        onChange={(e) => handleDriveTimeLocalChange(day, e.target.value)}
+                        onBlur={() => handleDriveTimeBlur(day)}
                         step="0.1"
                         min="0"
                         max="24"

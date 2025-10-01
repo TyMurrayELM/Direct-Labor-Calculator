@@ -1187,8 +1187,8 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             const dlPercent = calculateDailyDL(dayJobs, isSaturday);
             const eDLPercent = calculateDailyEffectiveDL(dayJobs, selectedCrew?.size || 0, isSaturday);
             
-            // Get drive time for this day
-            const driveTime = localDriveTimes[day];
+            // Get drive time for this day - ensure it's a number
+            const driveTime = parseFloat(localDriveTimes[day]) || 0;
             // Calculate crew hours (Man hours / crew size)
             const crewHours = selectedCrew ? (dayHours / selectedCrew.size) : 0;
             // Calculate total hours (Crew hours + Drive time)

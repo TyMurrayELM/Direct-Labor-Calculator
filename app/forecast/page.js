@@ -45,6 +45,7 @@ export default function ForecastPage() {
   const [actualHours, setActualHours] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
   );
+  const [isNormalized, setIsNormalized] = useState(true);
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
@@ -163,11 +164,13 @@ export default function ForecastPage() {
     return { revenue: rev, laborBudget, laborHours, ftes };
   };
 
-  const calculateActualDL = (revenue, ftes) => {
+  const calculateActualDL = (revenue, ftes, weeks = 4.33) => {
     const rev = parseRevenue(revenue);
     const actualFteCount = parseFloat(ftes) || 0;
     if (rev === 0) return null;
-    const actualLaborCost = actualFteCount * HOURS_PER_MONTH * hourlyRate;
+    // Real: scale by weeks, Normalized: use base 4.33 weeks
+    const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
+    const actualLaborCost = actualFteCount * hoursMultiplier * hourlyRate;
     return (actualLaborCost / rev) * 100;
   };
 
@@ -405,6 +408,25 @@ export default function ForecastPage() {
               <span className="text-orange-600 font-semibold">{HOURS_PER_MONTH}</span>
             </div>
           </div>
+          
+          {/* Normalized Toggle */}
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${!isNormalized ? 'text-gray-800' : 'text-gray-400'}`}>Real</span>
+            <button
+              onClick={() => setIsNormalized(!isNormalized)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isNormalized ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isNormalized ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${isNormalized ? 'text-gray-800' : 'text-gray-400'}`}>Normalized</span>
+            <span className="text-xs text-gray-500">(4.33 weeks)</span>
+          </div>
         </div>
 
         {/* Main Table */}
@@ -475,11 +497,13 @@ export default function ForecastPage() {
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Scale labor budget by pay weeks: (base budget / 4.33) * actual weeks
-                  const adjustedBudget = (metrics.laborBudget / 4.33) * weeks;
+                  // Real: scale by actual weeks, Normalized: use base budget (4.33 weeks)
+                  const displayBudget = isNormalized 
+                    ? metrics.laborBudget 
+                    : (metrics.laborBudget / 4.33) * weeks;
                   return (
                     <td key={month} className="px-2 py-2 text-center text-blue-700">
-                      {metrics.revenue > 0 ? formatCurrency(adjustedBudget) : '—'}
+                      {metrics.revenue > 0 ? formatCurrency(displayBudget) : '—'}
                     </td>
                   );
                 })}
@@ -487,7 +511,7 @@ export default function ForecastPage() {
                   {formatCurrency(months.reduce((sum, month) => {
                     const metrics = calculateMetrics(monthlyRevenue[month]);
                     const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                    return sum + (metrics.laborBudget / 4.33) * weeks;
+                    return sum + (isNormalized ? metrics.laborBudget : (metrics.laborBudget / 4.33) * weeks);
                   }, 0))}
                 </td>
               </tr>
@@ -516,18 +540,18 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Actual Labor Cost DL % Row (Normalized) */}
+              {/* Actual Labor Cost DL % Row */}
               <tr className="bg-sky-50/50 border-b border-sky-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10" title="Normalized to 4.33 weeks">
-                  Actual DL % (Norm)
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
+                  Actual DL %
                 </td>
                 {months.map(month => {
                   const rev = parseRevenue(monthlyRevenue[month]);
                   const cost = parseRevenue(actualLaborCost[month]);
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Normalize: (cost / weeks) * 4.33 gives us what cost would be in a standard month
-                  const normalizedCost = weeks > 0 ? (cost / weeks) * 4.33 : cost;
-                  const dlPercent = rev > 0 && cost > 0 ? (normalizedCost / rev) * 100 : null;
+                  // Normalized: (cost / weeks) * 4.33, Real: actual cost
+                  const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
+                  const dlPercent = rev > 0 && cost > 0 ? (displayCost / rev) * 100 : null;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center">
                       {dlPercent !== null ? (
@@ -541,15 +565,14 @@ export default function ForecastPage() {
                 <td className="px-2 py-1.5 text-center bg-sky-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
-                    // Normalize each month's cost before summing
-                    const totalNormalizedCost = months.reduce((sum, month) => {
+                    const totalCost = months.reduce((sum, month) => {
                       const cost = parseRevenue(actualLaborCost[month]);
                       const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                      const normalizedCost = weeks > 0 ? (cost / weeks) * 4.33 : cost;
-                      return sum + normalizedCost;
+                      const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
+                      return sum + displayCost;
                     }, 0);
-                    if (totalRev === 0 || totalNormalizedCost === 0) return '—';
-                    const avgDL = (totalNormalizedCost / totalRev) * 100;
+                    if (totalRev === 0 || totalCost === 0) return '—';
+                    const avgDL = (totalCost / totalRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%
@@ -566,11 +589,17 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Real: scale hours by weeks then calc FTEs, Normalized: base FTEs
+                  const displayHours = isNormalized 
+                    ? metrics.laborHours 
+                    : (metrics.laborHours / 4.33) * weeks;
+                  const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   return (
                     <td key={month} className="px-2 py-2 text-center">
                       {metrics.revenue > 0 ? (
                         <span className="inline-block bg-orange-200 text-orange-800 font-bold px-2 py-0.5 rounded-full text-sm">
-                          {metrics.ftes}
+                          {displayFtes}
                         </span>
                       ) : '—'}
                     </td>
@@ -579,7 +608,14 @@ export default function ForecastPage() {
                 <td className="px-2 py-2 text-center bg-orange-100">
                   <div className="text-xs text-gray-500">Avg</div>
                   <span className="inline-block bg-orange-300 text-orange-900 font-bold px-2 py-0.5 rounded-full text-sm">
-                    {avgFtes}
+                    {(() => {
+                      const totalHours = months.reduce((sum, month) => {
+                        const metrics = calculateMetrics(monthlyRevenue[month]);
+                        const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                        return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                      }, 0);
+                      return Math.floor(totalHours / HOURS_PER_MONTH / 12);
+                    })()}
                   </span>
                 </td>
               </tr>
@@ -591,14 +627,23 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Real: scale by weeks, Normalized: base hours
+                  const displayHours = isNormalized 
+                    ? metrics.laborHours 
+                    : (metrics.laborHours / 4.33) * weeks;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-600">
-                      {metrics.revenue > 0 ? formatNumber(metrics.laborHours, 0) : '—'}
+                      {metrics.revenue > 0 ? formatNumber(displayHours, 0) : '—'}
                     </td>
                   );
                 })}
                 <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-orange-100/50">
-                  {formatNumber(totals.laborHours, 0)}
+                  {formatNumber(months.reduce((sum, month) => {
+                    const metrics = calculateMetrics(monthlyRevenue[month]);
+                    const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                    return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                  }, 0), 0)}
                 </td>
               </tr>
 
@@ -644,12 +689,11 @@ export default function ForecastPage() {
               {/* Actual FTEs Row (calculated from Actual Hours) */}
               <tr className="bg-red-50/50 border-b border-red-100">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-red-50/50 z-10">
-                  Actual FTEs (Norm)
+                  Actual FTEs
                 </td>
                 {months.map(month => {
                   const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Normalize hours to 4.33 weeks, then divide by hours per month
                   if (hours <= 0 || weeks <= 0) {
                     return (
                       <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
@@ -657,13 +701,15 @@ export default function ForecastPage() {
                       </td>
                     );
                   }
-                  const rawFtes = (hours / weeks) * 4.33 / HOURS_PER_MONTH;
+                  // Normalized: (hours / weeks) * 4.33, Real: actual hours
+                  const displayHours = isNormalized ? (hours / weeks) * 4.33 : hours;
+                  const rawFtes = displayHours / HOURS_PER_MONTH;
                   const decimal = rawFtes % 1;
                   // Round up if decimal > 0.1, otherwise floor
-                  const normalizedFtes = decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
+                  const displayFtes = decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
-                      {normalizedFtes}
+                      {displayFtes}
                     </td>
                   );
                 })}
@@ -675,7 +721,8 @@ export default function ForecastPage() {
                       const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
                       const weeks = parseFloat(weeksInMonth[month]) || 4.33;
                       if (hours > 0 && weeks > 0) {
-                        const rawFtes = (hours / weeks) * 4.33 / HOURS_PER_MONTH;
+                        const displayHours = isNormalized ? (hours / weeks) * 4.33 : hours;
+                        const rawFtes = displayHours / HOURS_PER_MONTH;
                         const decimal = rawFtes % 1;
                         totalFtes += decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
                         monthsWithData++;
@@ -717,13 +764,14 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Actual DL % Row */}
+              {/* Actual DL % Row (based on HC) */}
               <tr className="bg-teal-50/50">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
                   Actual DL %
                 </td>
                 {months.map(month => {
-                  const actualDL = calculateActualDL(monthlyRevenue[month], actualFtes[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const actualDL = calculateActualDL(monthlyRevenue[month], actualFtes[month], weeks);
                   return (
                     <td key={month} className="px-2 py-1.5 text-center">
                       {actualDL !== null ? (
@@ -743,7 +791,13 @@ export default function ForecastPage() {
                     const monthsWithRev = months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
                     if (avgRev === 0 || avgActualFtes === 0) return '—';
-                    const avgDL = (avgActualFtes * HOURS_PER_MONTH * hourlyRate / avgRev) * 100;
+                    // For total, calculate weighted average of weeks
+                    const avgWeeks = months.reduce((sum, m) => {
+                      const weeks = parseFloat(weeksInMonth[m]) || 4.33;
+                      return sum + weeks;
+                    }, 0) / 12;
+                    const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * avgWeeks;
+                    const avgDL = (avgActualFtes * hoursMultiplier * hourlyRate / avgRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%

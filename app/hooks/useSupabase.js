@@ -1373,3 +1373,213 @@ export function useCrewDayData(crewId) {
   
   return { crewDayData, loading, error, refetchCrewDayData };
 }
+
+// ============================================
+// REVENUE FORECAST OPERATIONS
+// ============================================
+
+/**
+ * Hook to fetch revenue forecasts for a specific branch and year
+ * @param {number} branchId - The branch ID
+ * @param {number} year - The year to fetch forecasts for
+ * @returns {Object} - Hook result with forecasts, loading, error, and refetch
+ */
+export function useRevenueForecasts(branchId, year) {
+  const [forecasts, setForecasts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchForecasts = useCallback(async () => {
+    if (!branchId || !year) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const supabaseClient = createClientComponentClient();
+      
+      const { data, error } = await supabaseClient
+        .from('revenue_forecasts')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('year', year)
+        .order('month');
+      
+      if (error) throw error;
+      
+      setForecasts(data || []);
+    } catch (err) {
+      console.error('Error fetching revenue forecasts:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, year]);
+
+  useEffect(() => {
+    fetchForecasts();
+  }, [fetchForecasts]);
+  
+  const refetchForecasts = useCallback(async () => {
+    return await fetchForecasts();
+  }, [fetchForecasts]);
+  
+  return { forecasts, loading, error, refetchForecasts };
+}
+
+/**
+ * Hook to fetch all revenue forecasts for a year (all branches)
+ * @param {number} year - The year to fetch forecasts for
+ * @returns {Object} - Hook result with forecasts grouped by branch
+ */
+export function useAllBranchForecasts(year) {
+  const [forecasts, setForecasts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchAllForecasts = useCallback(async () => {
+    if (!year) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const supabaseClient = createClientComponentClient();
+      
+      const { data, error } = await supabaseClient
+        .from('revenue_forecasts')
+        .select('*')
+        .eq('year', year);
+      
+      if (error) throw error;
+      
+      // Group forecasts by branch_id
+      const grouped = (data || []).reduce((acc, forecast) => {
+        if (!acc[forecast.branch_id]) {
+          acc[forecast.branch_id] = [];
+        }
+        acc[forecast.branch_id].push(forecast);
+        return acc;
+      }, {});
+      
+      setForecasts(grouped);
+    } catch (err) {
+      console.error('Error fetching all branch forecasts:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => {
+    fetchAllForecasts();
+  }, [fetchAllForecasts]);
+  
+  const refetchForecasts = useCallback(async () => {
+    return await fetchAllForecasts();
+  }, [fetchAllForecasts]);
+  
+  return { forecasts, loading, error, refetchForecasts };
+}
+
+/**
+ * Upsert a revenue forecast (create or update)
+ * @param {number} branchId - The branch ID
+ * @param {number} year - The year
+ * @param {string} month - The month (Jan, Feb, etc.)
+ * @param {number} forecastRevenue - The forecasted revenue amount
+ * @param {number|null} actualFtes - The actual FTEs (optional)
+ * @returns {Object} - Result with success status
+ */
+export async function upsertRevenueForecast(branchId, year, month, forecastRevenue, actualFtes = null) {
+  try {
+    const supabaseClient = createClientComponentClient();
+    
+    const { data, error } = await supabaseClient
+      .from('revenue_forecasts')
+      .upsert({
+        branch_id: branchId,
+        year: year,
+        month: month,
+        forecast_revenue: forecastRevenue,
+        actual_ftes: actualFtes,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'branch_id,year,month'
+      })
+      .select();
+    
+    if (error) throw error;
+    
+    return { success: true, forecast: data[0] };
+  } catch (error) {
+    console.error('Error upserting revenue forecast:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Batch upsert multiple revenue forecasts for a branch
+ * @param {number} branchId - The branch ID
+ * @param {number} year - The year
+ * @param {Object} monthlyData - Object with month keys and { revenue, actualFtes } values
+ * @returns {Object} - Result with success status
+ */
+export async function batchUpsertForecasts(branchId, year, monthlyData) {
+  try {
+    const supabaseClient = createClientComponentClient();
+    
+    // Build array of forecast records
+    const forecasts = Object.entries(monthlyData).map(([month, data]) => ({
+      branch_id: branchId,
+      year: year,
+      month: month,
+      forecast_revenue: data.revenue || 0,
+      actual_ftes: data.actualFtes || null,
+      updated_at: new Date().toISOString()
+    }));
+    
+    const { data, error } = await supabaseClient
+      .from('revenue_forecasts')
+      .upsert(forecasts, {
+        onConflict: 'branch_id,year,month'
+      })
+      .select();
+    
+    if (error) throw error;
+    
+    return { success: true, forecasts: data };
+  } catch (error) {
+    console.error('Error batch upserting forecasts:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete all forecasts for a branch and year
+ * @param {number} branchId - The branch ID
+ * @param {number} year - The year
+ * @returns {Object} - Result with success status
+ */
+export async function deleteForecasts(branchId, year) {
+  try {
+    const supabaseClient = createClientComponentClient();
+    
+    const { error } = await supabaseClient
+      .from('revenue_forecasts')
+      .delete()
+      .eq('branch_id', branchId)
+      .eq('year', year);
+    
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting forecasts:', error);
+    return { success: false, error: error.message };
+  }
+}

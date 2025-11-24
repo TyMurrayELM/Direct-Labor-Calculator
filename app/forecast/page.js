@@ -151,9 +151,47 @@ export default function ForecastPage() {
     return parseFloat(String(value).replace(/,/g, '')) || 0;
   };
 
+  // Check if Encore (company-wide) view is selected
+  const isEncoreView = selectedBranchId === 'encore';
+
   // Get selected branch and its hourly rate
-  const selectedBranch = branches.find(b => b.id === selectedBranchId) || {};
-  const hourlyRate = selectedBranch.hourly_rate || DEFAULT_HOURLY_RATE;
+  const selectedBranch = isEncoreView 
+    ? { name: 'Encore (All Branches)', color: '#374151' }
+    : branches.find(b => b.id === selectedBranchId) || {};
+  const hourlyRate = isEncoreView ? DEFAULT_HOURLY_RATE : (selectedBranch.hourly_rate || DEFAULT_HOURLY_RATE);
+
+  // Calculate Encore (combined) data from all branches
+  const encoreData = isEncoreView ? months.reduce((acc, month) => {
+    let monthRevenue = 0;
+    let monthLaborCost = 0;
+    let monthActualHours = 0;
+    let monthActualFtes = 0;
+    let monthWeeks = 4.33;
+    
+    branches.forEach(branch => {
+      const branchForecasts = allBranchForecasts[branch.id] || [];
+      const forecast = branchForecasts.find(f => f.month === month);
+      if (forecast) {
+        monthRevenue += parseFloat(forecast.forecast_revenue) || 0;
+        monthLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
+        monthActualHours += parseFloat(forecast.actual_hours) || 0;
+        monthActualFtes += parseFloat(forecast.actual_ftes) || 0;
+        // Use weeks from first branch that has it (they should all be the same)
+        if (forecast.weeks_in_month) {
+          monthWeeks = parseFloat(forecast.weeks_in_month);
+        }
+      }
+    });
+    
+    acc[month] = {
+      revenue: monthRevenue,
+      laborCost: monthLaborCost,
+      actualHours: monthActualHours,
+      actualFtes: monthActualFtes,
+      weeks: monthWeeks
+    };
+    return acc;
+  }, {}) : null;
 
   const calculateMetrics = (revenue) => {
     const rev = parseRevenue(revenue);
@@ -225,8 +263,8 @@ export default function ForecastPage() {
     }
   };
 
-  // Calculate totals for current branch
-  const totals = months.reduce((acc, month) => {
+  // Calculate totals for current branch (or use company totals for Encore)
+  const branchTotals = months.reduce((acc, month) => {
     const metrics = calculateMetrics(monthlyRevenue[month]);
     return {
       revenue: acc.revenue + metrics.revenue,
@@ -234,8 +272,6 @@ export default function ForecastPage() {
       laborHours: acc.laborHours + metrics.laborHours
     };
   }, { revenue: 0, laborBudget: 0, laborHours: 0 });
-
-  const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
 
   // Calculate company-wide totals from all branches
   const companyTotals = branches.reduce((acc, branch) => {
@@ -250,6 +286,11 @@ export default function ForecastPage() {
       laborHours: acc.laborHours + branchLaborHours
     };
   }, { revenue: 0, laborBudget: 0, laborHours: 0 });
+
+  // Use company totals when in Encore mode, otherwise use branch totals
+  const totals = isEncoreView ? companyTotals : branchTotals;
+
+  const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
 
   // Year options
   const currentYear = new Date().getFullYear();
@@ -322,6 +363,16 @@ export default function ForecastPage() {
                     {branch.name}
                   </button>
                 ))}
+                <button
+                  onClick={() => setSelectedBranchId('encore')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    selectedBranchId === 'encore'
+                      ? 'bg-gray-800 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Encore
+                </button>
               </div>
             </div>
             
@@ -340,9 +391,9 @@ export default function ForecastPage() {
             
             <button
               onClick={handleSave}
-              disabled={isSaving || !selectedBranchId}
+              disabled={isSaving || !selectedBranchId || selectedBranchId === 'encore'}
               className={`ml-auto px-6 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center space-x-2 ${
-                isSaving 
+                isSaving || selectedBranchId === 'encore'
                   ? 'bg-gray-400 text-white cursor-not-allowed' 
                   : 'bg-green-600 text-white hover:bg-green-700'
               }`}
@@ -451,20 +502,29 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    <div className="relative">
-                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                      <input
-                        type="text"
-                        value={monthlyRevenue[month]}
-                        onChange={(e) => handleRevenueChange(month, e.target.value)}
-                        placeholder="0"
-                        className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
-                      />
-                    </div>
+                    {isEncoreView ? (
+                      <div className="text-center text-green-700 font-medium">
+                        {formatCurrency(encoreData[month]?.revenue || 0)}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                        <input
+                          type="text"
+                          value={monthlyRevenue[month]}
+                          onChange={(e) => handleRevenueChange(month, e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                        />
+                      </div>
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-green-700 bg-green-100">
-                  {formatCurrency(totals.revenue)}
+                  {isEncoreView 
+                    ? formatCurrency(months.reduce((sum, m) => sum + (encoreData[m]?.revenue || 0), 0))
+                    : formatCurrency(totals.revenue)
+                  }
                 </td>
               </tr>
 
@@ -514,20 +574,29 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    <div className="relative">
-                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                      <input
-                        type="text"
-                        value={actualLaborCost[month]}
-                        onChange={(e) => handleActualLaborCostChange(month, e.target.value)}
-                        placeholder="0"
-                        className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none bg-white"
-                      />
-                    </div>
+                    {isEncoreView ? (
+                      <div className="text-center text-sky-700 font-medium">
+                        {formatCurrency(encoreData[month]?.laborCost || 0)}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                        <input
+                          type="text"
+                          value={actualLaborCost[month]}
+                          onChange={(e) => handleActualLaborCostChange(month, e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none bg-white"
+                        />
+                      </div>
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
-                  {formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))}
+                  {isEncoreView
+                    ? formatCurrency(months.reduce((sum, m) => sum + (encoreData[m]?.laborCost || 0), 0))
+                    : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))
+                  }
                 </td>
               </tr>
 
@@ -910,7 +979,8 @@ export default function ForecastPage() {
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Annual Revenue</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Labor Budget</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">YTD Actual DL %</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">Avg FTEs</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-600">Actual HC</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-600">Target FTEs</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">% of Company</th>
                 </tr>
               </thead>
@@ -930,8 +1000,27 @@ export default function ForecastPage() {
                   const now = new Date();
                   const lastCompletedMonthIndex = now.getMonth() - 1;
                   let ytdActualDL = null;
+                  let lastMonthActualHC = null;
+                  let lastMonthTargetFTEs = null;
+                  
                   if (lastCompletedMonthIndex >= 0) {
                     const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
+                    const lastMonth = months[lastCompletedMonthIndex];
+                    const lastMonthForecast = branchForecasts.find(f => f.month === lastMonth);
+                    
+                    // Get Actual HC from last complete month
+                    if (lastMonthForecast) {
+                      lastMonthActualHC = parseFloat(lastMonthForecast.actual_ftes) || null;
+                      
+                      // Calculate Target FTEs for last month (FTEs Required)
+                      const lastMonthRevenue = parseFloat(lastMonthForecast.forecast_revenue) || 0;
+                      if (lastMonthRevenue > 0) {
+                        const laborBudget = lastMonthRevenue * (1 - GROSS_MARGIN_TARGET);
+                        const laborHours = laborBudget / branchHourlyRate;
+                        lastMonthTargetFTEs = Math.floor(laborHours / HOURS_PER_MONTH);
+                      }
+                    }
+                    
                     const ytdRevenue = ytdMonths.reduce((sum, month) => {
                       const forecast = branchForecasts.find(f => f.month === month);
                       return sum + (forecast ? parseFloat(forecast.forecast_revenue) || 0 : 0);
@@ -969,7 +1058,8 @@ export default function ForecastPage() {
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="py-2 px-3 text-right">{branchAvgFtes}</td>
+                      <td className="py-2 px-3 text-right">{lastMonthActualHC !== null ? lastMonthActualHC : '—'}</td>
+                      <td className="py-2 px-3 text-right">{lastMonthTargetFTEs !== null ? lastMonthTargetFTEs : '—'}</td>
                       <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
@@ -1022,7 +1112,50 @@ export default function ForecastPage() {
                     })()}
                   </td>
                   <td className="py-2 px-3 text-right">
-                    {Math.floor(companyTotals.laborHours / HOURS_PER_MONTH / 12)}
+                    {(() => {
+                      const now = new Date();
+                      const lastCompletedMonthIndex = now.getMonth() - 1;
+                      if (lastCompletedMonthIndex < 0) return '—';
+                      
+                      const lastMonth = months[lastCompletedMonthIndex];
+                      let totalActualHC = 0;
+                      
+                      branches.forEach(branch => {
+                        const branchForecasts = allBranchForecasts[branch.id] || [];
+                        const forecast = branchForecasts.find(f => f.month === lastMonth);
+                        if (forecast) {
+                          totalActualHC += parseFloat(forecast.actual_ftes) || 0;
+                        }
+                      });
+                      
+                      return totalActualHC > 0 ? totalActualHC : '—';
+                    })()}
+                  </td>
+                  <td className="py-2 px-3 text-right">
+                    {(() => {
+                      const now = new Date();
+                      const lastCompletedMonthIndex = now.getMonth() - 1;
+                      if (lastCompletedMonthIndex < 0) return '—';
+                      
+                      const lastMonth = months[lastCompletedMonthIndex];
+                      let totalTargetFTEs = 0;
+                      
+                      branches.forEach(branch => {
+                        const branchForecasts = allBranchForecasts[branch.id] || [];
+                        const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
+                        const forecast = branchForecasts.find(f => f.month === lastMonth);
+                        if (forecast) {
+                          const revenue = parseFloat(forecast.forecast_revenue) || 0;
+                          if (revenue > 0) {
+                            const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                            const laborHours = laborBudget / branchHourlyRate;
+                            totalTargetFTEs += Math.floor(laborHours / HOURS_PER_MONTH);
+                          }
+                        }
+                      });
+                      
+                      return totalTargetFTEs > 0 ? totalTargetFTEs : '—';
+                    })()}
                   </td>
                   <td className="py-2 px-3 text-right">100%</td>
                 </tr>

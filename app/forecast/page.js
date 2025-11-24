@@ -590,10 +590,10 @@ export default function ForecastPage() {
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Real: scale hours by weeks then calc FTEs, Normalized: base FTEs
+                  // Normalized: scale hours UP by weeks (more weeks = more hours needed), Real: base hours
                   const displayHours = isNormalized 
-                    ? metrics.laborHours 
-                    : (metrics.laborHours / 4.33) * weeks;
+                    ? (metrics.laborHours / 4.33) * weeks 
+                    : metrics.laborHours;
                   const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   return (
                     <td key={month} className="px-2 py-2 text-center">
@@ -612,7 +612,7 @@ export default function ForecastPage() {
                       const totalHours = months.reduce((sum, month) => {
                         const metrics = calculateMetrics(monthlyRevenue[month]);
                         const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                        return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                        return sum + (isNormalized ? (metrics.laborHours / 4.33) * weeks : metrics.laborHours);
                       }, 0);
                       return Math.floor(totalHours / HOURS_PER_MONTH / 12);
                     })()}
@@ -628,10 +628,10 @@ export default function ForecastPage() {
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Real: scale by weeks, Normalized: base hours
+                  // Normalized: scale hours UP by weeks, Real: base hours
                   const displayHours = isNormalized 
-                    ? metrics.laborHours 
-                    : (metrics.laborHours / 4.33) * weeks;
+                    ? (metrics.laborHours / 4.33) * weeks 
+                    : metrics.laborHours;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-600">
                       {metrics.revenue > 0 ? formatNumber(displayHours, 0) : '—'}
@@ -642,7 +642,7 @@ export default function ForecastPage() {
                   {formatNumber(months.reduce((sum, month) => {
                     const metrics = calculateMetrics(monthlyRevenue[month]);
                     const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                    return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                    return sum + (isNormalized ? (metrics.laborHours / 4.33) * weeks : metrics.laborHours);
                   }, 0), 0)}
                 </td>
               </tr>

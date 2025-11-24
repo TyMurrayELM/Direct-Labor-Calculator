@@ -452,6 +452,40 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
+              {/* Actual Labor Cost DL % Row */}
+              <tr className="bg-sky-50/50 border-b border-sky-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
+                  Actual DL %
+                </td>
+                {months.map(month => {
+                  const rev = parseRevenue(monthlyRevenue[month]);
+                  const cost = parseRevenue(actualLaborCost[month]);
+                  const dlPercent = rev > 0 && cost > 0 ? (cost / rev) * 100 : null;
+                  return (
+                    <td key={month} className="px-2 py-1.5 text-center">
+                      {dlPercent !== null ? (
+                        <span className={`text-xs font-medium ${dlPercent > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatNumber(dlPercent, 1)}%
+                        </span>
+                      ) : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center bg-sky-100/50">
+                  {(() => {
+                    const totalRev = totals.revenue;
+                    const totalCost = months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
+                    if (totalRev === 0 || totalCost === 0) return '—';
+                    const avgDL = (totalCost / totalRev) * 100;
+                    return (
+                      <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatNumber(avgDL, 1)}%
+                      </span>
+                    );
+                  })()}
+                </td>
+              </tr>
+
               {/* Labor Hours Row */}
               <tr className="bg-purple-50 border-b border-purple-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">

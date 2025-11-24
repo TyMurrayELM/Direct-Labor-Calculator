@@ -39,6 +39,9 @@ export default function ForecastPage() {
   const [actualLaborCost, setActualLaborCost] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
   );
+  const [weeksInMonth, setWeeksInMonth] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '4.33' }), {})
+  );
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
@@ -71,6 +74,7 @@ export default function ForecastPage() {
       const revenueData = {};
       const ftesData = {};
       const laborCostData = {};
+      const weeksData = {};
       
       months.forEach(month => {
         const forecast = forecasts.find(f => f.month === month);
@@ -81,21 +85,26 @@ export default function ForecastPage() {
             String(forecast.actual_ftes) : '';
           laborCostData[month] = forecast.actual_labor_cost ? 
             Number(forecast.actual_labor_cost).toLocaleString('en-US') : '';
+          weeksData[month] = forecast.weeks_in_month ? 
+            String(forecast.weeks_in_month) : '4.33';
         } else {
           revenueData[month] = '';
           ftesData[month] = '';
           laborCostData[month] = '';
+          weeksData[month] = '4.33';
         }
       });
       
       setMonthlyRevenue(revenueData);
       setActualFtes(ftesData);
       setActualLaborCost(laborCostData);
+      setWeeksInMonth(weeksData);
     } else {
       // Clear form if no forecasts
       setMonthlyRevenue(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setActualFtes(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setActualLaborCost(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
+      setWeeksInMonth(months.reduce((acc, month) => ({ ...acc, [month]: '4.33' }), {}));
     }
   }, [forecasts]);
 
@@ -115,6 +124,11 @@ export default function ForecastPage() {
     const numericValue = value.replace(/[^0-9.]/g, '');
     const formatted = numericValue ? Number(numericValue).toLocaleString('en-US') : '';
     setActualLaborCost(prev => ({ ...prev, [month]: formatted }));
+  };
+
+  const handleWeeksInMonthChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    setWeeksInMonth(prev => ({ ...prev, [month]: numericValue }));
   };
 
   const parseRevenue = (value) => {
@@ -167,7 +181,8 @@ export default function ForecastPage() {
         monthlyData[month] = {
           revenue: parseRevenue(monthlyRevenue[month]),
           actualFtes: parseFloat(actualFtes[month]) || null,
-          actualLaborCost: parseRevenue(actualLaborCost[month]) || null
+          actualLaborCost: parseRevenue(actualLaborCost[month]) || null,
+          weeksInMonth: parseFloat(weeksInMonth[month]) || 4.33
         };
       });
       
@@ -410,6 +425,27 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
+              {/* Weeks in Month Row */}
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <td className="px-2 py-1.5 text-xs text-gray-600 sticky left-0 bg-gray-50 z-10">
+                  Pay Weeks
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1">
+                    <input
+                      type="text"
+                      value={weeksInMonth[month]}
+                      onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
+                      placeholder="4.33"
+                      className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
+                    />
+                  </td>
+                ))}
+                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-gray-100">
+                  —
+                </td>
+              </tr>
+
               {/* Labor Budget Row */}
               <tr className="bg-blue-50 border-b border-blue-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
@@ -452,15 +488,18 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Actual Labor Cost DL % Row */}
+              {/* Actual Labor Cost DL % Row (Normalized) */}
               <tr className="bg-sky-50/50 border-b border-sky-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
-                  Actual DL %
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10" title="Normalized to 4.33 weeks">
+                  Actual DL % (Norm)
                 </td>
                 {months.map(month => {
                   const rev = parseRevenue(monthlyRevenue[month]);
                   const cost = parseRevenue(actualLaborCost[month]);
-                  const dlPercent = rev > 0 && cost > 0 ? (cost / rev) * 100 : null;
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Normalize: (cost / weeks) * 4.33 gives us what cost would be in a standard month
+                  const normalizedCost = weeks > 0 ? (cost / weeks) * 4.33 : cost;
+                  const dlPercent = rev > 0 && cost > 0 ? (normalizedCost / rev) * 100 : null;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center">
                       {dlPercent !== null ? (
@@ -474,9 +513,15 @@ export default function ForecastPage() {
                 <td className="px-2 py-1.5 text-center bg-sky-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
-                    const totalCost = months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
-                    if (totalRev === 0 || totalCost === 0) return '—';
-                    const avgDL = (totalCost / totalRev) * 100;
+                    // Normalize each month's cost before summing
+                    const totalNormalizedCost = months.reduce((sum, month) => {
+                      const cost = parseRevenue(actualLaborCost[month]);
+                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      const normalizedCost = weeks > 0 ? (cost / weeks) * 4.33 : cost;
+                      return sum + normalizedCost;
+                    }, 0);
+                    if (totalRev === 0 || totalNormalizedCost === 0) return '—';
+                    const avgDL = (totalNormalizedCost / totalRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%

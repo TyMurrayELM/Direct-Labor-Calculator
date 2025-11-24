@@ -492,6 +492,32 @@ export default function ForecastPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
+              {/* Pay Weeks Row - above header */}
+              <tr className="bg-gray-100 text-sm">
+                <th className="px-2 py-1.5 text-left text-xs text-gray-600 font-normal sticky left-0 bg-gray-100 z-10">
+                  Pay Weeks
+                </th>
+                {months.map(month => (
+                  <th key={month} className="px-1 py-1 font-normal">
+                    {isEncoreView ? (
+                      <div className="text-center text-xs text-gray-600">
+                        {encoreData[month]?.weeks || 4.33}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={weeksInMonth[month]}
+                        onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
+                        placeholder="4.33"
+                        className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
+                      />
+                    )}
+                  </th>
+                ))}
+                <th className="px-2 py-1.5 text-center text-xs text-gray-500 bg-gray-200 font-normal">
+                  —
+                </th>
+              </tr>
               <tr className="bg-gray-800 text-white text-sm">
                 <th className="px-3 py-2 text-left font-semibold sticky left-0 bg-gray-800 z-10">Metric</th>
                 {months.map(month => (
@@ -533,33 +559,6 @@ export default function ForecastPage() {
                     ? formatCurrency(months.reduce((sum, m) => sum + (encoreData[m]?.revenue || 0), 0))
                     : formatCurrency(totals.revenue)
                   }
-                </td>
-              </tr>
-
-              {/* Weeks in Month Row */}
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <td className="px-2 py-1.5 text-xs text-gray-600 sticky left-0 bg-gray-50 z-10">
-                  Pay Weeks
-                </td>
-                {months.map(month => (
-                  <td key={month} className="px-1 py-1">
-                    {isEncoreView ? (
-                      <div className="text-center text-xs text-gray-600">
-                        {encoreData[month]?.weeks || 4.33}
-                      </div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={weeksInMonth[month]}
-                        onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
-                        placeholder="4.33"
-                        className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
-                      />
-                    )}
-                  </td>
-                ))}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-gray-100">
-                  —
                 </td>
               </tr>
 

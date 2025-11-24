@@ -5,6 +5,7 @@ import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyO
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useSearchParams, useRouter } from 'next/navigation';
 // No need to import PropertyForm as we're navigating to properties page
 
 // Custom Branch Dropdown Component (inline for easy copy/paste)
@@ -131,6 +132,10 @@ const DirectLaborCalculator = () => {
   // Auth related state
   const session = useSession();
   const supabase = useSupabaseClient();
+  
+  // URL params for persistent filters
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -148,8 +153,11 @@ const DirectLaborCalculator = () => {
   const [targetDirectLaborPercent, setTargetDirectLaborPercent] = useState(0.40);
   const [targetDirectLaborInput, setTargetDirectLaborInput] = useState("40");
   
-  // State for pagination and filters
-  const [selectedBranchId, setSelectedBranchId] = useState(null);
+  // State for pagination and filters - read branchId from URL
+  const [selectedBranchId, setSelectedBranchId] = useState(() => {
+    const branchParam = searchParams.get('branch');
+    return branchParam ? parseInt(branchParam) : null;
+  });
   const [selectedCrewId, setSelectedCrewId] = useState(null);
   const [selectedCrewType, setSelectedCrewType] = useState('');
   const [page, setPage] = useState(1);
@@ -171,6 +179,17 @@ const DirectLaborCalculator = () => {
   
   // State for messages
   const [message, setMessage] = useState({ text: '', type: '' });
+  
+  // Update URL when branch filter changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedBranchId) {
+      params.set('branch', selectedBranchId.toString());
+    } else {
+      params.delete('branch');
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [selectedBranchId, router, searchParams]);
   
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();

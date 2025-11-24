@@ -764,15 +764,15 @@ const DirectLaborCalculator = () => {
         ) : (
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
+              <thead className="bg-blue-900 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">Property</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">Monthly Invoice</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">Current Wk Hours<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">Current DL%</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">Target Wk Hrs<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">New Wk Hours<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">New DL%</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Property</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Monthly Invoice</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current DL%</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New DL%</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">

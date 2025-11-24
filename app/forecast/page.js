@@ -534,7 +534,7 @@ export default function ForecastPage() {
               {/* Actual Labor Cost DL % Row */}
               <tr className="bg-sky-50/50 border-b border-sky-100">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
-                  Actual DL %
+                  Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
                   const rev = parseRevenue(monthlyRevenue[month]);
@@ -576,7 +576,7 @@ export default function ForecastPage() {
               {/* FTEs Row */}
               <tr className="bg-orange-50 border-b border-orange-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
-                  FTEs Required
+                  FTEs Required{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
@@ -614,7 +614,7 @@ export default function ForecastPage() {
               {/* Labor Hours Est Row */}
               <tr className="bg-orange-50/50 border-b border-orange-100">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
-                  Labor Hours Est
+                  Labor Hours Est{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
@@ -680,7 +680,7 @@ export default function ForecastPage() {
               {/* Actual FTEs Row (calculated from Actual Hours) */}
               <tr className="bg-red-50/50 border-b border-red-100">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-red-50/50 z-10">
-                  Actual FTEs
+                  Actual FTEs{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
                   const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
@@ -758,7 +758,7 @@ export default function ForecastPage() {
               {/* Actual DL % Row (based on HC) */}
               <tr className="bg-teal-50/50">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
-                  Actual DL %
+                  Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;

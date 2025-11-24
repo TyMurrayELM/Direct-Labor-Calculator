@@ -446,21 +446,28 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Labor Budget Row */}
+              {/* Labor Target Row */}
               <tr className="bg-blue-50 border-b border-blue-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
-                  Labor Budget (40%)
+                  Labor Target (40%)
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Scale labor budget by pay weeks: (base budget / 4.33) * actual weeks
+                  const adjustedBudget = (metrics.laborBudget / 4.33) * weeks;
                   return (
                     <td key={month} className="px-2 py-2 text-center text-blue-700">
-                      {metrics.revenue > 0 ? formatCurrency(metrics.laborBudget) : '—'}
+                      {metrics.revenue > 0 ? formatCurrency(adjustedBudget) : '—'}
                     </td>
                   );
                 })}
                 <td className="px-2 py-2 text-center font-semibold text-blue-700 bg-blue-100">
-                  {formatCurrency(totals.laborBudget)}
+                  {formatCurrency(months.reduce((sum, month) => {
+                    const metrics = calculateMetrics(monthlyRevenue[month]);
+                    const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                    return sum + (metrics.laborBudget / 4.33) * weeks;
+                  }, 0))}
                 </td>
               </tr>
 

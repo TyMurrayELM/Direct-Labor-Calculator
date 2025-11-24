@@ -221,7 +221,7 @@ export default function ForecastPage() {
         <div className="bg-gradient-to-r from-white to-gray-100 p-4 border-b border-gray-200"
           style={{ borderTop: `4px solid ${selectedBranch.color || '#4F46E5'}` }}>
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-gray-800">Maintenance Revenue Forecast</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Maintenance FTE Forecast Based on Revenue</h1>
             
             <div className="flex space-x-3">
               <Link 

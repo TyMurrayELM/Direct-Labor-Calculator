@@ -771,7 +771,7 @@ const DirectLaborCalculator = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current Wk Hours<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current DL%</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Target Wk Hrs<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New Wk Hours</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New Wk Hours<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New DL%</th>
                 </tr>
               </thead>
@@ -852,6 +852,9 @@ const DirectLaborCalculator = () => {
                               className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                               disabled={isSaving}
                             />
+                            <span className="text-gray-400 text-sm">
+                              ({property.crews?.size ? (newHours / property.crews.size).toFixed(1) : '—'})
+                            </span>
                             {editedHours[property.id] !== undefined && editedHours[property.id] !== property.current_hours && (
                               isSaving ? (
                                 <div className="w-8 h-8 flex items-center justify-center">

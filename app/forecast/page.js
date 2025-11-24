@@ -573,6 +573,41 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
+              {/* Maint Crews Row */}
+              <tr className="bg-sky-50/50 border-b border-sky-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v-4m-6 8h12a2 2 0 002-2V7a2 2 0 00-2-2h-3l-1-2H10L9 5H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Maint Crews (4m){isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
+                </td>
+                {months.map(month => {
+                  const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const displayHours = isNormalized 
+                    ? metrics.laborHours 
+                    : (metrics.laborHours / 4.33) * weeks;
+                  const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
+                  const crews = displayFtes > 0 ? Math.ceil(displayFtes / 4) : null;
+                  return (
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-sky-600">
+                      {crews !== null ? crews : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center text-xs text-sky-600 bg-sky-100/50">
+                  {(() => {
+                    const totalHours = months.reduce((sum, month) => {
+                      const metrics = calculateMetrics(monthlyRevenue[month]);
+                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                    }, 0);
+                    const avgFtes = Math.floor(totalHours / HOURS_PER_MONTH / 12);
+                    return avgFtes > 0 ? Math.ceil(avgFtes / 4) : '—';
+                  })()}
+                </td>
+              </tr>
+
               {/* FTEs Row */}
               <tr className="bg-orange-50 border-b border-orange-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">

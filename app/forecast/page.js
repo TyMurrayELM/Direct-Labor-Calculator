@@ -535,13 +535,19 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1">
-                    <input
-                      type="text"
-                      value={weeksInMonth[month]}
-                      onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
-                      placeholder="4.33"
-                      className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
-                    />
+                    {isEncoreView ? (
+                      <div className="text-center text-xs text-gray-600">
+                        {encoreData[month]?.weeks || 4.33}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={weeksInMonth[month]}
+                        onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
+                        placeholder="4.33"
+                        className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
+                      />
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-gray-100">
@@ -555,10 +561,13 @@ export default function ForecastPage() {
                   Labor Target (40%)
                 </td>
                 {months.map(month => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const revenue = isEncoreView 
+                    ? (encoreData[month]?.revenue || 0)
+                    : parseRevenue(monthlyRevenue[month]);
+                  const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
                   return (
                     <td key={month} className="px-2 py-2 text-center text-blue-700">
-                      {metrics.revenue > 0 ? formatCurrency(metrics.laborBudget) : '—'}
+                      {revenue > 0 ? formatCurrency(laborBudget) : '—'}
                     </td>
                   );
                 })}
@@ -606,9 +615,9 @@ export default function ForecastPage() {
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const rev = parseRevenue(monthlyRevenue[month]);
-                  const cost = parseRevenue(actualLaborCost[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const rev = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const cost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: (cost / weeks) * 4.33, Real: actual cost
                   const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                   const dlPercent = rev > 0 && cost > 0 ? (displayCost / rev) * 100 : null;
@@ -626,8 +635,8 @@ export default function ForecastPage() {
                   {(() => {
                     const totalRev = totals.revenue;
                     const totalCost = months.reduce((sum, month) => {
-                      const cost = parseRevenue(actualLaborCost[month]);
-                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      const cost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                       const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                       return sum + displayCost;
                     }, 0);
@@ -648,16 +657,18 @@ export default function ForecastPage() {
                   FTEs Required{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: base hours (standard 4.33 weeks), Real: scale UP by actual weeks
                   const displayHours = isNormalized 
-                    ? metrics.laborHours 
-                    : (metrics.laborHours / 4.33) * weeks;
+                    ? laborHours 
+                    : (laborHours / 4.33) * weeks;
                   const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   return (
                     <td key={month} className="px-2 py-2 text-center">
-                      {metrics.revenue > 0 ? (
+                      {revenue > 0 ? (
                         <span className="inline-block bg-orange-200 text-orange-800 font-bold px-2 py-0.5 rounded-full text-sm">
                           {displayFtes}
                         </span>
@@ -670,9 +681,11 @@ export default function ForecastPage() {
                   <span className="inline-block bg-orange-300 text-orange-900 font-bold px-2 py-0.5 rounded-full text-sm">
                     {(() => {
                       const totalHours = months.reduce((sum, month) => {
-                        const metrics = calculateMetrics(monthlyRevenue[month]);
-                        const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                        return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                        const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                        const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                        const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                        const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                        return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                       }, 0);
                       return Math.floor(totalHours / HOURS_PER_MONTH / 12);
                     })()}
@@ -686,23 +699,27 @@ export default function ForecastPage() {
                   Labor Hours Est{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: base hours (standard 4.33 weeks), Real: scale UP by actual weeks
                   const displayHours = isNormalized 
-                    ? metrics.laborHours 
-                    : (metrics.laborHours / 4.33) * weeks;
+                    ? laborHours 
+                    : (laborHours / 4.33) * weeks;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-600">
-                      {metrics.revenue > 0 ? formatNumber(displayHours, 0) : '—'}
+                      {revenue > 0 ? formatNumber(displayHours, 0) : '—'}
                     </td>
                   );
                 })}
                 <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-orange-100/50">
                   {formatNumber(months.reduce((sum, month) => {
-                    const metrics = calculateMetrics(monthlyRevenue[month]);
-                    const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                    return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                    const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                    const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                    const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                    const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                    return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                   }, 0), 0)}
                 </td>
               </tr>
@@ -713,10 +730,10 @@ export default function ForecastPage() {
                   Target DL %
                 </td>
                 {months.map(month => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-500">
-                      {metrics.revenue > 0 ? '40.0%' : '—'}
+                      {revenue > 0 ? '40.0%' : '—'}
                     </td>
                   );
                 })}
@@ -732,17 +749,26 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    <input
-                      type="text"
-                      value={actualHours[month]}
-                      onChange={(e) => handleActualHoursChange(month, e.target.value)}
-                      placeholder="0"
-                      className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white"
-                    />
+                    {isEncoreView ? (
+                      <div className="text-center text-red-700 font-medium">
+                        {formatNumber(encoreData[month]?.actualHours || 0, 0)}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={actualHours[month]}
+                        onChange={(e) => handleActualHoursChange(month, e.target.value)}
+                        placeholder="0"
+                        className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white"
+                      />
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-red-700 bg-red-100">
-                  {formatNumber(months.reduce((sum, month) => sum + (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0), 0), 0)}
+                  {isEncoreView
+                    ? formatNumber(months.reduce((sum, m) => sum + (encoreData[m]?.actualHours || 0), 0), 0)
+                    : formatNumber(months.reduce((sum, month) => sum + (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0), 0), 0)
+                  }
                 </td>
               </tr>
 
@@ -752,8 +778,8 @@ export default function ForecastPage() {
                   Actual FTEs{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const hours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (hours <= 0 || weeks <= 0) {
                     return (
                       <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
@@ -778,8 +804,8 @@ export default function ForecastPage() {
                     let totalFtes = 0;
                     let monthsWithData = 0;
                     months.forEach(month => {
-                      const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
-                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      const hours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                       if (hours > 0 && weeks > 0) {
                         const displayHours = isNormalized ? (hours / weeks) * 4.33 : hours;
                         const rawFtes = displayHours / HOURS_PER_MONTH;
@@ -803,23 +829,36 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    <input
-                      type="text"
-                      value={actualFtes[month]}
-                      onChange={(e) => handleActualFtesChange(month, e.target.value)}
-                      placeholder="0"
-                      className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
-                    />
+                    {isEncoreView ? (
+                      <div className="text-center text-teal-700 font-medium">
+                        {encoreData[month]?.actualFtes || '—'}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={actualFtes[month]}
+                        onChange={(e) => handleActualFtesChange(month, e.target.value)}
+                        placeholder="0"
+                        className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                      />
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center bg-teal-100">
                   <div className="text-xs text-gray-500">Avg</div>
                   <span className="font-semibold text-teal-700">
-                    {formatNumber(
-                      months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0) / 
-                      (months.filter(m => parseFloat(actualFtes[m]) > 0).length || 1),
-                      2
-                    )}
+                    {isEncoreView
+                      ? formatNumber(
+                          months.reduce((sum, m) => sum + (encoreData[m]?.actualFtes || 0), 0) / 
+                          (months.filter(m => (encoreData[m]?.actualFtes || 0) > 0).length || 1),
+                          2
+                        )
+                      : formatNumber(
+                          months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0) / 
+                          (months.filter(m => parseFloat(actualFtes[m]) > 0).length || 1),
+                          2
+                        )
+                    }
                   </span>
                 </td>
               </tr>
@@ -830,34 +869,47 @@ export default function ForecastPage() {
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  const actualDL = calculateActualDL(monthlyRevenue[month], actualFtes[month], weeks);
+                  const rev = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const ftes = isEncoreView ? (encoreData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  if (rev === 0 || ftes === 0) {
+                    return (
+                      <td key={month} className="px-2 py-1.5 text-center">—</td>
+                    );
+                  }
+                  const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
+                  const actualLaborCostCalc = ftes * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                  const actualDL = (actualLaborCostCalc / rev) * 100;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center">
-                      {actualDL !== null ? (
-                        <span className={`text-xs font-medium ${actualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatNumber(actualDL, 1)}%
-                        </span>
-                      ) : '—'}
+                      <span className={`text-xs font-medium ${actualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatNumber(actualDL, 1)}%
+                      </span>
                     </td>
                   );
                 })}
                 <td className="px-2 py-1.5 text-center bg-teal-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
-                    const totalActualFtes = months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0);
-                    const monthsWithFtes = months.filter(m => parseFloat(actualFtes[m]) > 0).length;
+                    const totalActualFtes = isEncoreView 
+                      ? months.reduce((sum, m) => sum + (encoreData[m]?.actualFtes || 0), 0)
+                      : months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0);
+                    const monthsWithFtes = isEncoreView
+                      ? months.filter(m => (encoreData[m]?.actualFtes || 0) > 0).length
+                      : months.filter(m => parseFloat(actualFtes[m]) > 0).length;
                     const avgActualFtes = monthsWithFtes > 0 ? totalActualFtes / monthsWithFtes : 0;
-                    const monthsWithRev = months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
+                    const monthsWithRev = isEncoreView
+                      ? months.filter(m => (encoreData[m]?.revenue || 0) > 0).length
+                      : months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
                     if (avgRev === 0 || avgActualFtes === 0) return '—';
                     // For total, calculate weighted average of weeks
                     const avgWeeks = months.reduce((sum, m) => {
-                      const weeks = parseFloat(weeksInMonth[m]) || 4.33;
+                      const weeks = isEncoreView ? (encoreData[m]?.weeks || 4.33) : (parseFloat(weeksInMonth[m]) || 4.33);
                       return sum + weeks;
                     }, 0) / 12;
                     const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * avgWeeks;
-                    const avgDL = (avgActualFtes * hoursMultiplier * hourlyRate / avgRev) * 100;
+                    const avgDL = (avgActualFtes * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate) / avgRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%
@@ -878,11 +930,13 @@ export default function ForecastPage() {
                   </div>
                 </td>
                 {months.map((month, index) => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   const displayHours = isNormalized 
-                    ? metrics.laborHours 
-                    : (metrics.laborHours / 4.33) * weeks;
+                    ? laborHours 
+                    : (laborHours / 4.33) * weeks;
                   const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   const crews = displayFtes > 0 ? Math.ceil(displayFtes / 4) : null;
                   
@@ -890,11 +944,13 @@ export default function ForecastPage() {
                   let priorCrews = null;
                   if (index > 0) {
                     const priorMonth = months[index - 1];
-                    const priorMetrics = calculateMetrics(monthlyRevenue[priorMonth]);
-                    const priorWeeks = parseFloat(weeksInMonth[priorMonth]) || 4.33;
+                    const priorRevenue = isEncoreView ? (encoreData[priorMonth]?.revenue || 0) : parseRevenue(monthlyRevenue[priorMonth]);
+                    const priorLaborBudget = priorRevenue * (1 - GROSS_MARGIN_TARGET);
+                    const priorLaborHours = priorLaborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                    const priorWeeks = isEncoreView ? (encoreData[priorMonth]?.weeks || 4.33) : (parseFloat(weeksInMonth[priorMonth]) || 4.33);
                     const priorDisplayHours = isNormalized 
-                      ? priorMetrics.laborHours 
-                      : (priorMetrics.laborHours / 4.33) * priorWeeks;
+                      ? priorLaborHours 
+                      : (priorLaborHours / 4.33) * priorWeeks;
                     const priorDisplayFtes = Math.floor(priorDisplayHours / HOURS_PER_MONTH);
                     priorCrews = priorDisplayFtes > 0 ? Math.ceil(priorDisplayFtes / 4) : null;
                   }
@@ -910,9 +966,11 @@ export default function ForecastPage() {
                 <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-gray-200">
                   {(() => {
                     const totalHours = months.reduce((sum, month) => {
-                      const metrics = calculateMetrics(monthlyRevenue[month]);
-                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                      return sum + (isNormalized ? metrics.laborHours : (metrics.laborHours / 4.33) * weeks);
+                      const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                      const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+                      const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                      return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                     }, 0);
                     const avgFtes = Math.floor(totalHours / HOURS_PER_MONTH / 12);
                     return avgFtes > 0 ? Math.ceil(avgFtes / 4) : '—';

@@ -110,7 +110,7 @@ export default function ForecastPage() {
     const rev = parseRevenue(revenue);
     const laborBudget = rev * (1 - GROSS_MARGIN_TARGET);
     const laborHours = laborBudget / HOURLY_RATE;
-    const ftes = laborHours / HOURS_PER_MONTH;
+    const ftes = Math.floor(laborHours / HOURS_PER_MONTH);
     
     return { revenue: rev, laborBudget, laborHours, ftes };
   };
@@ -181,7 +181,7 @@ export default function ForecastPage() {
     };
   }, { revenue: 0, laborBudget: 0, laborHours: 0 });
 
-  const avgFtes = totals.laborHours / HOURS_PER_MONTH / 12;
+  const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
 
   // Calculate company-wide totals from all branches
   const companyTotals = branches.reduce((acc, branch) => {
@@ -384,7 +384,7 @@ export default function ForecastPage() {
                         value={monthlyRevenue[month]}
                         onChange={(e) => handleRevenueChange(month, e.target.value)}
                         placeholder="0"
-                        className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-right focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                        className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-right focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
                       />
                     </div>
                   </td>
@@ -441,7 +441,7 @@ export default function ForecastPage() {
                     <td key={month} className="px-4 py-3 text-center">
                       {metrics.revenue > 0 ? (
                         <span className="inline-block bg-orange-200 text-orange-800 font-bold px-3 py-1 rounded-full">
-                          {formatNumber(metrics.ftes, 2)}
+                          {metrics.ftes}
                         </span>
                       ) : '—'}
                     </td>
@@ -450,7 +450,7 @@ export default function ForecastPage() {
                 <td className="px-4 py-3 text-center bg-orange-100">
                   <div className="text-xs text-gray-500 mb-1">Avg/Month</div>
                   <span className="inline-block bg-orange-300 text-orange-900 font-bold px-3 py-1 rounded-full">
-                    {formatNumber(avgFtes, 2)}
+                    {avgFtes}
                   </span>
                 </td>
               </tr>
@@ -485,7 +485,7 @@ export default function ForecastPage() {
                       value={actualFtes[month]}
                       onChange={(e) => handleActualFtesChange(month, e.target.value)}
                       placeholder="0"
-                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
                     />
                   </td>
                 ))}
@@ -561,7 +561,7 @@ export default function ForecastPage() {
               </div>
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-orange-100 text-sm font-medium mb-1">Average FTEs/Month</div>
-                <div className="text-2xl font-bold">{formatNumber(avgFtes, 2)}</div>
+                <div className="text-2xl font-bold">{avgFtes}</div>
                 <div className="text-orange-200 text-xs mt-1">{selectedBranch.name}</div>
               </div>
             </div>
@@ -588,7 +588,7 @@ export default function ForecastPage() {
                   const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
                   const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
                   const branchLaborHours = branchLaborBudget / HOURLY_RATE;
-                  const branchAvgFtes = branchLaborHours / HOURS_PER_MONTH / 12;
+                  const branchAvgFtes = Math.floor(branchLaborHours / HOURS_PER_MONTH / 12);
                   const percentOfCompany = companyTotals.revenue > 0 
                     ? (branchRevenue / companyTotals.revenue) * 100 
                     : 0;
@@ -610,7 +610,7 @@ export default function ForecastPage() {
                       </td>
                       <td className="py-2 px-3 text-right">{formatCurrency(branchRevenue)}</td>
                       <td className="py-2 px-3 text-right">{formatCurrency(branchLaborBudget)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(branchAvgFtes, 2)}</td>
+                      <td className="py-2 px-3 text-right">{branchAvgFtes}</td>
                       <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
@@ -633,7 +633,7 @@ export default function ForecastPage() {
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.revenue)}</td>
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.laborBudget)}</td>
                   <td className="py-2 px-3 text-right">
-                    {formatNumber(companyTotals.laborBudget / HOURLY_RATE / HOURS_PER_MONTH / 12, 2)}
+                    {Math.floor(companyTotals.laborBudget / HOURLY_RATE / HOURS_PER_MONTH / 12)}
                   </td>
                   <td className="py-2 px-3 text-right">100%</td>
                 </tr>

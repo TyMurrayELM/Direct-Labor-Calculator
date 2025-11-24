@@ -226,7 +226,7 @@ export default function ForecastPage() {
             <div className="flex space-x-3">
               <Link 
                 href="/" 
-                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
+                className="px-2 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -236,7 +236,7 @@ export default function ForecastPage() {
               
               <Link 
                 href="/schedule" 
-                className="px-4 py-2 bg-white text-indigo-700 border-2 border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-2 py-1.5 bg-white text-indigo-700 border-2 border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
@@ -359,97 +359,97 @@ export default function ForecastPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-800 text-white">
-                <th className="px-4 py-3 text-left font-semibold sticky left-0 bg-gray-800 z-10">Metric</th>
+              <tr className="bg-gray-800 text-white text-sm">
+                <th className="px-3 py-2 text-left font-semibold sticky left-0 bg-gray-800 z-10">Metric</th>
                 {months.map(month => (
-                  <th key={month} className="px-4 py-3 text-center font-semibold min-w-28">
+                  <th key={month} className="px-2 py-2 text-center font-semibold min-w-20">
                     {month}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-center font-semibold bg-gray-700 min-w-32">Annual Total</th>
+                <th className="px-3 py-2 text-center font-semibold bg-gray-700 min-w-24">Total</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="text-sm">
               {/* Revenue Input Row */}
               <tr className="bg-green-50 border-b border-green-200">
-                <td className="px-4 py-3 font-medium text-gray-700 sticky left-0 bg-green-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-green-50 z-10">
                   Monthly Revenue
                 </td>
                 {months.map(month => (
-                  <td key={month} className="px-2 py-2">
+                  <td key={month} className="px-1 py-1.5">
                     <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
                       <input
                         type="text"
                         value={monthlyRevenue[month]}
                         onChange={(e) => handleRevenueChange(month, e.target.value)}
                         placeholder="0"
-                        className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-right focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                        className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
                       />
                     </div>
                   </td>
                 ))}
-                <td className="px-4 py-3 text-center font-semibold text-green-700 bg-green-100">
+                <td className="px-2 py-2 text-center font-semibold text-green-700 bg-green-100">
                   {formatCurrency(totals.revenue)}
                 </td>
               </tr>
 
               {/* Labor Budget Row */}
               <tr className="bg-blue-50 border-b border-blue-200">
-                <td className="px-4 py-3 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
                   Labor Budget (40%)
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-4 py-3 text-center text-blue-700">
+                    <td key={month} className="px-2 py-2 text-center text-blue-700">
                       {metrics.revenue > 0 ? formatCurrency(metrics.laborBudget) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-3 text-center font-semibold text-blue-700 bg-blue-100">
+                <td className="px-2 py-2 text-center font-semibold text-blue-700 bg-blue-100">
                   {formatCurrency(totals.laborBudget)}
                 </td>
               </tr>
 
               {/* Labor Hours Row */}
               <tr className="bg-purple-50 border-b border-purple-200">
-                <td className="px-4 py-3 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">
                   Labor Hours
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-4 py-3 text-center text-purple-700">
+                    <td key={month} className="px-2 py-2 text-center text-purple-700">
                       {metrics.revenue > 0 ? formatNumber(metrics.laborHours, 0) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-3 text-center font-semibold text-purple-700 bg-purple-100">
+                <td className="px-2 py-2 text-center font-semibold text-purple-700 bg-purple-100">
                   {formatNumber(totals.laborHours, 0)}
                 </td>
               </tr>
 
               {/* FTEs Row */}
               <tr className="bg-orange-50 border-b border-orange-200">
-                <td className="px-4 py-3 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
                   FTEs Required
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-4 py-3 text-center">
+                    <td key={month} className="px-2 py-2 text-center">
                       {metrics.revenue > 0 ? (
-                        <span className="inline-block bg-orange-200 text-orange-800 font-bold px-3 py-1 rounded-full">
+                        <span className="inline-block bg-orange-200 text-orange-800 font-bold px-2 py-0.5 rounded-full text-sm">
                           {metrics.ftes}
                         </span>
                       ) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-3 text-center bg-orange-100">
-                  <div className="text-xs text-gray-500 mb-1">Avg/Month</div>
-                  <span className="inline-block bg-orange-300 text-orange-900 font-bold px-3 py-1 rounded-full">
+                <td className="px-2 py-2 text-center bg-orange-100">
+                  <div className="text-xs text-gray-500">Avg</div>
+                  <span className="inline-block bg-orange-300 text-orange-900 font-bold px-2 py-0.5 rounded-full text-sm">
                     {avgFtes}
                   </span>
                 </td>
@@ -457,40 +457,40 @@ export default function ForecastPage() {
 
               {/* Target DL % Row */}
               <tr className="bg-orange-50/50 border-b border-orange-100">
-                <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
                   Target DL %
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-4 py-2 text-center text-xs text-gray-500">
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-500">
                       {metrics.revenue > 0 ? '40.0%' : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-2 text-center text-xs text-gray-500 bg-orange-100/50">
+                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-orange-100/50">
                   40.0%
                 </td>
               </tr>
 
               {/* Actual FTEs Input Row */}
               <tr className="bg-teal-50 border-b border-teal-200">
-                <td className="px-4 py-3 font-medium text-gray-700 sticky left-0 bg-teal-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-teal-50 z-10">
                   Actual FTEs
                 </td>
                 {months.map(month => (
-                  <td key={month} className="px-2 py-2">
+                  <td key={month} className="px-1 py-1.5">
                     <input
                       type="text"
                       value={actualFtes[month]}
                       onChange={(e) => handleActualFtesChange(month, e.target.value)}
                       placeholder="0"
-                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                      className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
                     />
                   </td>
                 ))}
-                <td className="px-4 py-3 text-center bg-teal-100">
-                  <div className="text-xs text-gray-500 mb-1">Avg/Month</div>
+                <td className="px-2 py-2 text-center bg-teal-100">
+                  <div className="text-xs text-gray-500">Avg</div>
                   <span className="font-semibold text-teal-700">
                     {formatNumber(
                       months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0) / 
@@ -503,13 +503,13 @@ export default function ForecastPage() {
 
               {/* Actual DL % Row */}
               <tr className="bg-teal-50/50">
-                <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
                   Actual DL %
                 </td>
                 {months.map(month => {
                   const actualDL = calculateActualDL(monthlyRevenue[month], actualFtes[month]);
                   return (
-                    <td key={month} className="px-4 py-2 text-center">
+                    <td key={month} className="px-2 py-1.5 text-center">
                       {actualDL !== null ? (
                         <span className={`text-xs font-medium ${actualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                           {formatNumber(actualDL, 1)}%
@@ -518,7 +518,7 @@ export default function ForecastPage() {
                     </td>
                   );
                 })}
-                <td className="px-4 py-2 text-center bg-teal-100/50">
+                <td className="px-2 py-1.5 text-center bg-teal-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
                     const totalActualFtes = months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0);

@@ -25,7 +25,7 @@ export default function ForecastPage() {
   // State
   const [session, setSession] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(2026);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   
@@ -253,7 +253,7 @@ export default function ForecastPage() {
 
   // Year options
   const currentYear = new Date().getFullYear();
-  const yearOptions = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+  const yearOptions = [2025, 2026, 2027];
 
   // Loading state
   if (branchesLoading) {
@@ -799,8 +799,8 @@ export default function ForecastPage() {
               </tr>
 
               {/* Maint Crews Row */}
-              <tr className="bg-teal-50/50">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
+              <tr className="bg-gray-100 border-b border-gray-200">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-gray-100 z-10">
                   <div className="flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v-4m-6 8h12a2 2 0 002-2V7a2 2 0 00-2-2h-3l-1-2H10L9 5H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -833,12 +833,12 @@ export default function ForecastPage() {
                   const hasJump = crews !== null && priorCrews !== null && crews !== priorCrews;
                   
                   return (
-                    <td key={month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-teal-600'}`}>
+                    <td key={month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-gray-600'}`}>
                       {crews !== null ? crews : '—'}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-teal-600 bg-teal-100/50">
+                <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-gray-200">
                   {(() => {
                     const totalHours = months.reduce((sum, month) => {
                       const metrics = calculateMetrics(monthlyRevenue[month]);
@@ -872,12 +872,23 @@ export default function ForecastPage() {
                 <div className="text-purple-100 text-sm font-medium mb-1">YTD Actual DL %</div>
                 <div className="text-2xl font-bold">
                   {(() => {
-                    const totalActualCost = months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
-                    if (totals.revenue === 0 || totalActualCost === 0) return '—';
-                    return formatNumber((totalActualCost / totals.revenue) * 100, 1) + '%';
+                    // Get the last completed month (prior month)
+                    const now = new Date();
+                    const lastCompletedMonthIndex = now.getMonth() - 1; // 0-indexed, -1 for prior month
+                    
+                    // If we're in January, there's no prior month this year
+                    if (lastCompletedMonthIndex < 0) return '—';
+                    
+                    // Only sum through the last completed month
+                    const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
+                    const totalActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
+                    const totalRevenue = ytdMonths.reduce((sum, month) => sum + parseRevenue(monthlyRevenue[month]), 0);
+                    
+                    if (totalRevenue === 0 || totalActualCost === 0) return '—';
+                    return formatNumber((totalActualCost / totalRevenue) * 100, 1) + '%';
                   })()}
                 </div>
-                <div className="text-purple-200 text-xs mt-1">{selectedBranch.name}</div>
+                <div className="text-purple-200 text-xs mt-1">{selectedBranch.name} (thru {months[Math.max(0, new Date().getMonth() - 1)]})</div>
               </div>
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-orange-100 text-sm font-medium mb-1">Average FTEs/Month</div>
@@ -898,6 +909,7 @@ export default function ForecastPage() {
                   <th className="text-left py-2 px-3 font-medium text-gray-600">Branch</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Annual Revenue</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Labor Budget</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-600">YTD Actual DL %</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Avg FTEs</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">% of Company</th>
                 </tr>
@@ -913,6 +925,25 @@ export default function ForecastPage() {
                   const percentOfCompany = companyTotals.revenue > 0 
                     ? (branchRevenue / companyTotals.revenue) * 100 
                     : 0;
+                  
+                  // Calculate YTD Actual DL % through prior month
+                  const now = new Date();
+                  const lastCompletedMonthIndex = now.getMonth() - 1;
+                  let ytdActualDL = null;
+                  if (lastCompletedMonthIndex >= 0) {
+                    const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
+                    const ytdRevenue = ytdMonths.reduce((sum, month) => {
+                      const forecast = branchForecasts.find(f => f.month === month);
+                      return sum + (forecast ? parseFloat(forecast.forecast_revenue) || 0 : 0);
+                    }, 0);
+                    const ytdLaborCost = ytdMonths.reduce((sum, month) => {
+                      const forecast = branchForecasts.find(f => f.month === month);
+                      return sum + (forecast ? parseFloat(forecast.actual_labor_cost) || 0 : 0);
+                    }, 0);
+                    if (ytdRevenue > 0 && ytdLaborCost > 0) {
+                      ytdActualDL = (ytdLaborCost / ytdRevenue) * 100;
+                    }
+                  }
                   
                   return (
                     <tr 
@@ -931,6 +962,13 @@ export default function ForecastPage() {
                       </td>
                       <td className="py-2 px-3 text-right">{formatCurrency(branchRevenue)}</td>
                       <td className="py-2 px-3 text-right">{formatCurrency(branchLaborBudget)}</td>
+                      <td className="py-2 px-3 text-right">
+                        {ytdActualDL !== null ? (
+                          <span className={`font-medium ${ytdActualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatNumber(ytdActualDL, 1)}%
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td className="py-2 px-3 text-right">{branchAvgFtes}</td>
                       <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -953,6 +991,36 @@ export default function ForecastPage() {
                   <td className="py-2 px-3">Company Total</td>
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.revenue)}</td>
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.laborBudget)}</td>
+                  <td className="py-2 px-3 text-right">
+                    {(() => {
+                      const now = new Date();
+                      const lastCompletedMonthIndex = now.getMonth() - 1;
+                      if (lastCompletedMonthIndex < 0) return '—';
+                      
+                      const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
+                      let totalYtdRevenue = 0;
+                      let totalYtdLaborCost = 0;
+                      
+                      branches.forEach(branch => {
+                        const branchForecasts = allBranchForecasts[branch.id] || [];
+                        ytdMonths.forEach(month => {
+                          const forecast = branchForecasts.find(f => f.month === month);
+                          if (forecast) {
+                            totalYtdRevenue += parseFloat(forecast.forecast_revenue) || 0;
+                            totalYtdLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
+                          }
+                        });
+                      });
+                      
+                      if (totalYtdRevenue === 0 || totalYtdLaborCost === 0) return '—';
+                      const companyYtdDL = (totalYtdLaborCost / totalYtdRevenue) * 100;
+                      return (
+                        <span className={`${companyYtdDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatNumber(companyYtdDL, 1)}%
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="py-2 px-3 text-right">
                     {Math.floor(companyTotals.laborHours / HOURS_PER_MONTH / 12)}
                   </td>

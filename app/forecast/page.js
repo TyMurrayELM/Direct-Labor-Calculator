@@ -645,25 +645,41 @@ export default function ForecastPage() {
                   const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
                   // Normalize hours to 4.33 weeks, then divide by hours per month
-                  const normalizedFtes = hours > 0 && weeks > 0 
-                    ? Math.floor((hours / weeks) * 4.33 / HOURS_PER_MONTH)
-                    : null;
+                  if (hours <= 0 || weeks <= 0) {
+                    return (
+                      <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
+                        —
+                      </td>
+                    );
+                  }
+                  const rawFtes = (hours / weeks) * 4.33 / HOURS_PER_MONTH;
+                  const decimal = rawFtes % 1;
+                  // Round up if decimal > 0.1, otherwise floor
+                  const normalizedFtes = decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
-                      {normalizedFtes !== null ? normalizedFtes : '—'}
+                      {normalizedFtes}
                     </td>
                   );
                 })}
                 <td className="px-2 py-1.5 text-center text-xs text-red-600 bg-red-100/50">
                   {(() => {
-                    const totalNormalizedFtes = months.reduce((sum, month) => {
+                    let totalFtes = 0;
+                    let monthsWithData = 0;
+                    months.forEach(month => {
                       const hours = parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0;
                       const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                      const normalizedFtes = hours > 0 && weeks > 0 ? (hours / weeks) * 4.33 / HOURS_PER_MONTH : 0;
-                      return sum + normalizedFtes;
-                    }, 0);
-                    const monthsWithData = months.filter(m => parseFloat(String(actualHours[m]).replace(/,/g, '')) > 0).length;
-                    return monthsWithData > 0 ? Math.floor(totalNormalizedFtes / monthsWithData) : '—';
+                      if (hours > 0 && weeks > 0) {
+                        const rawFtes = (hours / weeks) * 4.33 / HOURS_PER_MONTH;
+                        const decimal = rawFtes % 1;
+                        totalFtes += decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
+                        monthsWithData++;
+                      }
+                    });
+                    if (monthsWithData === 0) return '—';
+                    const avgFtes = totalFtes / monthsWithData;
+                    const decimal = avgFtes % 1;
+                    return decimal > 0.1 ? Math.ceil(avgFtes) : Math.floor(avgFtes);
                   })()}
                 </td>
               </tr>

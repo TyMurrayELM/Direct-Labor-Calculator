@@ -770,7 +770,7 @@ const DirectLaborCalculator = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Monthly Invoice</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current Wk Hours</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current DL%</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Target Wk Hrs</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Target Wk Hrs<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New Wk Hours</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New DL%</th>
                 </tr>
@@ -831,7 +831,12 @@ const DirectLaborCalculator = () => {
                             {formatPercent(currentDLPercent)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">{targetHours.toFixed(1)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
+                          {targetHours.toFixed(1)}
+                          <span className="text-gray-400 font-normal ml-1">
+                            ({property.crews?.size ? (targetHours / property.crews.size).toFixed(1) : '—'})
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <input

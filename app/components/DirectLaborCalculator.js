@@ -812,7 +812,7 @@ const DirectLaborCalculator = () => {
                           </Link>
                           <div className="flex flex-col text-xs text-gray-500 mt-1">
                             {property.crews && (
-                              <span>Crew: {property.crews.name} ({property.crews.crew_type})</span>
+                              <span>Crew: {property.crews.name} ({property.crews.crew_type}) - {property.crews.size}m</span>
                             )}
                             {property.property_type && (
                               <span className="mt-0.5">Type: {property.property_type}</span>

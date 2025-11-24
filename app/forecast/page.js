@@ -17,8 +17,8 @@ export default function ForecastPage() {
   
   // Constants matching your existing calculator
   const GROSS_MARGIN_TARGET = 0.60;
-  const HOURLY_RATE = 25.81;
   const HOURS_PER_MONTH = 173.33; // ~40 hrs/week * 4.333 weeks
+  const DEFAULT_HOURLY_RATE = 25.81;
   
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
@@ -150,10 +150,14 @@ export default function ForecastPage() {
     return parseFloat(String(value).replace(/,/g, '')) || 0;
   };
 
+  // Get selected branch and its hourly rate
+  const selectedBranch = branches.find(b => b.id === selectedBranchId) || {};
+  const hourlyRate = selectedBranch.hourly_rate || DEFAULT_HOURLY_RATE;
+
   const calculateMetrics = (revenue) => {
     const rev = parseRevenue(revenue);
     const laborBudget = rev * (1 - GROSS_MARGIN_TARGET);
-    const laborHours = laborBudget / HOURLY_RATE;
+    const laborHours = laborBudget / hourlyRate;
     const ftes = Math.floor(laborHours / HOURS_PER_MONTH);
     
     return { revenue: rev, laborBudget, laborHours, ftes };
@@ -163,7 +167,7 @@ export default function ForecastPage() {
     const rev = parseRevenue(revenue);
     const actualFteCount = parseFloat(ftes) || 0;
     if (rev === 0) return null;
-    const actualLaborCost = actualFteCount * HOURS_PER_MONTH * HOURLY_RATE;
+    const actualLaborCost = actualFteCount * HOURS_PER_MONTH * hourlyRate;
     return (actualLaborCost / rev) * 100;
   };
 
@@ -234,14 +238,15 @@ export default function ForecastPage() {
   const companyTotals = branches.reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+    const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
+    const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
+    const branchLaborHours = branchLaborBudget / branchHourlyRate;
     return {
       revenue: acc.revenue + branchRevenue,
-      laborBudget: acc.laborBudget + (branchRevenue * (1 - GROSS_MARGIN_TARGET))
+      laborBudget: acc.laborBudget + branchLaborBudget,
+      laborHours: acc.laborHours + branchLaborHours
     };
-  }, { revenue: 0, laborBudget: 0 });
-
-  // Get selected branch
-  const selectedBranch = branches.find(b => b.id === selectedBranchId) || {};
+  }, { revenue: 0, laborBudget: 0, laborHours: 0 });
 
   // Year options
   const currentYear = new Date().getFullYear();
@@ -393,7 +398,7 @@ export default function ForecastPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Fully Burdened Rate:</span>
-              <span className="text-purple-600 font-semibold">${HOURLY_RATE}/hr</span>
+              <span className="text-purple-600 font-semibold">${hourlyRate}/hr</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Hours/Month:</span>
@@ -738,7 +743,7 @@ export default function ForecastPage() {
                     const monthsWithRev = months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
                     if (avgRev === 0 || avgActualFtes === 0) return '—';
-                    const avgDL = (avgActualFtes * HOURS_PER_MONTH * HOURLY_RATE / avgRev) * 100;
+                    const avgDL = (avgActualFtes * HOURS_PER_MONTH * hourlyRate / avgRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%
@@ -797,8 +802,9 @@ export default function ForecastPage() {
                 {branches.map(branch => {
                   const branchForecasts = allBranchForecasts[branch.id] || [];
                   const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+                  const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
                   const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
-                  const branchLaborHours = branchLaborBudget / HOURLY_RATE;
+                  const branchLaborHours = branchLaborBudget / branchHourlyRate;
                   const branchAvgFtes = Math.floor(branchLaborHours / HOURS_PER_MONTH / 12);
                   const percentOfCompany = companyTotals.revenue > 0 
                     ? (branchRevenue / companyTotals.revenue) * 100 
@@ -844,7 +850,7 @@ export default function ForecastPage() {
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.revenue)}</td>
                   <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.laborBudget)}</td>
                   <td className="py-2 px-3 text-right">
-                    {Math.floor(companyTotals.laborBudget / HOURLY_RATE / HOURS_PER_MONTH / 12)}
+                    {Math.floor(companyTotals.laborHours / HOURS_PER_MONTH / 12)}
                   </td>
                   <td className="py-2 px-3 text-right">100%</td>
                 </tr>
@@ -858,7 +864,7 @@ export default function ForecastPage() {
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
           <div className="text-sm text-gray-600 space-y-1">
             <div><span className="font-medium">Labor Budget</span> = Revenue × 40%</div>
-            <div><span className="font-medium">Labor Hours</span> = Labor Budget ÷ ${HOURLY_RATE}/hr</div>
+            <div><span className="font-medium">Labor Hours</span> = Labor Budget ÷ ${hourlyRate}/hr (varies by branch)</div>
             <div><span className="font-medium">FTEs</span> = Labor Hours ÷ {HOURS_PER_MONTH} hrs/month</div>
           </div>
         </div>

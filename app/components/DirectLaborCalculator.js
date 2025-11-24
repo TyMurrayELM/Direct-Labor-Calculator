@@ -153,13 +153,18 @@ const DirectLaborCalculator = () => {
   const [targetDirectLaborPercent, setTargetDirectLaborPercent] = useState(0.40);
   const [targetDirectLaborInput, setTargetDirectLaborInput] = useState("40");
   
-  // State for pagination and filters - read branchId from URL
+  // State for pagination and filters - read from URL
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     const branchParam = searchParams.get('branch');
     return branchParam ? parseInt(branchParam) : null;
   });
-  const [selectedCrewId, setSelectedCrewId] = useState(null);
-  const [selectedCrewType, setSelectedCrewType] = useState('');
+  const [selectedCrewId, setSelectedCrewId] = useState(() => {
+    const crewParam = searchParams.get('crew');
+    return crewParam ? parseInt(crewParam) : null;
+  });
+  const [selectedCrewType, setSelectedCrewType] = useState(() => {
+    return searchParams.get('crewType') || '';
+  });
   const [page, setPage] = useState(1);
   const pageSize = 50; // Increased from 10 to 50
   
@@ -180,7 +185,7 @@ const DirectLaborCalculator = () => {
   // State for messages
   const [message, setMessage] = useState({ text: '', type: '' });
   
-  // Update URL when branch filter changes
+  // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
     if (selectedBranchId) {
@@ -188,8 +193,18 @@ const DirectLaborCalculator = () => {
     } else {
       params.delete('branch');
     }
+    if (selectedCrewId) {
+      params.set('crew', selectedCrewId.toString());
+    } else {
+      params.delete('crew');
+    }
+    if (selectedCrewType) {
+      params.set('crewType', selectedCrewType);
+    } else {
+      params.delete('crewType');
+    }
     router.replace(`?${params.toString()}`, { scroll: false });
-  }, [selectedBranchId, router, searchParams]);
+  }, [selectedBranchId, selectedCrewId, selectedCrewType, router, searchParams]);
   
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();

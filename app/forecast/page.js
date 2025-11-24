@@ -496,23 +496,14 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Real: scale by actual weeks, Normalized: use base budget (4.33 weeks)
-                  const displayBudget = isNormalized 
-                    ? metrics.laborBudget 
-                    : (metrics.laborBudget / 4.33) * weeks;
                   return (
                     <td key={month} className="px-2 py-2 text-center text-blue-700">
-                      {metrics.revenue > 0 ? formatCurrency(displayBudget) : '—'}
+                      {metrics.revenue > 0 ? formatCurrency(metrics.laborBudget) : '—'}
                     </td>
                   );
                 })}
                 <td className="px-2 py-2 text-center font-semibold text-blue-700 bg-blue-100">
-                  {formatCurrency(months.reduce((sum, month) => {
-                    const metrics = calculateMetrics(monthlyRevenue[month]);
-                    const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                    return sum + (isNormalized ? metrics.laborBudget : (metrics.laborBudget / 4.33) * weeks);
-                  }, 0))}
+                  {formatCurrency(totals.laborBudget)}
                 </td>
               </tr>
 

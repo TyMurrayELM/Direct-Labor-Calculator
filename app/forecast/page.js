@@ -864,13 +864,19 @@ export default function ForecastPage() {
                 <div className="text-green-200 text-xs mt-1">{selectedBranch.name}</div>
               </div>
               <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-blue-100 text-sm font-medium mb-1">Annual Labor Budget</div>
+                <div className="text-blue-100 text-sm font-medium mb-1">Annual Labor Cost at Target</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborBudget)}</div>
                 <div className="text-blue-200 text-xs mt-1">{selectedBranch.name}</div>
               </div>
               <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-purple-100 text-sm font-medium mb-1">Total Labor Hours</div>
-                <div className="text-2xl font-bold">{formatNumber(totals.laborHours, 0)}</div>
+                <div className="text-purple-100 text-sm font-medium mb-1">YTD Actual DL %</div>
+                <div className="text-2xl font-bold">
+                  {(() => {
+                    const totalActualCost = months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
+                    if (totals.revenue === 0 || totalActualCost === 0) return '—';
+                    return formatNumber((totalActualCost / totals.revenue) * 100, 1) + '%';
+                  })()}
+                </div>
                 <div className="text-purple-200 text-xs mt-1">{selectedBranch.name}</div>
               </div>
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">

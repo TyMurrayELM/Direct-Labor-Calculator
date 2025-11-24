@@ -347,45 +347,45 @@ const DirectLaborCalculator = () => {
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
-            <div className="flex space-x-3">
+            <div className="flex space-x-2">
               <Link 
                 href="/crews" 
-                className="px-4 py-2 bg-white text-emerald-700 border-2 border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
-                <span>Manage Crews</span>
+                <span>Crews</span>
               </Link>
               
               <Link 
                 href="/properties" 
-                className="px-4 py-2 bg-white text-blue-700 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
-                <span>Manage Properties</span>
+                <span>Properties</span>
               </Link>
               
 <Link 
   href="/schedule" 
-  className="px-4 py-2 bg-white text-purple-700 border-2 border-purple-600 rounded-lg hover:bg-purple-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+  className="px-3 py-1.5 bg-white text-purple-700 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
 >
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
   </svg>
-  <span>Weekly Schedule</span>
+  <span>Schedule</span>
 </Link>
 
 <Link 
   href="/forecast" 
-  className="px-4 py-2 bg-white text-amber-700 border-2 border-amber-600 rounded-lg hover:bg-amber-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+  className="px-3 py-1.5 bg-white text-amber-700 border border-amber-600 rounded-lg hover:bg-amber-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
 >
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
   </svg>
-  <span>Revenue Forecast</span>
+  <span>FTE Forecast</span>
 </Link>
 
              {session && (

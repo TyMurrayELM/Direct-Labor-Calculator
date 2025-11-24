@@ -538,21 +538,61 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Labor Hours Row */}
-              <tr className="bg-purple-50 border-b border-purple-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">
-                  Labor Hours
+              {/* Actual Hours Row */}
+              <tr className="bg-sky-50 border-b border-sky-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-sky-50 z-10">
+                  Actual Hours
                 </td>
                 {months.map(month => {
-                  const metrics = calculateMetrics(monthlyRevenue[month]);
+                  const cost = parseRevenue(actualLaborCost[month]);
+                  // Hours = Labor Cost / Hourly Rate
+                  const actualHours = cost > 0 ? cost / HOURLY_RATE : null;
                   return (
-                    <td key={month} className="px-2 py-2 text-center text-purple-700">
-                      {metrics.revenue > 0 ? formatNumber(metrics.laborHours, 0) : '—'}
+                    <td key={month} className="px-2 py-2 text-center text-sky-700">
+                      {actualHours !== null ? formatNumber(actualHours, 0) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-2 py-2 text-center font-semibold text-purple-700 bg-purple-100">
-                  {formatNumber(totals.laborHours, 0)}
+                <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
+                  {formatNumber(months.reduce((sum, month) => {
+                    const cost = parseRevenue(actualLaborCost[month]);
+                    return sum + (cost > 0 ? cost / HOURLY_RATE : 0);
+                  }, 0), 0)}
+                </td>
+              </tr>
+
+              {/* Actual FTEs Row (calculated from Actual Hours) */}
+              <tr className="bg-sky-50/50 border-b border-sky-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
+                  Actual FTEs
+                </td>
+                {months.map(month => {
+                  const cost = parseRevenue(actualLaborCost[month]);
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Hours = Labor Cost / Hourly Rate, then normalize and convert to FTEs
+                  const actualHours = cost > 0 ? cost / HOURLY_RATE : null;
+                  // Normalize hours to 4.33 weeks, then divide by hours per month
+                  const normalizedFtes = actualHours !== null && weeks > 0 
+                    ? Math.floor((actualHours / weeks) * 4.33 / HOURS_PER_MONTH)
+                    : null;
+                  return (
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-sky-600">
+                      {normalizedFtes !== null ? normalizedFtes : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center text-xs text-sky-600 bg-sky-100/50">
+                  {(() => {
+                    const totalNormalizedFtes = months.reduce((sum, month) => {
+                      const cost = parseRevenue(actualLaborCost[month]);
+                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      const actualHours = cost > 0 ? cost / HOURLY_RATE : 0;
+                      const normalizedFtes = weeks > 0 ? (actualHours / weeks) * 4.33 / HOURS_PER_MONTH : 0;
+                      return sum + normalizedFtes;
+                    }, 0);
+                    const monthsWithData = months.filter(m => parseRevenue(actualLaborCost[m]) > 0).length;
+                    return monthsWithData > 0 ? Math.floor(totalNormalizedFtes / monthsWithData) : '—';
+                  })()}
                 </td>
               </tr>
 
@@ -581,6 +621,24 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
+              {/* Labor Hours Est Row */}
+              <tr className="bg-orange-50/50 border-b border-orange-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
+                  Labor Hours Est
+                </td>
+                {months.map(month => {
+                  const metrics = calculateMetrics(monthlyRevenue[month]);
+                  return (
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-600">
+                      {metrics.revenue > 0 ? formatNumber(metrics.laborHours, 0) : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-orange-100/50">
+                  {formatNumber(totals.laborHours, 0)}
+                </td>
+              </tr>
+
               {/* Target DL % Row */}
               <tr className="bg-orange-50/50 border-b border-orange-100">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
@@ -599,10 +657,10 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Actual FTEs Input Row */}
+              {/* Actual HC Input Row */}
               <tr className="bg-teal-50 border-b border-teal-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-teal-50 z-10">
-                  Actual FTEs
+                  Actual HC
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">

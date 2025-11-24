@@ -768,7 +768,7 @@ const DirectLaborCalculator = () => {
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Property</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Monthly Invoice</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current Wk Hours</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current Wk Hours<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Current DL%</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Target Wk Hrs<br/><span className="text-gray-400 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">New Wk Hours</th>
@@ -825,7 +825,12 @@ const DirectLaborCalculator = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
                           {formatCurrency(property.monthly_invoice)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{property.current_hours}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {property.current_hours}
+                          <span className="text-gray-400 ml-1">
+                            ({property.crews?.size ? (property.current_hours / property.crews.size).toFixed(1) : '—'})
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full ${currentDLPercent < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {formatPercent(currentDLPercent)}

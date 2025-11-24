@@ -1540,6 +1540,7 @@ export async function batchUpsertForecasts(branchId, year, monthlyData) {
       month: month,
       forecast_revenue: data.revenue || 0,
       actual_ftes: data.actualFtes || null,
+      actual_labor_cost: data.actualLaborCost || null,
       updated_at: new Date().toISOString()
     }));
     

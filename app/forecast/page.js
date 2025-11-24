@@ -36,6 +36,9 @@ export default function ForecastPage() {
   const [actualFtes, setActualFtes] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
   );
+  const [actualLaborCost, setActualLaborCost] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
+  );
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
@@ -67,6 +70,7 @@ export default function ForecastPage() {
     if (forecasts && forecasts.length > 0) {
       const revenueData = {};
       const ftesData = {};
+      const laborCostData = {};
       
       months.forEach(month => {
         const forecast = forecasts.find(f => f.month === month);
@@ -75,18 +79,23 @@ export default function ForecastPage() {
             Number(forecast.forecast_revenue).toLocaleString('en-US') : '';
           ftesData[month] = forecast.actual_ftes ? 
             String(forecast.actual_ftes) : '';
+          laborCostData[month] = forecast.actual_labor_cost ? 
+            Number(forecast.actual_labor_cost).toLocaleString('en-US') : '';
         } else {
           revenueData[month] = '';
           ftesData[month] = '';
+          laborCostData[month] = '';
         }
       });
       
       setMonthlyRevenue(revenueData);
       setActualFtes(ftesData);
+      setActualLaborCost(laborCostData);
     } else {
       // Clear form if no forecasts
       setMonthlyRevenue(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setActualFtes(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
+      setActualLaborCost(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
     }
   }, [forecasts]);
 
@@ -100,6 +109,12 @@ export default function ForecastPage() {
   const handleActualFtesChange = (month, value) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     setActualFtes(prev => ({ ...prev, [month]: numericValue }));
+  };
+
+  const handleActualLaborCostChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    const formatted = numericValue ? Number(numericValue).toLocaleString('en-US') : '';
+    setActualLaborCost(prev => ({ ...prev, [month]: formatted }));
   };
 
   const parseRevenue = (value) => {
@@ -151,7 +166,8 @@ export default function ForecastPage() {
       months.forEach(month => {
         monthlyData[month] = {
           revenue: parseRevenue(monthlyRevenue[month]),
-          actualFtes: parseFloat(actualFtes[month]) || null
+          actualFtes: parseFloat(actualFtes[month]) || null,
+          actualLaborCost: parseRevenue(actualLaborCost[month]) || null
         };
       });
       
@@ -409,6 +425,30 @@ export default function ForecastPage() {
                 })}
                 <td className="px-2 py-2 text-center font-semibold text-blue-700 bg-blue-100">
                   {formatCurrency(totals.laborBudget)}
+                </td>
+              </tr>
+
+              {/* Actual Labor Cost Input Row */}
+              <tr className="bg-sky-50 border-b border-sky-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-sky-50 z-10">
+                  Actual Labor Cost
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1.5">
+                    <div className="relative">
+                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <input
+                        type="text"
+                        value={actualLaborCost[month]}
+                        onChange={(e) => handleActualLaborCostChange(month, e.target.value)}
+                        placeholder="0"
+                        className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none bg-white"
+                      />
+                    </div>
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
+                  {formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))}
                 </td>
               </tr>
 

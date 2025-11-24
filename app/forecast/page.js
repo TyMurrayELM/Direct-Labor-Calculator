@@ -50,7 +50,7 @@ export default function ForecastPage() {
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
   const { forecasts, loading: forecastsLoading, refetchForecasts } = useRevenueForecasts(selectedBranchId, selectedYear);
-  const { forecasts: allBranchForecasts, loading: allForecastsLoading } = useAllBranchForecasts(selectedYear);
+  const { forecasts: allBranchForecasts, loading: allForecastsLoading, refetchForecasts: refetchAllForecasts } = useAllBranchForecasts(selectedYear);
   
   // Check authentication
   useEffect(() => {
@@ -71,6 +71,13 @@ export default function ForecastPage() {
       setSelectedBranchId(branches[0].id);
     }
   }, [branches, selectedBranchId]);
+  
+  // Refetch all branch forecasts when switching to Encore view
+  useEffect(() => {
+    if (selectedBranchId === 'encore') {
+      refetchAllForecasts();
+    }
+  }, [selectedBranchId, refetchAllForecasts]);
   
   // Load forecasts into form when they change
   useEffect(() => {
@@ -252,6 +259,7 @@ export default function ForecastPage() {
       if (result.success) {
         setSaveMessage({ type: 'success', text: 'Forecast saved successfully!' });
         refetchForecasts();
+        refetchAllForecasts(); // Also refresh all branch data for Encore view
       } else {
         setSaveMessage({ type: 'error', text: result.error || 'Failed to save forecast' });
       }

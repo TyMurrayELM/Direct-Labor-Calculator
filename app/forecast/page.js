@@ -1016,8 +1016,18 @@ export default function ForecastPage() {
                     
                     // Only sum through the last completed month
                     const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
-                    const totalActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
-                    const totalRevenue = ytdMonths.reduce((sum, month) => sum + parseRevenue(monthlyRevenue[month]), 0);
+                    
+                    let totalActualCost, totalRevenue;
+                    
+                    if (isEncoreView) {
+                      // Use encoreData for Encore view
+                      totalActualCost = ytdMonths.reduce((sum, month) => sum + (encoreData[month]?.laborCost || 0), 0);
+                      totalRevenue = ytdMonths.reduce((sum, month) => sum + (encoreData[month]?.revenue || 0), 0);
+                    } else {
+                      // Use local state for single branch
+                      totalActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
+                      totalRevenue = ytdMonths.reduce((sum, month) => sum + parseRevenue(monthlyRevenue[month]), 0);
+                    }
                     
                     if (totalRevenue === 0 || totalActualCost === 0) return '—';
                     return formatNumber((totalActualCost / totalRevenue) * 100, 1) + '%';

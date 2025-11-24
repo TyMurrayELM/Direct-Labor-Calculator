@@ -1542,6 +1542,7 @@ export async function batchUpsertForecasts(branchId, year, monthlyData) {
       actual_ftes: data.actualFtes || null,
       actual_labor_cost: data.actualLaborCost || null,
       weeks_in_month: data.weeksInMonth || 4.33,
+      actual_hours: data.actualHours || null,
       updated_at: new Date().toISOString()
     }));
     

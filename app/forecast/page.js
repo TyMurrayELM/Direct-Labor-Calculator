@@ -42,6 +42,9 @@ export default function ForecastPage() {
   const [weeksInMonth, setWeeksInMonth] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '4.33' }), {})
   );
+  const [actualHours, setActualHours] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
+  );
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
@@ -75,6 +78,7 @@ export default function ForecastPage() {
       const ftesData = {};
       const laborCostData = {};
       const weeksData = {};
+      const hoursData = {};
       
       months.forEach(month => {
         const forecast = forecasts.find(f => f.month === month);
@@ -87,11 +91,14 @@ export default function ForecastPage() {
             Number(forecast.actual_labor_cost).toLocaleString('en-US') : '';
           weeksData[month] = forecast.weeks_in_month ? 
             String(forecast.weeks_in_month) : '4.33';
+          hoursData[month] = forecast.actual_hours ? 
+            String(forecast.actual_hours) : '';
         } else {
           revenueData[month] = '';
           ftesData[month] = '';
           laborCostData[month] = '';
           weeksData[month] = '4.33';
+          hoursData[month] = '';
         }
       });
       
@@ -99,12 +106,14 @@ export default function ForecastPage() {
       setActualFtes(ftesData);
       setActualLaborCost(laborCostData);
       setWeeksInMonth(weeksData);
+      setActualHours(hoursData);
     } else {
       // Clear form if no forecasts
       setMonthlyRevenue(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setActualFtes(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setActualLaborCost(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setWeeksInMonth(months.reduce((acc, month) => ({ ...acc, [month]: '4.33' }), {}));
+      setActualHours(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
     }
   }, [forecasts]);
 
@@ -129,6 +138,11 @@ export default function ForecastPage() {
   const handleWeeksInMonthChange = (month, value) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     setWeeksInMonth(prev => ({ ...prev, [month]: numericValue }));
+  };
+
+  const handleActualHoursChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    setActualHours(prev => ({ ...prev, [month]: numericValue }));
   };
 
   const parseRevenue = (value) => {
@@ -182,7 +196,8 @@ export default function ForecastPage() {
           revenue: parseRevenue(monthlyRevenue[month]),
           actualFtes: parseFloat(actualFtes[month]) || null,
           actualLaborCost: parseRevenue(actualLaborCost[month]) || null,
-          weeksInMonth: parseFloat(weeksInMonth[month]) || 4.33
+          weeksInMonth: parseFloat(weeksInMonth[month]) || 4.33,
+          actualHours: parseFloat(actualHours[month]) || null
         };
       });
       
@@ -538,64 +553,6 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
-              {/* Actual Hours Row */}
-              <tr className="bg-sky-50 border-b border-sky-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-sky-50 z-10">
-                  Actual Hours
-                </td>
-                {months.map(month => {
-                  const cost = parseRevenue(actualLaborCost[month]);
-                  // Hours = Labor Cost / Hourly Rate
-                  const actualHours = cost > 0 ? cost / HOURLY_RATE : null;
-                  return (
-                    <td key={month} className="px-2 py-2 text-center text-sky-700">
-                      {actualHours !== null ? formatNumber(actualHours, 0) : '—'}
-                    </td>
-                  );
-                })}
-                <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
-                  {formatNumber(months.reduce((sum, month) => {
-                    const cost = parseRevenue(actualLaborCost[month]);
-                    return sum + (cost > 0 ? cost / HOURLY_RATE : 0);
-                  }, 0), 0)}
-                </td>
-              </tr>
-
-              {/* Actual FTEs Row (calculated from Actual Hours) */}
-              <tr className="bg-sky-50/50 border-b border-sky-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
-                  Actual FTEs
-                </td>
-                {months.map(month => {
-                  const cost = parseRevenue(actualLaborCost[month]);
-                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                  // Hours = Labor Cost / Hourly Rate, then normalize and convert to FTEs
-                  const actualHours = cost > 0 ? cost / HOURLY_RATE : null;
-                  // Normalize hours to 4.33 weeks, then divide by hours per month
-                  const normalizedFtes = actualHours !== null && weeks > 0 
-                    ? Math.floor((actualHours / weeks) * 4.33 / HOURS_PER_MONTH)
-                    : null;
-                  return (
-                    <td key={month} className="px-2 py-1.5 text-center text-xs text-sky-600">
-                      {normalizedFtes !== null ? normalizedFtes : '—'}
-                    </td>
-                  );
-                })}
-                <td className="px-2 py-1.5 text-center text-xs text-sky-600 bg-sky-100/50">
-                  {(() => {
-                    const totalNormalizedFtes = months.reduce((sum, month) => {
-                      const cost = parseRevenue(actualLaborCost[month]);
-                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
-                      const actualHours = cost > 0 ? cost / HOURLY_RATE : 0;
-                      const normalizedFtes = weeks > 0 ? (actualHours / weeks) * 4.33 / HOURS_PER_MONTH : 0;
-                      return sum + normalizedFtes;
-                    }, 0);
-                    const monthsWithData = months.filter(m => parseRevenue(actualLaborCost[m]) > 0).length;
-                    return monthsWithData > 0 ? Math.floor(totalNormalizedFtes / monthsWithData) : '—';
-                  })()}
-                </td>
-              </tr>
-
               {/* FTEs Row */}
               <tr className="bg-orange-50 border-b border-orange-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
@@ -654,6 +611,59 @@ export default function ForecastPage() {
                 })}
                 <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-orange-100/50">
                   40.0%
+                </td>
+              </tr>
+
+              {/* Actual Hours Input Row */}
+              <tr className="bg-violet-50 border-b border-violet-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-violet-50 z-10">
+                  Actual Hours
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1.5">
+                    <input
+                      type="text"
+                      value={actualHours[month]}
+                      onChange={(e) => handleActualHoursChange(month, e.target.value)}
+                      placeholder="0"
+                      className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none bg-white"
+                    />
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-violet-700 bg-violet-100">
+                  {formatNumber(months.reduce((sum, month) => sum + (parseFloat(actualHours[month]) || 0), 0), 0)}
+                </td>
+              </tr>
+
+              {/* Actual FTEs Row (calculated from Actual Hours) */}
+              <tr className="bg-violet-50/50 border-b border-violet-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-violet-50/50 z-10">
+                  Actual FTEs
+                </td>
+                {months.map(month => {
+                  const hours = parseFloat(actualHours[month]) || 0;
+                  const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                  // Normalize hours to 4.33 weeks, then divide by hours per month
+                  const normalizedFtes = hours > 0 && weeks > 0 
+                    ? Math.floor((hours / weeks) * 4.33 / HOURS_PER_MONTH)
+                    : null;
+                  return (
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-violet-600">
+                      {normalizedFtes !== null ? normalizedFtes : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center text-xs text-violet-600 bg-violet-100/50">
+                  {(() => {
+                    const totalNormalizedFtes = months.reduce((sum, month) => {
+                      const hours = parseFloat(actualHours[month]) || 0;
+                      const weeks = parseFloat(weeksInMonth[month]) || 4.33;
+                      const normalizedFtes = hours > 0 && weeks > 0 ? (hours / weeks) * 4.33 / HOURS_PER_MONTH : 0;
+                      return sum + normalizedFtes;
+                    }, 0);
+                    const monthsWithData = months.filter(m => parseFloat(actualHours[m]) > 0).length;
+                    return monthsWithData > 0 ? Math.floor(totalNormalizedFtes / monthsWithData) : '—';
+                  })()}
                 </td>
               </tr>
 

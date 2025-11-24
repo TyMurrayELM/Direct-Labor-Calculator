@@ -581,7 +581,7 @@ export default function ForecastPage() {
                   </svg>
                   Maint Crews (4m){isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
-                {months.map(month => {
+                {months.map((month, index) => {
                   const metrics = calculateMetrics(monthlyRevenue[month]);
                   const weeks = parseFloat(weeksInMonth[month]) || 4.33;
                   const displayHours = isNormalized 
@@ -589,8 +589,24 @@ export default function ForecastPage() {
                     : (metrics.laborHours / 4.33) * weeks;
                   const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   const crews = displayFtes > 0 ? Math.ceil(displayFtes / 4) : null;
+                  
+                  // Calculate prior month's crews
+                  let priorCrews = null;
+                  if (index > 0) {
+                    const priorMonth = months[index - 1];
+                    const priorMetrics = calculateMetrics(monthlyRevenue[priorMonth]);
+                    const priorWeeks = parseFloat(weeksInMonth[priorMonth]) || 4.33;
+                    const priorDisplayHours = isNormalized 
+                      ? priorMetrics.laborHours 
+                      : (priorMetrics.laborHours / 4.33) * priorWeeks;
+                    const priorDisplayFtes = Math.floor(priorDisplayHours / HOURS_PER_MONTH);
+                    priorCrews = priorDisplayFtes > 0 ? Math.ceil(priorDisplayFtes / 4) : null;
+                  }
+                  
+                  const hasJump = crews !== null && priorCrews !== null && crews !== priorCrews;
+                  
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center text-xs text-sky-600">
+                    <td key={month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-sky-600'}`}>
                       {crews !== null ? crews : '—'}
                     </td>
                   );

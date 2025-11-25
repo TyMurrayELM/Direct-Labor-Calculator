@@ -182,6 +182,9 @@ const DirectLaborCalculator = () => {
   // State for tracking which property is currently being saved
   const [savingPropertyId, setSavingPropertyId] = useState(null);
   
+  // State for tracking recently saved property (for success animation)
+  const [recentlySavedId, setRecentlySavedId] = useState(null);
+  
   // State for messages
   const [message, setMessage] = useState({ text: '', type: '' });
   
@@ -295,7 +298,9 @@ const DirectLaborCalculator = () => {
         // Refetch the data instead of reloading the page
         await refetchProperties();
         
-        // Success notification could be added here
+        // Trigger success animation
+        setRecentlySavedId(id);
+        setTimeout(() => setRecentlySavedId(null), 1500);
       } else {
         // Handle error - could add a toast notification here
         console.error('Failed to save:', result.error);
@@ -536,7 +541,7 @@ const DirectLaborCalculator = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-blue-100 min-h-screen">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-slate-50 min-h-screen">
       <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
         {/* Header with gradient background */}
         <div className="bg-gradient-to-r from-white to-gray-100 p-4 border-b border-gray-200" 
@@ -999,7 +1004,7 @@ const DirectLaborCalculator = () => {
                     </td>
                   </tr>
                 ) : (
-                  properties.map((property) => {
+                  properties.map((property, index) => {
                     const targetHours = calculateTargetHours(property.monthly_invoice);
                     const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
                     const newHours = editedHours[property.id] !== undefined 
@@ -1010,8 +1015,18 @@ const DirectLaborCalculator = () => {
                     // Determine if this property is currently being saved
                     const isSaving = savingPropertyId === property.id;
                     
+                    // Check if this row was just saved (for success animation)
+                    const justSaved = recentlySavedId === property.id;
+                    
                     return (
-                      <tr key={property.id} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={property.id} 
+                        className={`
+                          transition-all duration-300
+                          ${justSaved ? 'bg-green-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                          ${!justSaved && 'hover:bg-blue-50'}
+                        `}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           {/* Make property name a link to edit property directly */}
                           <Link 
@@ -1065,6 +1080,14 @@ const DirectLaborCalculator = () => {
                             <span className="text-gray-400 text-sm">
                               ({property.crews?.size ? (newHours / property.crews.size).toFixed(1) : '—'})
                             </span>
+                            {/* Show success checkmark briefly after save */}
+                            {justSaved && !editedHours[property.id] && (
+                              <div className="w-8 h-8 flex items-center justify-center bg-green-500 rounded-md animate-pulse">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
                             {editedHours[property.id] !== undefined && editedHours[property.id] !== property.current_hours && (
                               isSaving ? (
                                 <div className="w-8 h-8 flex items-center justify-center">
@@ -1073,7 +1096,7 @@ const DirectLaborCalculator = () => {
                               ) : (
                                 <button
                                   onClick={() => saveNewHours(property.id, editedHours[property.id])}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                   title="Save changes"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

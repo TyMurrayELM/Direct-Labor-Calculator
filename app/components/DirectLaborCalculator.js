@@ -332,6 +332,100 @@ const DirectLaborCalculator = () => {
     return (hoursWithDriveTime / HOURS_PER_WEEK).toFixed(1);
   };
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    if (!properties || properties.length === 0) {
+      setMessage({ text: 'No data to export', type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      'Property Name',
+      'Branch',
+      'Crew',
+      'Crew Type',
+      'Crew Size',
+      'Region',
+      'Account Manager',
+      'Property Type',
+      'Company',
+      'Client',
+      'Monthly Invoice',
+      'Current Weekly Hours',
+      'Current DL%',
+      'Target Weekly Hours',
+      'New Weekly Hours',
+      'New DL%'
+    ];
+
+    // Build CSV rows
+    const rows = properties.map(property => {
+      const targetHours = calculateTargetHours(property.monthly_invoice);
+      const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
+      const newHours = editedHours[property.id] !== undefined 
+        ? editedHours[property.id] 
+        : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+      const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
+
+      return [
+        property.name || '',
+        property.branches?.name || '',
+        property.crews?.name || '',
+        property.crews?.crew_type || '',
+        property.crews?.size || '',
+        property.region || '',
+        property.account_manager || '',
+        property.property_type || '',
+        property.company || '',
+        property.client || '',
+        property.monthly_invoice || 0,
+        property.current_hours || 0,
+        currentDLPercent.toFixed(1),
+        targetHours.toFixed(1),
+        newHours || 0,
+        (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : ''
+      ];
+    });
+
+    // Escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // Build CSV content
+    const csvContent = [
+      headers.map(escapeCSV).join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    // Generate filename with date and filter info
+    const date = new Date().toISOString().split('T')[0];
+    const branchName = selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : '';
+    const filename = `direct-labor-export${branchName}_${date}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setMessage({ text: `Exported ${properties.length} properties to CSV`, type: 'success' });
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+  };
+
   // Calculate totals for current page
   const currentPageMonthlyInvoice = properties.reduce((sum, prop) => sum + prop.monthly_invoice, 0);
   const currentPageCurrentHours = properties.reduce((sum, prop) => sum + prop.current_hours, 0);
@@ -382,6 +476,18 @@ const DirectLaborCalculator = () => {
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
             <div className="flex space-x-2">
+              {/* Export Button */}
+              <button
+                onClick={exportToCSV}
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-400 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                title="Export filtered data to CSV"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Export</span>
+              </button>
+
               <Link 
                 href="/crews" 
                 className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"

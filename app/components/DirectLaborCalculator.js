@@ -979,15 +979,54 @@ const DirectLaborCalculator = () => {
         ) : (
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-blue-900 sticky top-0 z-10">
+              <thead className="bg-gradient-to-r from-slate-700 to-slate-800 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Property</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Monthly Invoice</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current DL%</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New DL%</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    Property
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    Revenue
+                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">monthly</span>
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    <div className="flex items-center gap-1">
+                      Current Hrs
+                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Weekly man-hours (crew hours shown in parentheses)">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    Current DL%
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    <div className="flex items-center gap-1">
+                      Target Hrs
+                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Target weekly hours to hit DL% goal">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    <div className="flex items-center gap-1">
+                      New Hrs
+                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Adjusted weekly hours">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
+                    New DL%
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">

@@ -342,63 +342,33 @@ const DirectLaborCalculator = () => {
     try {
       setMessage({ text: 'Preparing export...', type: 'success' });
 
-      // Build query with same filters but no pagination
       let query = supabase
         .from('properties')
         .select(`
-          id,
-          name,
-          monthly_invoice,
-          current_hours,
-          adjusted_hours,
-          region,
-          account_manager,
-          property_type,
-          company,
-          client,
-          branch_id,
-          crew_id,
+          id, name, monthly_invoice, current_hours, adjusted_hours,
+          region, account_manager, property_type, company, client,
+          branch_id, crew_id,
           branches (id, name),
           crews (id, name, crew_type, size)
         `)
         .order('name');
 
-      // Apply filters
-      if (selectedBranchId) {
-        query = query.eq('branch_id', selectedBranchId);
-      }
-      if (selectedCrewId) {
-        query = query.eq('crew_id', selectedCrewId);
-      }
-      if (selectedCrewType) {
-        query = query.eq('crews.crew_type', selectedCrewType);
-      }
-      if (regionFilter) {
-        query = query.eq('region', regionFilter);
-      }
-      if (accountManagerFilter) {
-        query = query.eq('account_manager', accountManagerFilter);
-      }
-      if (propertyTypeFilter) {
-        query = query.eq('property_type', propertyTypeFilter);
-      }
-      if (companyFilter) {
-        query = query.eq('company', companyFilter);
-      }
-      if (clientFilter) {
-        query = query.eq('client', clientFilter);
-      }
+      if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
+      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (regionFilter) query = query.eq('region', regionFilter);
+      if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
+      if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
+      if (companyFilter) query = query.eq('company', companyFilter);
+      if (clientFilter) query = query.eq('client', clientFilter);
 
       const { data: allProperties, error } = await query;
 
       if (error) {
-        console.error('Export error:', error);
         setMessage({ text: 'Error exporting data', type: 'error' });
         setTimeout(() => setMessage({ text: '', type: '' }), 3000);
         return;
       }
 
-      // Filter by crew type if needed (since the join filter might not work perfectly)
       let filteredProperties = allProperties;
       if (selectedCrewType) {
         filteredProperties = allProperties.filter(p => p.crews?.crew_type === selectedCrewType);
@@ -410,83 +380,32 @@ const DirectLaborCalculator = () => {
         return;
       }
 
-      // Define CSV headers
-      const headers = [
-        'Property Name',
-        'Branch',
-        'Crew',
-        'Crew Type',
-        'Crew Size',
-        'Region',
-        'Account Manager',
-        'Property Type',
-        'Company',
-        'Client',
-        'Monthly Invoice',
-        'Current Weekly Hours',
-        'Current DL%',
-        'Target Weekly Hours',
-        'New Weekly Hours',
-        'New DL%'
-      ];
+      const headers = ['Property Name','Branch','Crew','Crew Type','Crew Size','Region','Account Manager','Property Type','Company','Client','Monthly Invoice','Current Weekly Hours','Current DL%','Target Weekly Hours','New Weekly Hours','New DL%'];
 
-      // Build CSV rows
       const rows = filteredProperties.map(property => {
         const targetHours = calculateTargetHours(property.monthly_invoice);
         const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
-        const newHours = editedHours[property.id] !== undefined 
-          ? editedHours[property.id] 
-          : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+        const newHours = editedHours[property.id] !== undefined ? editedHours[property.id] : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
         const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
-
         return [
-          property.name || '',
-          property.branches?.name || '',
-          property.crews?.name || '',
-          property.crews?.crew_type || '',
-          property.crews?.size || '',
-          property.region || '',
-          property.account_manager || '',
-          property.property_type || '',
-          property.company || '',
-          property.client || '',
-          property.monthly_invoice || 0,
-          property.current_hours || 0,
-          currentDLPercent.toFixed(1),
-          targetHours.toFixed(1),
-          newHours || 0,
+          property.name || '', property.branches?.name || '', property.crews?.name || '', property.crews?.crew_type || '', property.crews?.size || '',
+          property.region || '', property.account_manager || '', property.property_type || '', property.company || '', property.client || '',
+          property.monthly_invoice || 0, property.current_hours || 0, currentDLPercent.toFixed(1), targetHours.toFixed(1), newHours || 0,
           (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : ''
         ];
       });
 
-      // Escape CSV values
       const escapeCSV = (value) => {
         if (value === null || value === undefined) return '';
         const str = String(value);
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
+        return (str.includes(',') || str.includes('"') || str.includes('\n')) ? `"${str.replace(/"/g, '""')}"` : str;
       };
 
-      // Build CSV content
-      const csvContent = [
-        headers.map(escapeCSV).join(','),
-        ...rows.map(row => row.map(escapeCSV).join(','))
-      ].join('\n');
-
-      // Create and download file
+      const csvContent = [headers.map(escapeCSV).join(','), ...rows.map(row => row.map(escapeCSV).join(','))].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      // Generate filename with date and filter info
-      const date = new Date().toISOString().split('T')[0];
-      const branchName = selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : '';
-      const filename = `direct-labor-export${branchName}_${date}.csv`;
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
+      link.setAttribute('href', URL.createObjectURL(blob));
+      link.setAttribute('download', `direct-labor-export${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -495,7 +414,6 @@ const DirectLaborCalculator = () => {
       setMessage({ text: `Exported ${filteredProperties.length} properties to CSV`, type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
     } catch (err) {
-      console.error('Export error:', err);
       setMessage({ text: 'Error exporting data', type: 'error' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
     }
@@ -551,7 +469,6 @@ const DirectLaborCalculator = () => {
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
             <div className="flex space-x-2">
-              {/* Export Button */}
               <button
                 onClick={exportToCSV}
                 className="px-3 py-1.5 bg-white text-gray-700 border border-gray-400 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
@@ -562,7 +479,6 @@ const DirectLaborCalculator = () => {
                 </svg>
                 <span>Export</span>
               </button>
-
               <Link 
                 href="/crews" 
                 className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
@@ -979,60 +895,22 @@ const DirectLaborCalculator = () => {
         ) : (
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-slate-700 to-slate-800 sticky top-0 z-10">
+              <thead className="bg-blue-900 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    Property
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    Revenue
-                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">monthly</span>
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      Current Hrs
-                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Weekly man-hours (crew hours shown in parentheses)">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                    </div>
-                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    Current DL%
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      Target Hrs
-                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Target weekly hours to hit DL% goal">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                    </div>
-                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    <div className="flex items-center gap-1">
-                      New Hrs
-                      <span className="cursor-help text-slate-400 hover:text-slate-200" title="Adjusted weekly hours">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                    </div>
-                    <span className="block text-[10px] font-normal text-slate-400 normal-case mt-0.5">man / crew</span>
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-slate-100 uppercase tracking-wide">
-                    New DL%
-                  </th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Property</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">CSS</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Monthly Invoice</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current DL%</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New DL%</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {properties.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -1053,18 +931,12 @@ const DirectLaborCalculator = () => {
                     
                     // Determine if this property is currently being saved
                     const isSaving = savingPropertyId === property.id;
-                    
-                    // Check if this row was just saved (for success animation)
                     const justSaved = recentlySavedId === property.id;
                     
                     return (
                       <tr 
                         key={property.id} 
-                        className={`
-                          transition-all duration-300
-                          ${justSaved ? 'bg-green-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-                          ${!justSaved && 'hover:bg-blue-50'}
-                        `}
+                        className={`transition-all duration-300 ${justSaved ? 'bg-green-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${!justSaved && 'hover:bg-blue-50'}`}
                       >
                         <td className="px-4 py-2 whitespace-nowrap">
                           {/* Make property name a link to edit property directly */}
@@ -1078,13 +950,10 @@ const DirectLaborCalculator = () => {
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type}) - {property.crews.size}m</span>
                             )}
-                            {property.property_type && (
-                              <span className="mt-0.5">Type: {property.property_type}</span>
-                            )}
-                            {property.account_manager && (
-                              <span className="mt-0.5">Manager: {property.account_manager}</span>
-                            )}
                           </div>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600">
+                          {property.account_manager || '—'}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 font-medium">
                           {formatCurrency(property.monthly_invoice)}
@@ -1119,9 +988,8 @@ const DirectLaborCalculator = () => {
                             <span className="text-gray-400 text-sm">
                               ({property.crews?.size ? (newHours / property.crews.size).toFixed(1) : '—'})
                             </span>
-                            {/* Show success checkmark briefly after save */}
                             {justSaved && !editedHours[property.id] && (
-                              <div className="w-8 h-8 flex items-center justify-center bg-green-500 rounded-md animate-pulse">
+                              <div className="w-8 h-8 flex items-center justify-center bg-green-500 rounded-md">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
@@ -1135,7 +1003,7 @@ const DirectLaborCalculator = () => {
                               ) : (
                                 <button
                                   onClick={() => saveNewHours(property.id, editedHours[property.id])}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                   title="Save changes"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1159,6 +1027,7 @@ const DirectLaborCalculator = () => {
                 {/* Totals row for current page */}
                 <tr className="bg-gray-50 font-medium border-t-2 border-gray-200">
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">PAGE TOTALS</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>
                   <td className="px-4 py-2 whitespace-nowrap">

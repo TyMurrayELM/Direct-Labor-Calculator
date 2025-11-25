@@ -332,98 +332,168 @@ const DirectLaborCalculator = () => {
     return (hoursWithDriveTime / HOURS_PER_WEEK).toFixed(1);
   };
 
-  // Export to CSV function
-  const exportToCSV = () => {
-    if (!properties || properties.length === 0) {
-      setMessage({ text: 'No data to export', type: 'error' });
-      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
-      return;
-    }
+  // Export to CSV function - fetches ALL filtered records
+  const exportToCSV = async () => {
+    try {
+      setMessage({ text: 'Preparing export...', type: 'success' });
 
-    // Define CSV headers
-    const headers = [
-      'Property Name',
-      'Branch',
-      'Crew',
-      'Crew Type',
-      'Crew Size',
-      'Region',
-      'Account Manager',
-      'Property Type',
-      'Company',
-      'Client',
-      'Monthly Invoice',
-      'Current Weekly Hours',
-      'Current DL%',
-      'Target Weekly Hours',
-      'New Weekly Hours',
-      'New DL%'
-    ];
+      // Build query with same filters but no pagination
+      let query = supabase
+        .from('properties')
+        .select(`
+          id,
+          name,
+          monthly_invoice,
+          current_hours,
+          adjusted_hours,
+          region,
+          account_manager,
+          property_type,
+          company,
+          client,
+          branch_id,
+          crew_id,
+          branches (id, name),
+          crews (id, name, crew_type, size)
+        `)
+        .order('name');
 
-    // Build CSV rows
-    const rows = properties.map(property => {
-      const targetHours = calculateTargetHours(property.monthly_invoice);
-      const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
-      const newHours = editedHours[property.id] !== undefined 
-        ? editedHours[property.id] 
-        : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
-      const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
-
-      return [
-        property.name || '',
-        property.branches?.name || '',
-        property.crews?.name || '',
-        property.crews?.crew_type || '',
-        property.crews?.size || '',
-        property.region || '',
-        property.account_manager || '',
-        property.property_type || '',
-        property.company || '',
-        property.client || '',
-        property.monthly_invoice || 0,
-        property.current_hours || 0,
-        currentDLPercent.toFixed(1),
-        targetHours.toFixed(1),
-        newHours || 0,
-        (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : ''
-      ];
-    });
-
-    // Escape CSV values
-    const escapeCSV = (value) => {
-      if (value === null || value === undefined) return '';
-      const str = String(value);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
+      // Apply filters
+      if (selectedBranchId) {
+        query = query.eq('branch_id', selectedBranchId);
       }
-      return str;
-    };
+      if (selectedCrewId) {
+        query = query.eq('crew_id', selectedCrewId);
+      }
+      if (selectedCrewType) {
+        query = query.eq('crews.crew_type', selectedCrewType);
+      }
+      if (regionFilter) {
+        query = query.eq('region', regionFilter);
+      }
+      if (accountManagerFilter) {
+        query = query.eq('account_manager', accountManagerFilter);
+      }
+      if (propertyTypeFilter) {
+        query = query.eq('property_type', propertyTypeFilter);
+      }
+      if (companyFilter) {
+        query = query.eq('company', companyFilter);
+      }
+      if (clientFilter) {
+        query = query.eq('client', clientFilter);
+      }
 
-    // Build CSV content
-    const csvContent = [
-      headers.map(escapeCSV).join(','),
-      ...rows.map(row => row.map(escapeCSV).join(','))
-    ].join('\n');
+      const { data: allProperties, error } = await query;
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    // Generate filename with date and filter info
-    const date = new Date().toISOString().split('T')[0];
-    const branchName = selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : '';
-    const filename = `direct-labor-export${branchName}_${date}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setMessage({ text: `Exported ${properties.length} properties to CSV`, type: 'success' });
-    setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      if (error) {
+        console.error('Export error:', error);
+        setMessage({ text: 'Error exporting data', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      // Filter by crew type if needed (since the join filter might not work perfectly)
+      let filteredProperties = allProperties;
+      if (selectedCrewType) {
+        filteredProperties = allProperties.filter(p => p.crews?.crew_type === selectedCrewType);
+      }
+
+      if (!filteredProperties || filteredProperties.length === 0) {
+        setMessage({ text: 'No data to export', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      // Define CSV headers
+      const headers = [
+        'Property Name',
+        'Branch',
+        'Crew',
+        'Crew Type',
+        'Crew Size',
+        'Region',
+        'Account Manager',
+        'Property Type',
+        'Company',
+        'Client',
+        'Monthly Invoice',
+        'Current Weekly Hours',
+        'Current DL%',
+        'Target Weekly Hours',
+        'New Weekly Hours',
+        'New DL%'
+      ];
+
+      // Build CSV rows
+      const rows = filteredProperties.map(property => {
+        const targetHours = calculateTargetHours(property.monthly_invoice);
+        const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
+        const newHours = editedHours[property.id] !== undefined 
+          ? editedHours[property.id] 
+          : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+        const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
+
+        return [
+          property.name || '',
+          property.branches?.name || '',
+          property.crews?.name || '',
+          property.crews?.crew_type || '',
+          property.crews?.size || '',
+          property.region || '',
+          property.account_manager || '',
+          property.property_type || '',
+          property.company || '',
+          property.client || '',
+          property.monthly_invoice || 0,
+          property.current_hours || 0,
+          currentDLPercent.toFixed(1),
+          targetHours.toFixed(1),
+          newHours || 0,
+          (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : ''
+        ];
+      });
+
+      // Escape CSV values
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      // Build CSV content
+      const csvContent = [
+        headers.map(escapeCSV).join(','),
+        ...rows.map(row => row.map(escapeCSV).join(','))
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // Generate filename with date and filter info
+      const date = new Date().toISOString().split('T')[0];
+      const branchName = selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : '';
+      const filename = `direct-labor-export${branchName}_${date}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setMessage({ text: `Exported ${filteredProperties.length} properties to CSV`, type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    } catch (err) {
+      console.error('Export error:', err);
+      setMessage({ text: 'Error exporting data', type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    }
   };
 
   // Calculate totals for current page

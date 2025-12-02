@@ -271,6 +271,161 @@ export default function ForecastPage() {
     }
   };
 
+  // CSV Export Function - Horizontal layout matching the UI (months as columns)
+  const exportToCSV = () => {
+    try {
+      setSaveMessage({ type: 'success', text: 'Preparing export...' });
+      
+      const branchName = isEncoreView ? 'Encore_All_Branches' : (selectedBranch.name || 'Unknown').replace(/\s+/g, '_');
+      
+      // Escape CSV values
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        return (str.includes(',') || str.includes('"') || str.includes('\n')) 
+          ? `"${str.replace(/"/g, '""')}"` 
+          : str;
+      };
+      
+      // Calculate all monthly data first
+      const monthlyData = months.map(month => {
+        const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+        const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
+        const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+        const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+        
+        // FTEs calculation (normalized or real)
+        const displayHours = isNormalized ? laborHours : (laborHours / 4.33) * weeks;
+        const ftes = Math.floor(displayHours / HOURS_PER_MONTH);
+        const crews = ftes > 0 ? Math.ceil(ftes / 4) : '';
+        
+        // Actual values
+        const actLaborCost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+        const actHours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+        const actHC = isEncoreView ? (encoreData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
+        
+        // Actual DL % calculation (from labor cost)
+        const displayCost = isNormalized && weeks > 0 ? (actLaborCost / weeks) * 4.33 : actLaborCost;
+        const dlPercentCost = revenue > 0 && actLaborCost > 0 ? (displayCost / revenue) * 100 : null;
+        
+        // Actual FTEs from hours
+        let actualFtesFromHours = '';
+        if (actHours > 0 && weeks > 0) {
+          const dispHours = isNormalized ? (actHours / weeks) * 4.33 : actHours;
+          const rawFtes = dispHours / HOURS_PER_MONTH;
+          const decimal = rawFtes % 1;
+          actualFtesFromHours = decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
+        }
+        
+        // Actual DL % from HC
+        let dlPercentHC = null;
+        if (revenue > 0 && actHC > 0) {
+          const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
+          const actualLaborCostCalc = actHC * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+          dlPercentHC = (actualLaborCostCalc / revenue) * 100;
+        }
+        
+        return {
+          month,
+          weeks,
+          revenue,
+          laborBudget,
+          actLaborCost,
+          dlPercentCost,
+          ftes,
+          displayHours,
+          actHours,
+          actualFtesFromHours,
+          actHC,
+          dlPercentHC,
+          crews
+        };
+      });
+      
+      // Calculate totals
+      const totalRevenue = monthlyData.reduce((sum, d) => sum + d.revenue, 0);
+      const totalLaborBudget = monthlyData.reduce((sum, d) => sum + d.laborBudget, 0);
+      const totalActLaborCost = monthlyData.reduce((sum, d) => sum + d.actLaborCost, 0);
+      const totalDisplayCost = months.reduce((sum, month, i) => {
+        const d = monthlyData[i];
+        const displayCost = isNormalized && d.weeks > 0 ? (d.actLaborCost / d.weeks) * 4.33 : d.actLaborCost;
+        return sum + displayCost;
+      }, 0);
+      const avgDLCost = totalRevenue > 0 && totalDisplayCost > 0 ? (totalDisplayCost / totalRevenue) * 100 : null;
+      const totalDisplayHours = monthlyData.reduce((sum, d) => sum + d.displayHours, 0);
+      const avgFtes = Math.floor(totalDisplayHours / HOURS_PER_MONTH / 12);
+      const totalActHours = monthlyData.reduce((sum, d) => sum + d.actHours, 0);
+      const avgActHC = monthlyData.filter(d => d.actHC > 0).length > 0 
+        ? monthlyData.reduce((sum, d) => sum + d.actHC, 0) / monthlyData.filter(d => d.actHC > 0).length 
+        : '';
+      
+      // Build rows (each row is a metric, columns are months + total)
+      const rows = [];
+      
+      // Header row: Metric, Jan, Feb, ..., Dec, Total
+      rows.push(['Metric', ...months, 'Total']);
+      
+      // Pay Weeks row
+      rows.push(['Pay Weeks', ...monthlyData.map(d => d.weeks), '']);
+      
+      // Monthly Revenue row
+      rows.push(['Monthly Revenue', ...monthlyData.map(d => d.revenue), totalRevenue]);
+      
+      // Labor Target (40%) row
+      rows.push(['Labor Target (40%)', ...monthlyData.map(d => d.revenue > 0 ? d.laborBudget : ''), totalLaborBudget]);
+      
+      // Actual Labor Cost row
+      rows.push(['Actual Labor Cost', ...monthlyData.map(d => d.actLaborCost || ''), totalActLaborCost || '']);
+      
+      // Actual DL % (from cost) row
+      rows.push(['Actual DL % (Cost)', ...monthlyData.map(d => d.dlPercentCost !== null ? d.dlPercentCost.toFixed(1) + '%' : ''), avgDLCost !== null ? avgDLCost.toFixed(1) + '%' : '']);
+      
+      // FTEs Required row
+      rows.push(['FTEs Required', ...monthlyData.map(d => d.revenue > 0 ? d.ftes : ''), avgFtes + ' (avg)']);
+      
+      // Labor Hours Est row
+      rows.push(['Labor Hours Est', ...monthlyData.map(d => d.revenue > 0 ? Math.round(d.displayHours) : ''), Math.round(totalDisplayHours)]);
+      
+      // Target DL % row
+      rows.push(['Target DL %', ...monthlyData.map(d => d.revenue > 0 ? '40.0%' : ''), '40.0%']);
+      
+      // Actual Hours row
+      rows.push(['Actual Hours', ...monthlyData.map(d => d.actHours || ''), totalActHours || '']);
+      
+      // Actual FTEs (from hours) row
+      rows.push(['Actual FTEs (Hours)', ...monthlyData.map(d => d.actualFtesFromHours), '']);
+      
+      // Actual HC row
+      rows.push(['Actual HC', ...monthlyData.map(d => d.actHC || ''), avgActHC ? avgActHC.toFixed(1) + ' (avg)' : '']);
+      
+      // Actual DL % (from HC) row
+      rows.push(['Actual DL % (HC)', ...monthlyData.map(d => d.dlPercentHC !== null ? d.dlPercentHC.toFixed(1) + '%' : ''), '']);
+      
+      // Maint Crews row
+      rows.push(['Maint Crews (4m)', ...monthlyData.map(d => d.crews), avgFtes > 0 ? Math.ceil(avgFtes / 4) : '']);
+      
+      // Build CSV content
+      const csvContent = rows.map(row => row.map(escapeCSV).join(',')).join('\n');
+      
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.setAttribute('href', URL.createObjectURL(blob));
+      link.setAttribute('download', `FTE_Forecast_${branchName}_${selectedYear}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSaveMessage({ type: 'success', text: 'Export complete!' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      console.error('Export error:', err);
+      setSaveMessage({ type: 'error', text: 'Error exporting data' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
+
   // Calculate totals for current branch (or use company totals for Encore)
   const branchTotals = months.reduce((acc, month) => {
     const metrics = calculateMetrics(monthlyRevenue[month]);
@@ -396,6 +551,17 @@ export default function ForecastPage() {
                 ))}
               </select>
             </div>
+            
+            {/* Export CSV Button */}
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              <span>Export CSV</span>
+            </button>
             
             <button
               onClick={handleSave}

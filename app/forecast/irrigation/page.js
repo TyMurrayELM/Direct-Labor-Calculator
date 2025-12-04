@@ -16,6 +16,7 @@ export default function IrrigationForecastPage() {
   
   // Constants for Irrigation department
   const IRRIGATION_REVENUE_PERCENT = 0.25; // 25% of Maintenance Revenue
+  const LABOR_REVENUE_PERCENT = 0.85; // 85% of Irrigation Revenue goes to labor
   const BILLING_RATE = 105; // $105/hr billing rate
   const BILLABLE_PERCENT = 0.75; // 75% of tech's time is billable
   const HOURLY_COST = 35; // $35/hr fully burdened cost
@@ -107,7 +108,9 @@ export default function IrrigationForecastPage() {
   // Calculate Irrigation metrics for a given maintenance revenue
   const calculateIrrigationMetrics = (maintenanceRevenue) => {
     const irrigationRevenue = maintenanceRevenue * IRRIGATION_REVENUE_PERCENT;
-    const billableHours = irrigationRevenue / BILLING_RATE;
+    const laborRevenue = irrigationRevenue * LABOR_REVENUE_PERCENT;
+    const nonLaborRevenue = irrigationRevenue - laborRevenue;
+    const billableHours = laborRevenue / BILLING_RATE;
     // Total hours needed = billable hours / 75% (to account for non-billable time)
     const totalHoursNeeded = billableHours / BILLABLE_PERCENT;
     const laborCost = totalHoursNeeded * HOURLY_COST;
@@ -117,6 +120,8 @@ export default function IrrigationForecastPage() {
     return {
       maintenanceRevenue,
       irrigationRevenue,
+      laborRevenue,
+      nonLaborRevenue,
       billableHours,
       totalHoursNeeded,
       laborCost,
@@ -138,12 +143,16 @@ export default function IrrigationForecastPage() {
   const totals = monthlyData.reduce((acc, d) => ({
     maintenanceRevenue: acc.maintenanceRevenue + d.maintenanceRevenue,
     irrigationRevenue: acc.irrigationRevenue + d.irrigationRevenue,
+    laborRevenue: acc.laborRevenue + d.laborRevenue,
+    nonLaborRevenue: acc.nonLaborRevenue + d.nonLaborRevenue,
     billableHours: acc.billableHours + d.billableHours,
     totalHoursNeeded: acc.totalHoursNeeded + d.totalHoursNeeded,
     laborCost: acc.laborCost + d.laborCost
   }), {
     maintenanceRevenue: 0,
     irrigationRevenue: 0,
+    laborRevenue: 0,
+    nonLaborRevenue: 0,
     billableHours: 0,
     totalHoursNeeded: 0,
     laborCost: 0
@@ -182,6 +191,12 @@ export default function IrrigationForecastPage() {
       
       // Irrigation Revenue Target
       rows.push(['Irrigation Revenue (25%)', ...monthlyData.map(d => d.irrigationRevenue), totals.irrigationRevenue]);
+      
+      // Labor Revenue
+      rows.push(['Labor Revenue (85%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
+      
+      // Non-Labor Revenue
+      rows.push(['Non-Labor Revenue (15%)', ...monthlyData.map(d => d.nonLaborRevenue), totals.nonLaborRevenue]);
       
       // Billable Hours
       rows.push(['Billable Hours (@$105/hr)', ...monthlyData.map(d => Math.round(d.billableHours)), Math.round(totals.billableHours)]);
@@ -358,6 +373,10 @@ export default function IrrigationForecastPage() {
               <span className="text-blue-700 font-semibold">25% of Maint Rev</span>
             </div>
             <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-700">Labor Split:</span>
+              <span className="text-blue-700 font-semibold">85% Labor / 15% Non-Labor</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Billing Rate:</span>
               <span className="text-blue-700 font-semibold">${BILLING_RATE}/hr</span>
             </div>
@@ -426,32 +445,62 @@ export default function IrrigationForecastPage() {
                 </td>
               </tr>
 
-              {/* Billable Hours Row */}
+              {/* Labor Revenue Row */}
               <tr className="bg-sky-50 border-b border-sky-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-sky-50 z-10">
-                  Billable Hours (@${BILLING_RATE}/hr)
+                  Labor Revenue (85%)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-2 text-center text-sky-700">
-                    {d.billableHours > 0 ? formatNumber(d.billableHours, 0) : '—'}
+                    {d.laborRevenue > 0 ? formatCurrency(d.laborRevenue) : '—'}
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
+                  {formatCurrency(totals.laborRevenue)}
+                </td>
+              </tr>
+
+              {/* Non-Labor Revenue Row */}
+              <tr className="bg-sky-50/50 border-b border-sky-100">
+                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
+                  Non-Labor Revenue (15%)
+                </td>
+                {monthlyData.map(d => (
+                  <td key={d.month} className="px-2 py-1.5 text-center text-xs text-gray-500">
+                    {d.nonLaborRevenue > 0 ? formatCurrency(d.nonLaborRevenue) : '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-sky-100/50">
+                  {formatCurrency(totals.nonLaborRevenue)}
+                </td>
+              </tr>
+
+              {/* Billable Hours Row */}
+              <tr className="bg-cyan-50 border-b border-cyan-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-cyan-50 z-10">
+                  Billable Hours (@${BILLING_RATE}/hr)
+                </td>
+                {monthlyData.map(d => (
+                  <td key={d.month} className="px-2 py-2 text-center text-cyan-700">
+                    {d.billableHours > 0 ? formatNumber(d.billableHours, 0) : '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-cyan-700 bg-cyan-100">
                   {formatNumber(totals.billableHours, 0)}
                 </td>
               </tr>
 
               {/* Total Hours Needed Row */}
-              <tr className="bg-cyan-50 border-b border-cyan-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-cyan-50 z-10">
+              <tr className="bg-indigo-50 border-b border-indigo-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-indigo-50 z-10">
                   Total Hours (75% billable)
                 </td>
                 {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-cyan-700">
+                  <td key={d.month} className="px-2 py-2 text-center text-indigo-700">
                     {d.totalHoursNeeded > 0 ? formatNumber(d.totalHoursNeeded, 0) : '—'}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-cyan-700 bg-cyan-100">
+                <td className="px-2 py-2 text-center font-semibold text-indigo-700 bg-indigo-100">
                   {formatNumber(totals.totalHoursNeeded, 0)}
                 </td>
               </tr>
@@ -532,9 +581,9 @@ export default function IrrigationForecastPage() {
                 <div className="text-blue-200 text-xs mt-1">25% of Maintenance</div>
               </div>
               <div className="bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-sky-100 text-sm font-medium mb-1">Annual Billable Hours</div>
-                <div className="text-2xl font-bold">{formatNumber(totals.billableHours, 0)}</div>
-                <div className="text-sky-200 text-xs mt-1">@ ${BILLING_RATE}/hr</div>
+                <div className="text-sky-100 text-sm font-medium mb-1">Annual Labor Revenue</div>
+                <div className="text-2xl font-bold">{formatCurrency(totals.laborRevenue)}</div>
+                <div className="text-sky-200 text-xs mt-1">85% of Irrigation</div>
               </div>
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-orange-100 text-sm font-medium mb-1">Annual Labor Cost</div>
@@ -555,7 +604,8 @@ export default function IrrigationForecastPage() {
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
           <div className="text-sm text-gray-600 space-y-1">
             <div><span className="font-medium">Irrigation Revenue</span> = Maintenance Revenue × 25%</div>
-            <div><span className="font-medium">Billable Hours</span> = Irrigation Revenue ÷ ${BILLING_RATE}/hr</div>
+            <div><span className="font-medium">Labor Revenue</span> = Irrigation Revenue × 85%</div>
+            <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>
             <div><span className="font-medium">Total Hours</span> = Billable Hours ÷ 75% (accounts for non-billable time)</div>
             <div><span className="font-medium">Labor Cost</span> = Total Hours × ${HOURLY_COST}/hr</div>
             <div><span className="font-medium">FTEs</span> = Total Hours ÷ {HOURS_PER_MONTH} hrs/month</div>

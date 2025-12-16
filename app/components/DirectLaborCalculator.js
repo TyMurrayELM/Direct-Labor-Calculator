@@ -175,6 +175,7 @@ const DirectLaborCalculator = () => {
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
+  const [propertyNameFilter, setPropertyNameFilter] = useState('');
   
   // State for tracking edited hours
   const [editedHours, setEditedHours] = useState({});
@@ -287,6 +288,7 @@ const DirectLaborCalculator = () => {
     setCompanyFilter('');
     setClientFilter('');
     setSelectedCrewType('');
+    setPropertyNameFilter('');
     setPage(1);
   };
   
@@ -429,10 +431,18 @@ const DirectLaborCalculator = () => {
     }
   };
 
-  // Filter properties for display (mismatch filter)
-  const filteredProperties = showMismatchOnly 
-    ? properties.filter(property => property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours)
-    : properties;
+  // Filter properties for display (mismatch filter and property name filter)
+  const filteredProperties = properties.filter(property => {
+    // Property name filter (case-insensitive partial match)
+    if (propertyNameFilter && !property.name?.toLowerCase().includes(propertyNameFilter.toLowerCase())) {
+      return false;
+    }
+    // Mismatch filter
+    if (showMismatchOnly) {
+      return property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours;
+    }
+    return true;
+  });
 
   // Calculate totals for current page (using filtered properties)
   const currentPageMonthlyInvoice = filteredProperties.reduce((sum, prop) => sum + prop.monthly_invoice, 0);
@@ -762,7 +772,7 @@ const DirectLaborCalculator = () => {
               </button>
               
               {/* Filter badge */}
-              {(regionFilter || accountManagerFilter || propertyTypeFilter || companyFilter || clientFilter) && (
+              {(regionFilter || accountManagerFilter || propertyTypeFilter || companyFilter || clientFilter || propertyNameFilter) && (
                 <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
                   <span className="font-medium">Filters Active</span>
                   <button 
@@ -781,7 +791,19 @@ const DirectLaborCalculator = () => {
             {showAdvancedFilters && (
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 animate-fadeIn">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Filter Properties</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                  {/* Property Name Search */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Property Name</label>
+                    <input
+                      type="text"
+                      value={propertyNameFilter}
+                      onChange={(e) => setPropertyNameFilter(e.target.value)}
+                      placeholder="Search by name..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
                   {/* Region Filter */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Region</label>

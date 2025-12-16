@@ -166,7 +166,7 @@ const DirectLaborCalculator = () => {
     return searchParams.get('crewType') || '';
   });
   const [page, setPage] = useState(1);
-  const pageSize = 50; // Increased from 10 to 50
+  const pageSize = 10000; // Load all records
   
   // State for advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -178,6 +178,11 @@ const DirectLaborCalculator = () => {
   
   // State for tracking edited hours
   const [editedHours, setEditedHours] = useState({});
+  
+  // State for filtering only properties with hours mismatch - read from URL
+  const [showMismatchOnly, setShowMismatchOnly] = useState(() => {
+    return searchParams.get('needsUpdate') === 'true';
+  });
   
   // State for tracking which property is currently being saved
   const [savingPropertyId, setSavingPropertyId] = useState(null);
@@ -206,8 +211,13 @@ const DirectLaborCalculator = () => {
     } else {
       params.delete('crewType');
     }
+    if (showMismatchOnly) {
+      params.set('needsUpdate', 'true');
+    } else {
+      params.delete('needsUpdate');
+    }
     router.replace(`?${params.toString()}`, { scroll: false });
-  }, [selectedBranchId, selectedCrewId, selectedCrewType, router, searchParams]);
+  }, [selectedBranchId, selectedCrewId, selectedCrewType, showMismatchOnly, router, searchParams]);
   
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();
@@ -419,15 +429,20 @@ const DirectLaborCalculator = () => {
     }
   };
 
-  // Calculate totals for current page
-  const currentPageMonthlyInvoice = properties.reduce((sum, prop) => sum + prop.monthly_invoice, 0);
-  const currentPageCurrentHours = properties.reduce((sum, prop) => sum + prop.current_hours, 0);
-  const currentPageNewHours = properties.reduce((sum, prop) => {
+  // Filter properties for display (mismatch filter)
+  const filteredProperties = showMismatchOnly 
+    ? properties.filter(property => property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours)
+    : properties;
+
+  // Calculate totals for current page (using filtered properties)
+  const currentPageMonthlyInvoice = filteredProperties.reduce((sum, prop) => sum + prop.monthly_invoice, 0);
+  const currentPageCurrentHours = filteredProperties.reduce((sum, prop) => sum + prop.current_hours, 0);
+  const currentPageNewHours = filteredProperties.reduce((sum, prop) => {
     const editedHour = editedHours[prop.id];
     const adjustedHour = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
     return sum + (editedHour !== undefined ? editedHour : adjustedHour);
   }, 0);
-  const currentPageTargetHours = properties.reduce((sum, prop) => sum + calculateTargetHours(prop.monthly_invoice), 0);
+  const currentPageTargetHours = filteredProperties.reduce((sum, prop) => sum + calculateTargetHours(prop.monthly_invoice), 0);
   
   // Always use actual totals from the backend, no estimation
   const totalMonthlyInvoice = backendTotalMonthlyInvoice || 0;
@@ -605,6 +620,22 @@ const DirectLaborCalculator = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Mismatch Filter Toggle */}
+            <button
+              onClick={() => setShowMismatchOnly(!showMismatchOnly)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${
+                showMismatchOnly 
+                  ? 'bg-amber-500 text-white border border-amber-600 hover:bg-amber-600' 
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+              title="Show only properties where Current Hours ≠ New Hours"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>Needs Update</span>
+            </button>
           </div>
           
           {/* Target DL and Cost Section */}
@@ -908,20 +939,32 @@ const DirectLaborCalculator = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {properties.length === 0 ? (
+                {filteredProperties.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        <p className="text-lg font-medium">No properties found</p>
-                        <p className="text-sm text-gray-400 mt-1">Try changing your filters or adding properties</p>
+                        {showMismatchOnly ? (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p className="text-lg font-medium text-green-700">All properties are up to date!</p>
+                            <p className="text-sm text-gray-400 mt-1">No properties need hours updates on this page</p>
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <p className="text-lg font-medium">No properties found</p>
+                            <p className="text-sm text-gray-400 mt-1">Try changing your filters or adding properties</p>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  properties.map((property, index) => {
+                  filteredProperties.map((property, index) => {
                     const targetHours = calculateTargetHours(property.monthly_invoice);
                     const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
                     const newHours = editedHours[property.id] !== undefined 
@@ -1011,7 +1054,8 @@ const DirectLaborCalculator = () => {
                                 </svg>
                               </div>
                             )}
-                            {editedHours[property.id] !== undefined && editedHours[property.id] !== property.current_hours && (
+                            {/* Show save button if edited value differs from the saved new hours (adjusted_hours or current_hours) */}
+                            {editedHours[property.id] !== undefined && editedHours[property.id] !== (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours) && (
                               isSaving ? (
                                 <div className="w-8 h-8 flex items-center justify-center">
                                   <div className="w-5 h-5 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
@@ -1040,9 +1084,9 @@ const DirectLaborCalculator = () => {
                   })
                 )}
 
-                {/* Totals row for current page */}
+                {/* Totals row */}
                 <tr className="bg-gray-50 font-medium border-t-2 border-gray-200">
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">PAGE TOTALS</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">TOTALS</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>
@@ -1064,38 +1108,12 @@ const DirectLaborCalculator = () => {
           </div>
         )}
 
-        {/* Pagination & Formula Section */}
+        {/* Formula Section */}
         <div className="border-t border-gray-200">
-          <div className="bg-gray-50 p-4 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="bg-gray-50 p-4 sm:p-6">
             <div className="text-sm text-gray-500 border-l-4 border-blue-500 pl-3 py-1 bg-blue-50 rounded-r-md">
               <p className="font-medium text-blue-900">Formula: (Monthly Invoice × Target DL%) × 0.9 ÷ 24.75 ÷ 4.33</p>
               <p className="text-blue-800 mt-1">Target DL% is adjustable, 0.9 accounts for Drive Time, 24.75 is hourly cost, 4.33 is weeks per month</p>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1 || isLoading}
-                className={`px-4 py-2 rounded-lg flex items-center space-x-1 font-medium shadow-sm transition-colors ${page === 1 || isLoading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span>Previous</span>
-              </button>
-              <span className="text-sm text-gray-700 bg-white px-4 py-2 rounded-lg border border-gray-300 shadow-sm">
-                Page {page} of {totalPages || 1}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages || 1, page + 1))}
-                disabled={page === (totalPages || 1) || isLoading}
-                className={`px-4 py-2 rounded-lg flex items-center space-x-1 font-medium shadow-sm transition-colors ${page === (totalPages || 1) || isLoading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
-              >
-                <span>Next</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
             </div>
           </div>
         </div>
@@ -1104,7 +1122,11 @@ const DirectLaborCalculator = () => {
       {/* Results counter at bottom */}
       {!propertiesLoading && (
         <div className="mt-4 text-center text-sm text-gray-500">
-          Showing {properties.length} of {count} properties
+          {showMismatchOnly ? (
+            <span>Showing {filteredProperties.length} properties needing update (from {properties.length} total)</span>
+          ) : (
+            <span>Showing {properties.length} properties</span>
+          )}
         </div>
       )}
 

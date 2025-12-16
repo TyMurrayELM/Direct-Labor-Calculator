@@ -342,6 +342,16 @@ const DirectLaborCalculator = () => {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
   };
 
+  // Format time from 24h (HH:MM:SS) to 12h format (h:mm AM/PM)
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   // Format headcount - adding 10% for drive time
   const formatHeadcount = (hours) => {
     // Add 10% for drive time before calculating headcount
@@ -359,6 +369,7 @@ const DirectLaborCalculator = () => {
         .select(`
           id, name, monthly_invoice, current_hours, adjusted_hours,
           region, account_manager, property_type, company, client,
+          service_window_start, service_window_end,
           branch_id, crew_id,
           branches (id, name),
           crews (id, name, crew_type, size)
@@ -392,7 +403,7 @@ const DirectLaborCalculator = () => {
         return;
       }
 
-      const headers = ['Property Name','Branch','Crew','Crew Type','Crew Size','Region','Account Manager','Property Type','Company','Client','Monthly Invoice','Current Weekly Hours','Current DL%','Target Weekly Hours','New Weekly Hours','New DL%'];
+      const headers = ['Property Name','Branch','Crew','Crew Type','Crew Size','Region','Account Manager','Property Type','Company','Client','Monthly Invoice','Current Weekly Hours','Current DL%','Target Weekly Hours','New Weekly Hours','New DL%','Service Window Start','Service Window End'];
 
       const rows = filteredProperties.map(property => {
         const targetHours = calculateTargetHours(property.monthly_invoice);
@@ -403,7 +414,8 @@ const DirectLaborCalculator = () => {
           property.name || '', property.branches?.name || '', property.crews?.name || '', property.crews?.crew_type || '', property.crews?.size || '',
           property.region || '', property.account_manager || '', property.property_type || '', property.company || '', property.client || '',
           property.monthly_invoice || 0, property.current_hours || 0, currentDLPercent.toFixed(1), targetHours.toFixed(1), newHours || 0,
-          (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : ''
+          (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : '',
+          property.service_window_start || '', property.service_window_end || ''
         ];
       });
 
@@ -950,7 +962,7 @@ const DirectLaborCalculator = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-900 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Property</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 w-64 max-w-64">Property</th>
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">CSS</th>
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Monthly Invoice</th>
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
@@ -1006,17 +1018,25 @@ const DirectLaborCalculator = () => {
                         key={property.id} 
                         className={`transition-all duration-300 ${justSaved ? 'bg-green-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${!justSaved && 'hover:bg-blue-50'}`}
                       >
-                        <td className="px-4 py-2 whitespace-nowrap">
+                        <td className="px-4 py-2 w-64 max-w-64">
                           {/* Make property name a link to edit property directly */}
                           <Link 
                             href={`/properties?edit=${property.id}`}
-                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left break-words"
                           >
                             {property.name}
                           </Link>
                           <div className="flex flex-col text-xs text-gray-500 mt-1">
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type}) - {property.crews.size}m</span>
+                            )}
+                            {(property.service_window_start || property.service_window_end) && (
+                              <span className="text-purple-600 mt-0.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                </svg>
+                                {property.service_window_start ? formatTime(property.service_window_start) : '—'} - {property.service_window_end ? formatTime(property.service_window_end) : '—'}
+                              </span>
                             )}
                           </div>
                         </td>
@@ -1108,7 +1128,7 @@ const DirectLaborCalculator = () => {
 
                 {/* Totals row */}
                 <tr className="bg-gray-50 font-medium border-t-2 border-gray-200">
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">TOTALS</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 w-64 max-w-64">TOTALS</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>

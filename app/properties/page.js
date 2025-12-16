@@ -27,7 +27,9 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     account_manager: property?.account_manager || '',
     property_type: property?.property_type || '',
     company: property?.company || '',
-    client: property?.client || ''
+    client: property?.client || '',
+    service_window_start: property?.service_window_start || '',
+    service_window_end: property?.service_window_end || ''
   });
   
   const [selectedBranchId, setSelectedBranchId] = useState(property?.branch_id || '');
@@ -349,6 +351,41 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter client name"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Service Time Window Section */}
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Service Time Window</h3>
+          <p className="text-sm text-gray-500 mb-4">Set the allowed time window for servicing this property (used for route optimization)</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Start Time
+              </label>
+              <input
+                type="time"
+                name="service_window_start"
+                value={formData.service_window_start || ''}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+              <p className="text-xs text-gray-400">Earliest time service can begin</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                End Time
+              </label>
+              <input
+                type="time"
+                name="service_window_end"
+                value={formData.service_window_end || ''}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+              <p className="text-xs text-gray-400">Latest time service must be completed</p>
             </div>
           </div>
         </div>

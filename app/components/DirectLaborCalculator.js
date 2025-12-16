@@ -367,7 +367,7 @@ const DirectLaborCalculator = () => {
       let query = supabase
         .from('properties')
         .select(`
-          id, name, monthly_invoice, current_hours, adjusted_hours,
+          id, name, address, monthly_invoice, current_hours, adjusted_hours,
           region, account_manager, property_type, company, client,
           service_window_start, service_window_end,
           branch_id, crew_id,
@@ -394,7 +394,15 @@ const DirectLaborCalculator = () => {
 
       let filteredProperties = allProperties;
       if (selectedCrewType) {
-        filteredProperties = allProperties.filter(p => p.crews?.crew_type === selectedCrewType);
+        filteredProperties = filteredProperties.filter(p => p.crews?.crew_type === selectedCrewType);
+      }
+      // Apply property name filter
+      if (propertyNameFilter) {
+        filteredProperties = filteredProperties.filter(p => p.name?.toLowerCase().includes(propertyNameFilter.toLowerCase()));
+      }
+      // Apply mismatch filter
+      if (showMismatchOnly) {
+        filteredProperties = filteredProperties.filter(p => p.adjusted_hours !== null && p.adjusted_hours !== p.current_hours);
       }
 
       if (!filteredProperties || filteredProperties.length === 0) {
@@ -403,19 +411,21 @@ const DirectLaborCalculator = () => {
         return;
       }
 
-      const headers = ['Property Name','Branch','Crew','Crew Type','Crew Size','Region','Account Manager','Property Type','Company','Client','Monthly Invoice','Current Weekly Hours','Current DL%','Target Weekly Hours','New Weekly Hours','New DL%','Service Window Start','Service Window End'];
+      const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End'];
 
       const rows = filteredProperties.map(property => {
-        const targetHours = calculateTargetHours(property.monthly_invoice);
-        const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
         const newHours = editedHours[property.id] !== undefined ? editedHours[property.id] : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
-        const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
+        const crewSize = property.crews?.size || 1;
+        const crewHours = newHours / crewSize;
+        const minutes = Math.round(crewHours * 60);
         return [
-          property.name || '', property.branches?.name || '', property.crews?.name || '', property.crews?.crew_type || '', property.crews?.size || '',
-          property.region || '', property.account_manager || '', property.property_type || '', property.company || '', property.client || '',
-          property.monthly_invoice || 0, property.current_hours || 0, currentDLPercent.toFixed(1), targetHours.toFixed(1), newHours || 0,
-          (editedHours[property.id] !== undefined || property.adjusted_hours !== null) ? newDLPercent.toFixed(1) : '',
-          property.service_window_start || '', property.service_window_end || ''
+          property.name || '',
+          property.address || '',
+          newHours || 0,
+          crewHours.toFixed(1),
+          minutes,
+          property.service_window_start || '',
+          property.service_window_end || ''
         ];
       });
 
@@ -429,7 +439,7 @@ const DirectLaborCalculator = () => {
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
-      link.setAttribute('download', `direct-labor-export${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `route-export${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();

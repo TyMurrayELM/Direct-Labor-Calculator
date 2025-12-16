@@ -28,6 +28,7 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     property_type: property?.property_type || '',
     company: property?.company || '',
     client: property?.client || '',
+    address: property?.address || '',
     service_window_start: property?.service_window_start || '',
     service_window_end: property?.service_window_end || ''
   });
@@ -351,6 +352,21 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter client name"
               />
+            </div>
+
+            <div className="space-y-2 col-span-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Address
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter full property address"
+              />
+              <p className="text-xs text-gray-400">Used for route optimization</p>
             </div>
           </div>
         </div>

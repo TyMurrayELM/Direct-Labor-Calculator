@@ -430,6 +430,67 @@ export function useBranches() {
   return { branches, loading, error };
 }
 
+// Hook to fetch complexes (optionally filtered by branch)
+export function useComplexes(branchId = null) {
+  const [complexes, setComplexes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const fetchComplexes = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('complexes')
+        .select('*')
+        .order('name');
+      
+      // Filter by branch if provided
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      setComplexes(data || []);
+    } catch (err) {
+      console.error('Error fetching complexes:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId]);
+  
+  useEffect(() => {
+    fetchComplexes();
+  }, [fetchComplexes]);
+  
+  const refetchComplexes = useCallback(async () => {
+    return await fetchComplexes();
+  }, [fetchComplexes]);
+  
+  return { complexes, loading, error, refetchComplexes };
+}
+
+// Function to create a complex
+export async function createComplex(complexData) {
+  try {
+    const { data, error } = await supabase
+      .from('complexes')
+      .insert([complexData])
+      .select();
+      
+    if (error) throw error;
+    
+    return { success: true, complex: data[0] };
+  } catch (error) {
+    console.error('Error creating complex:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // PROPERTY CRUD OPERATIONS
 // Function to create property
 export async function createProperty(propertyData) {

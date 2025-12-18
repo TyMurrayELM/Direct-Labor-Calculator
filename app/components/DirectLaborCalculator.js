@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyOptions } from '../hooks/useSupabase';
+import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyOptions, useComplexes } from '../hooks/useSupabase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -224,6 +224,12 @@ const DirectLaborCalculator = () => {
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews(selectedBranchId);
   const { options, loading: optionsLoading } = usePropertyOptions();
+  const { complexes } = useComplexes(selectedBranchId);
+  
+  // Create a lookup map for complex names
+  const complexNameMap = React.useMemo(() => {
+    return (complexes || []).reduce((acc, c) => { acc[c.id] = c.name; return acc; }, {});
+  }, [complexes]);
   
   // Fetch properties with pagination
   const { 
@@ -364,12 +370,13 @@ const DirectLaborCalculator = () => {
     try {
       setMessage({ text: 'Preparing export...', type: 'success' });
 
+      // Fetch properties with complex_id
       let query = supabase
         .from('properties')
         .select(`
           id, name, address, monthly_invoice, current_hours, adjusted_hours,
           region, account_manager, property_type, company, client,
-          service_window_start, service_window_end,
+          service_window_start, service_window_end, complex_id,
           branch_id, crew_id,
           branches (id, name),
           crews (id, name, crew_type, size)
@@ -392,6 +399,12 @@ const DirectLaborCalculator = () => {
         return;
       }
 
+      // Fetch complexes for this branch
+      let complexesQuery = supabase.from('complexes').select('*');
+      if (selectedBranchId) complexesQuery = complexesQuery.eq('branch_id', selectedBranchId);
+      const { data: complexes } = await complexesQuery;
+      const complexMap = (complexes || []).reduce((acc, c) => { acc[c.id] = c; return acc; }, {});
+
       let filteredProperties = allProperties;
       if (selectedCrewType) {
         filteredProperties = filteredProperties.filter(p => p.crews?.crew_type === selectedCrewType);
@@ -411,14 +424,80 @@ const DirectLaborCalculator = () => {
         return;
       }
 
+      // Group properties by complex_id
+      const complexGroups = {};
+      const standaloneProperties = [];
+
+      filteredProperties.forEach(property => {
+        if (property.complex_id && complexMap[property.complex_id]) {
+          if (!complexGroups[property.complex_id]) {
+            complexGroups[property.complex_id] = [];
+          }
+          complexGroups[property.complex_id].push(property);
+        } else {
+          standaloneProperties.push(property);
+        }
+      });
+
       const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End'];
 
-      const rows = filteredProperties.map(property => {
-        const newHours = editedHours[property.id] !== undefined ? editedHours[property.id] : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+      const rows = [];
+
+      // Process complex groups - sum hours, use complex name/address
+      Object.entries(complexGroups).forEach(([complexId, properties]) => {
+        const complex = complexMap[complexId];
+        
+        // Sum total hours across all properties in complex
+        let totalNewHours = 0;
+        let totalCrewHours = 0;
+        let earliestStart = null;
+        let latestEnd = null;
+
+        properties.forEach(property => {
+          const newHours = editedHours[property.id] !== undefined 
+            ? editedHours[property.id] 
+            : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+          const crewSize = property.crews?.size || 1;
+          
+          totalNewHours += newHours || 0;
+          totalCrewHours += (newHours || 0) / crewSize;
+
+          // Track earliest start and latest end times
+          if (property.service_window_start) {
+            if (!earliestStart || property.service_window_start < earliestStart) {
+              earliestStart = property.service_window_start;
+            }
+          }
+          if (property.service_window_end) {
+            if (!latestEnd || property.service_window_end > latestEnd) {
+              latestEnd = property.service_window_end;
+            }
+          }
+        });
+
+        const minutes = Math.round(totalCrewHours * 60);
+
+        rows.push([
+          complex.name || `Complex ${complexId}`,
+          complex.address || properties[0]?.address || '',
+          totalNewHours.toFixed(1),
+          totalCrewHours.toFixed(1),
+          minutes,
+          earliestStart || '',
+          latestEnd || ''
+        ]);
+      });
+
+      // Process standalone properties
+      standaloneProperties.forEach(property => {
+        const newHours = editedHours[property.id] !== undefined 
+          ? editedHours[property.id] 
+          : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
         const crewSize = property.crews?.size || 1;
-        const crewHours = newHours / crewSize;
+        const crewHours = (newHours || 0) / crewSize;
         const minutes = Math.round(crewHours * 60);
-        return [
+        
+        rows.push([
           property.name || '',
           property.address || '',
           newHours || 0,
@@ -426,8 +505,11 @@ const DirectLaborCalculator = () => {
           minutes,
           property.service_window_start || '',
           property.service_window_end || ''
-        ];
+        ]);
       });
+
+      // Sort rows alphabetically by name
+      rows.sort((a, b) => a[0].localeCompare(b[0]));
 
       const escapeCSV = (value) => {
         if (value === null || value === undefined) return '';
@@ -445,9 +527,15 @@ const DirectLaborCalculator = () => {
       link.click();
       document.body.removeChild(link);
       
-      setMessage({ text: `Exported ${filteredProperties.length} properties to CSV`, type: 'success' });
+      const complexCount = Object.keys(complexGroups).length;
+      const standaloneCount = standaloneProperties.length;
+      setMessage({ 
+        text: `Exported ${rows.length} rows (${complexCount} complexes, ${standaloneCount} standalone properties)`, 
+        type: 'success' 
+      });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
     } catch (err) {
+      console.error('Export error:', err);
       setMessage({ text: 'Error exporting data', type: 'error' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
     }
@@ -1030,12 +1118,24 @@ const DirectLaborCalculator = () => {
                       >
                         <td className="px-4 py-2 w-64 max-w-64">
                           {/* Make property name a link to edit property directly */}
-                          <Link 
-                            href={`/properties?edit=${property.id}`}
-                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left break-words"
-                          >
-                            {property.name}
-                          </Link>
+                          <div className="flex items-center">
+                            <Link 
+                              href={`/properties?edit=${property.id}`}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left break-words"
+                            >
+                              {property.name}
+                            </Link>
+                            {property.complex_id && (
+                              <span 
+                                className="ml-1.5 text-orange-500 cursor-help" 
+                                title={complexNameMap[property.complex_id] || 'Part of complex'}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 01-1 1h-2v-2a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a1 1 0 01-1-1V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-col text-xs text-gray-500 mt-1">
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type}) - {property.crews.size}m</span>

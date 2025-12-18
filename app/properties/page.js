@@ -8,7 +8,9 @@ import {
   createProperty, 
   updateProperty, 
   deleteProperty, 
-  usePropertyOptions
+  usePropertyOptions,
+  useComplexes,
+  createComplex
 } from '../hooks/useSupabase';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation'; // Add useRouter import
@@ -29,6 +31,7 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     company: property?.company || '',
     client: property?.client || '',
     address: property?.address || '',
+    complex_id: property?.complex_id || '',
     service_window_start: property?.service_window_start || '',
     service_window_end: property?.service_window_end || ''
   });
@@ -39,6 +42,39 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
   // Use the property options hook to fetch property types from Supabase
   const { propertyTypes = [], loading: loadingPropertyTypes = false } = usePropertyOptions() || {};
 
+  // Fetch complexes filtered by selected branch
+  const { complexes = [], refetchComplexes } = useComplexes(selectedBranchId);
+  
+  // State for creating new complex inline
+  const [showNewComplexInput, setShowNewComplexInput] = useState(false);
+  const [newComplexName, setNewComplexName] = useState('');
+  const [creatingComplex, setCreatingComplex] = useState(false);
+
+  // Handle creating a new complex
+  const handleCreateComplex = async () => {
+    if (!newComplexName.trim() || !selectedBranchId) return;
+    
+    setCreatingComplex(true);
+    try {
+      const result = await createComplex({
+        name: newComplexName.trim(),
+        branch_id: selectedBranchId,
+        address: formData.address || null // Use current property address as default
+      });
+      
+      if (result.success) {
+        await refetchComplexes();
+        setFormData(prev => ({ ...prev, complex_id: result.complex.id }));
+        setNewComplexName('');
+        setShowNewComplexInput(false);
+      }
+    } catch (err) {
+      console.error('Error creating complex:', err);
+    } finally {
+      setCreatingComplex(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     let processedValue = value;
@@ -46,15 +82,15 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     // Convert numeric values
     if (name === 'monthly_invoice' || name === 'current_hours') {
       processedValue = value === '' ? 0 : parseFloat(value);
-    } else if (name === 'branch_id' || name === 'crew_id') {
+    } else if (name === 'branch_id' || name === 'crew_id' || name === 'complex_id') {
       processedValue = value === '' ? null : parseInt(value);
       
       // Update selected branch for crew filtering
       if (name === 'branch_id') {
         setSelectedBranchId(processedValue);
-        // Clear crew if branch changes
+        // Clear crew and complex if branch changes
         if (formData.branch_id !== processedValue) {
-          setFormData(prev => ({ ...prev, crew_id: null }));
+          setFormData(prev => ({ ...prev, crew_id: null, complex_id: null }));
         }
       }
     }
@@ -368,6 +404,89 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
               />
               <p className="text-xs text-gray-400">Used for route optimization</p>
             </div>
+
+            <div className="space-y-2 col-span-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Complex
+              </label>
+              {!showNewComplexInput ? (
+                <div className="flex gap-2">
+                  <div className="relative rounded-md shadow-sm flex-1">
+                    <select
+                      name="complex_id"
+                      value={formData.complex_id || ''}
+                      onChange={handleChange}
+                      className="block w-full px-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
+                      disabled={!formData.branch_id}
+                    >
+                      <option value="">No Complex (Standalone Property)</option>
+                      {complexes.map((complex) => (
+                        <option key={complex.id} value={complex.id}>
+                          {complex.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewComplexInput(true)}
+                    disabled={!formData.branch_id}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    title="Add new complex"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newComplexName}
+                    onChange={(e) => setNewComplexName(e.target.value)}
+                    className="block flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    placeholder="Enter new complex name"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateComplex}
+                    disabled={!newComplexName.trim() || creatingComplex}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {creatingComplex ? (
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewComplexInput(false); setNewComplexName(''); }}
+                    className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              {!formData.branch_id && (
+                <p className="text-xs text-gray-500 mt-1">Select a branch first</p>
+              )}
+              <p className="text-xs text-gray-400">Group properties together for route optimization export</p>
+            </div>
           </div>
         </div>
 
@@ -483,6 +602,12 @@ export default function PropertiesPage() {
     sortBy,
     sortOrder
   });
+  const { complexes } = useComplexes();
+  
+  // Create a lookup map for complex names
+  const complexNameMap = React.useMemo(() => {
+    return (complexes || []).reduce((acc, c) => { acc[c.id] = c.name; return acc; }, {});
+  }, [complexes]);
   
   // Check for edit and return parameters on component mount and when searchParams changes
   useEffect(() => {
@@ -812,7 +937,14 @@ export default function PropertiesPage() {
                         <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">{property.name}</div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {property.region && <span className="block">Region: {property.region}</span>}
+                            {property.complex_id && complexNameMap[property.complex_id] && (
+                              <span className="block text-orange-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 01-1 1h-2v-2a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a1 1 0 01-1-1V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                                </svg>
+                                {complexNameMap[property.complex_id]}
+                              </span>
+                            )}
                             {property.account_manager && <span className="block">Manager: {property.account_manager}</span>}
                           </div>
                         </td>
@@ -898,15 +1030,17 @@ export default function PropertiesPage() {
       
       {/* Property Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="max-w-4xl w-full">
-            <PropertyForm
-              property={selectedProperty}
-              branches={branches || []}
-              crews={crews || []}
-              onSave={handleSaveProperty}
-              onCancel={handleCancelForm}
-            />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-start justify-center p-4 py-8">
+            <div className="max-w-4xl w-full">
+              <PropertyForm
+                property={selectedProperty}
+                branches={branches || []}
+                crews={crews || []}
+                onSave={handleSaveProperty}
+                onCancel={handleCancelForm}
+              />
+            </div>
           </div>
         </div>
       )}

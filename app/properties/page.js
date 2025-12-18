@@ -590,6 +590,11 @@ export default function PropertiesPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [searchText, setSearchText] = useState('');
   
+  // Filter states
+  const [branchFilter, setBranchFilter] = useState('');
+  const [crewFilter, setCrewFilter] = useState('');
+  const [complexFilter, setComplexFilter] = useState('');
+  
   // State for property form
   const [showForm, setShowForm] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -652,19 +657,50 @@ export default function PropertiesPage() {
   }, [searchParams, properties, propertiesLoading]);
   
   // Client-side filtering
-  const filteredProperties = searchText 
-    ? properties?.filter(property => {
-        const query = searchText.toLowerCase();
-        return (
-          (property.name && property.name.toLowerCase().includes(query)) ||
-          (property.property_type && property.property_type.toLowerCase().includes(query)) ||
-          (property.account_manager && property.account_manager.toLowerCase().includes(query)) ||
-          (property.region && property.region.toLowerCase().includes(query)) ||
-          (property.company && property.company.toLowerCase().includes(query)) ||
-          (property.client && property.client.toLowerCase().includes(query))
-        );
-      })
-    : properties;
+  const filteredProperties = React.useMemo(() => {
+    let filtered = properties || [];
+    
+    // Filter by branch
+    if (branchFilter) {
+      filtered = filtered.filter(p => p.branch_id === parseInt(branchFilter));
+    }
+    
+    // Filter by crew
+    if (crewFilter) {
+      filtered = filtered.filter(p => p.crew_id === parseInt(crewFilter));
+    }
+    
+    // Filter by complex
+    if (complexFilter) {
+      filtered = filtered.filter(p => p.complex_id === parseInt(complexFilter));
+    }
+    
+    // Filter by search text
+    if (searchText) {
+      const query = searchText.toLowerCase();
+      filtered = filtered.filter(property => 
+        (property.name && property.name.toLowerCase().includes(query)) ||
+        (property.property_type && property.property_type.toLowerCase().includes(query)) ||
+        (property.account_manager && property.account_manager.toLowerCase().includes(query)) ||
+        (property.region && property.region.toLowerCase().includes(query)) ||
+        (property.company && property.company.toLowerCase().includes(query)) ||
+        (property.client && property.client.toLowerCase().includes(query))
+      );
+    }
+    
+    return filtered;
+  }, [properties, branchFilter, crewFilter, complexFilter, searchText]);
+  
+  // Check if any filters are active
+  const hasActiveFilters = branchFilter || crewFilter || complexFilter || searchText;
+  
+  // Clear all filters
+  const clearFilters = () => {
+    setBranchFilter('');
+    setCrewFilter('');
+    setComplexFilter('');
+    setSearchText('');
+  };
   
   // Format currency
   const formatCurrency = (amount) => {
@@ -851,6 +887,58 @@ export default function PropertiesPage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Filters Row */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {/* Branch Filter */}
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="">All Branches</option>
+              {branches?.map(branch => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+
+            {/* Crew Filter */}
+            <select
+              value={crewFilter}
+              onChange={(e) => setCrewFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="">All Crews</option>
+              {crews?.filter(c => !branchFilter || c.branch_id === parseInt(branchFilter)).map(crew => (
+                <option key={crew.id} value={crew.id}>{crew.name}</option>
+              ))}
+            </select>
+
+            {/* Complex Filter */}
+            <select
+              value={complexFilter}
+              onChange={(e) => setComplexFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="">All Complexes</option>
+              {complexes?.filter(c => !branchFilter || c.branch_id === parseInt(branchFilter)).map(complex => (
+                <option key={complex.id} value={complex.id}>{complex.name}</option>
+              ))}
+            </select>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
         

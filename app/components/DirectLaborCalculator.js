@@ -439,7 +439,7 @@ const DirectLaborCalculator = () => {
         }
       });
 
-      const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End'];
+      const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End','Notes'];
 
       const rows = [];
 
@@ -477,6 +477,9 @@ const DirectLaborCalculator = () => {
 
         const minutes = Math.round(totalCrewHours * 60);
 
+        // Create notes with list of property names in the complex
+        const propertyNames = properties.map(p => p.name).sort().join(', ');
+
         rows.push([
           complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
           complex.address || properties[0]?.address || '',
@@ -484,7 +487,8 @@ const DirectLaborCalculator = () => {
           totalCrewHours.toFixed(1),
           minutes,
           earliestStart || '',
-          latestEnd || ''
+          latestEnd || '',
+          propertyNames
         ]);
       });
 
@@ -504,7 +508,8 @@ const DirectLaborCalculator = () => {
           crewHours.toFixed(1),
           minutes,
           property.service_window_start || '',
-          property.service_window_end || ''
+          property.service_window_end || '',
+          ''
         ]);
       });
 

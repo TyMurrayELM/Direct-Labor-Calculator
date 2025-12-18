@@ -114,6 +114,11 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
       return;
     }
 
+    if (!formData.address || !formData.address.trim()) {
+      setError("Address is required");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -400,7 +405,7 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
 
             <div className="space-y-2 col-span-2">
               <label className="block text-sm font-medium text-gray-700">
-                Address
+                Address <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -409,8 +414,9 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter full property address"
+                required
               />
-              <p className="text-xs text-gray-400">Used for route optimization</p>
+              <p className="text-xs text-gray-400">Required for route optimization</p>
             </div>
 
             <div className="space-y-2 col-span-2">

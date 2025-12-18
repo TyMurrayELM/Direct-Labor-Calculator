@@ -24,6 +24,9 @@ export default function CrewsPage() {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [crewStats, setCrewStats] = useState({});
   
+  // Filter state
+  const [branchFilter, setBranchFilter] = useState('');
+  
   // Sorting state
   const [sortBy, setSortBy] = useState('branch');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -281,6 +284,12 @@ if (false) { // Always continue with deletion for now
     setSortedCrews(sorted);
   }, [crews, sortBy, sortOrder, branches, crewStats]);
 
+  // Filter crews by branch
+  const filteredCrews = React.useMemo(() => {
+    if (!branchFilter) return sortedCrews;
+    return sortedCrews.filter(crew => crew.branch_id === parseInt(branchFilter));
+  }, [sortedCrews, branchFilter]);
+
   if (crewsLoading || branchesLoading || propertiesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-blue-50">
@@ -323,6 +332,31 @@ if (false) { // Always continue with deletion for now
                 Add New Crew
               </button>
             </div>
+          </div>
+
+          {/* Branch Filter */}
+          <div className="mt-4 flex items-center gap-3">
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="">All Branches</option>
+              {branches?.map(branch => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+            {branchFilter && (
+              <button
+                onClick={() => setBranchFilter('')}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear
+              </button>
+            )}
           </div>
           
           {/* Direct Labor Info Section */}
@@ -513,7 +547,7 @@ if (false) { // Always continue with deletion for now
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {sortedCrews.length === 0 ? (
+              {filteredCrews.length === 0 ? (
                 <tr>
                   <td colSpan="14" className="px-3 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
@@ -526,7 +560,7 @@ if (false) { // Always continue with deletion for now
                   </td>
                 </tr>
               ) : (
-                sortedCrews.map((crew) => {
+                filteredCrews.map((crew) => {
                   // Get branch information including color
                   const branchInfo = getBranchInfo(crew.branch_id);
                   
@@ -720,7 +754,7 @@ if (false) { // Always continue with deletion for now
         
         {/* Footer */}
         <div className="bg-gray-50 p-4 border-t border-gray-200 text-center text-sm text-gray-500">
-          {sortedCrews.length > 0 ? `Showing ${sortedCrews.length} crews` : 'No crews to display'}
+          {filteredCrews.length > 0 ? `Showing ${filteredCrews.length} crews` : 'No crews to display'}
         </div>
       </div>
       

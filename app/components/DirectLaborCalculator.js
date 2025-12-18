@@ -478,7 +478,7 @@ const DirectLaborCalculator = () => {
         const minutes = Math.round(totalCrewHours * 60);
 
         rows.push([
-          complex.name || `Complex ${complexId}`,
+          complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
           complex.address || properties[0]?.address || '',
           totalNewHours.toFixed(1),
           totalCrewHours.toFixed(1),

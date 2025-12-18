@@ -32,8 +32,8 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     client: property?.client || '',
     address: property?.address || '',
     complex_id: property?.complex_id || '',
-    service_window_start: property?.service_window_start || '',
-    service_window_end: property?.service_window_end || ''
+    service_window_start: property?.service_window_start || '06:00',
+    service_window_end: property?.service_window_end || '14:30'
   });
   
   const [selectedBranchId, setSelectedBranchId] = useState(property?.branch_id || '');

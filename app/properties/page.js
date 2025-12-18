@@ -119,6 +119,19 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
       return;
     }
 
+    // Validate that service time window can accommodate the current hours
+    if (formData.service_window_start && formData.service_window_end && formData.current_hours) {
+      const [startHour, startMin] = formData.service_window_start.split(':').map(Number);
+      const [endHour, endMin] = formData.service_window_end.split(':').map(Number);
+      const windowMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+      const windowHours = windowMinutes / 60;
+      
+      if (windowHours < formData.current_hours) {
+        setError(`Service time window (${windowHours.toFixed(1)} hrs) is shorter than Current Hours (${formData.current_hours}). Please adjust the time window or hours.`);
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
 

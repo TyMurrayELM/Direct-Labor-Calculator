@@ -118,21 +118,29 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     setError(null);
 
     try {
+      // Clean up empty strings for integer fields before sending to database
+      const cleanedData = {
+        ...formData,
+        branch_id: formData.branch_id === '' ? null : formData.branch_id,
+        crew_id: formData.crew_id === '' ? null : formData.crew_id,
+        complex_id: formData.complex_id === '' ? null : formData.complex_id
+      };
+
       let result;
       
       if (property && property.id) {
         // Update existing property
-        result = await updateProperty(property.id, formData);
+        result = await updateProperty(property.id, cleanedData);
       } else {
         // Create new property
-        result = await createProperty(formData);
+        result = await createProperty(cleanedData);
       }
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to save property');
       }
       
-      onSave(result.property || formData);
+      onSave(result.property || cleanedData);
     } catch (err) {
       setError(err.message);
     } finally {

@@ -119,15 +119,20 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
       return;
     }
 
-    // Validate that service time window can accommodate the current hours
+    // Validate that service time window can accommodate the crew hours
     if (formData.service_window_start && formData.service_window_end && formData.current_hours) {
       const [startHour, startMin] = formData.service_window_start.split(':').map(Number);
       const [endHour, endMin] = formData.service_window_end.split(':').map(Number);
       const windowMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
       const windowHours = windowMinutes / 60;
       
-      if (windowHours < formData.current_hours) {
-        setError(`Service time window (${windowHours.toFixed(1)} hrs) is shorter than Current Hours (${formData.current_hours}). Please adjust the time window or hours.`);
+      // Get crew size to calculate crew hours
+      const selectedCrew = crews.find(c => c.id === formData.crew_id);
+      const crewSize = selectedCrew?.size || 1;
+      const crewHours = formData.current_hours / crewSize;
+      
+      if (windowHours < crewHours) {
+        setError(`Service time window (${windowHours.toFixed(1)} hrs) is shorter than Crew Hours (${crewHours.toFixed(1)} hrs = ${formData.current_hours} hrs ÷ ${crewSize} crew). Please adjust the time window or hours.`);
         return;
       }
     }

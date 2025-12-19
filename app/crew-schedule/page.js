@@ -528,7 +528,21 @@ export default function CrewSchedulePrintPage() {
                               <td className={`px-1.5 py-0.5 font-bold text-gray-900 text-xs ${index === 0 ? 'bg-orange-100' : ''}`}>
                                 {index === 0 ? day : ''}
                               </td>
-                              <td className="px-1.5 py-0.5 text-gray-900 text-xs truncate max-w-0" title={job.name}>{job.name}</td>
+                              <td className="px-1.5 py-0.5 text-xs truncate max-w-0" title={job.name}>
+                                {job.map_link ? (
+                                  <a 
+                                    href={job.map_link} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                                  >
+                                    {job.name}
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-900">{job.name}</span>
+                                )}
+                              </td>
                               <td className="px-1.5 py-0.5 text-gray-600 text-xs truncate max-w-0" title={job.address}>{job.address || '—'}</td>
                               <td className="px-1.5 py-0.5 text-center text-gray-900 text-xs">{manHours.toFixed(1)}</td>
                               <td className="px-1.5 py-0.5 text-center text-gray-600 text-xs whitespace-nowrap">

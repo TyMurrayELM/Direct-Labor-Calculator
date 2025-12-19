@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   useProperties, 
   useCrews, 
@@ -15,6 +16,23 @@ import {
 } from '../hooks/useSupabase';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
+
+// Get branch icon path based on branch name
+const getIconPath = (branchName) => {
+  if (!branchName) return null;
+  
+  const name = branchName.toLowerCase();
+  if (name.includes('vegas') || name.includes('lv')) {
+    return '/lv.png';
+  } else if (name.includes('north')) {
+    return '/n.png';
+  } else if (name.includes('southeast') || name.includes('se')) {
+    return '/se.png';
+  } else if (name.includes('southwest') || name.includes('sw')) {
+    return '/sw.png';
+  }
+  return null;
+};
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -838,9 +856,9 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             <div className="flex space-x-3">
               <Link 
                 href="/" 
-                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors text-sm flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 <span>Back to Calculator</span>
@@ -848,9 +866,9 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               
               <Link 
                 href="/crews" 
-                className="px-4 py-2 bg-white text-emerald-700 border-2 border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
                 <span>Manage Crews</span>
@@ -858,20 +876,30 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               
               <Link 
                 href="/properties" 
-                className="px-4 py-2 bg-white text-blue-700 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
                 <span>Manage Properties</span>
               </Link>
               
+              <Link 
+                href="/crew-schedule" 
+                className="px-3 py-1.5 bg-white text-teal-700 border border-teal-600 rounded-lg hover:bg-teal-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                </svg>
+                <span>Crew Schedule</span>
+              </Link>
+              
               {session && (
                 <button 
                   onClick={handleSignOut}
-                  className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11.293 9.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L10 10.414V15a1 1 0 102 0v-4.586l1.293 1.293z" />
                   </svg>
                   <span>Sign Out</span>
@@ -886,42 +914,54 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <label className="text-sm font-medium text-gray-700">Select Crew:</label>
-              <select
-                value={selectedCrew?.id || ''}
-                onChange={(e) => {
-                  const crew = crews.find(c => c.id === parseInt(e.target.value));
-                  setSelectedCrew(crew);
-                  setHasChanges(false);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                {(() => {
-                  // Group crews by branch
-                  const crewsByBranch = crews.reduce((acc, crew) => {
-                    const branchName = branches.find(b => b.id === crew.branch_id)?.name || 'Unknown Branch';
-                    if (!acc[branchName]) {
-                      acc[branchName] = [];
-                    }
-                    acc[branchName].push(crew);
-                    return acc;
-                  }, {});
-                  
-                  // Sort branch names and render optgroups
-                  return Object.keys(crewsByBranch)
-                    .sort()
-                    .map(branchName => (
-                      <optgroup key={branchName} label={branchName}>
-                        {crewsByBranch[branchName]
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(crew => (
-                            <option key={crew.id} value={crew.id}>
-                              {crew.name} ({crew.crew_type}, {crew.size} members)
-                            </option>
-                          ))}
-                      </optgroup>
-                    ));
-                })()}
-              </select>
+              <div className="flex items-center space-x-2">
+                {selectedCrew && branches.find(b => b.id === selectedCrew.branch_id) && 
+                  getIconPath(branches.find(b => b.id === selectedCrew.branch_id)?.name) && (
+                  <Image 
+                    src={getIconPath(branches.find(b => b.id === selectedCrew.branch_id)?.name)} 
+                    alt={branches.find(b => b.id === selectedCrew.branch_id)?.name || ''} 
+                    width={28} 
+                    height={28}
+                    className="rounded"
+                  />
+                )}
+                <select
+                  value={selectedCrew?.id || ''}
+                  onChange={(e) => {
+                    const crew = crews.find(c => c.id === parseInt(e.target.value));
+                    setSelectedCrew(crew);
+                    setHasChanges(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  {(() => {
+                    // Group crews by branch
+                    const crewsByBranch = crews.reduce((acc, crew) => {
+                      const branchName = branches.find(b => b.id === crew.branch_id)?.name || 'Unknown Branch';
+                      if (!acc[branchName]) {
+                        acc[branchName] = [];
+                      }
+                      acc[branchName].push(crew);
+                      return acc;
+                    }, {});
+                    
+                    // Sort branch names and render optgroups
+                    return Object.keys(crewsByBranch)
+                      .sort()
+                      .map(branchName => (
+                        <optgroup key={branchName} label={branchName}>
+                          {crewsByBranch[branchName]
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(crew => (
+                              <option key={crew.id} value={crew.id}>
+                                {crew.name} ({crew.crew_type}, {crew.size} members)
+                              </option>
+                            ))}
+                        </optgroup>
+                      ));
+                  })()}
+                </select>
+              </div>
               {selectedCrew && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">

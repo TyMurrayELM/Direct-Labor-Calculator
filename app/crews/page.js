@@ -543,13 +543,12 @@ if (false) { // Always continue with deletion for now
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredCrews.length === 0 ? (
                 <tr>
-                  <td colSpan="14" className="px-3 py-12 text-center text-gray-500">
+                  <td colSpan="13" className="px-3 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -627,7 +626,18 @@ if (false) { // Always continue with deletion for now
                   return (
                     <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-4 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">{crew.name}</div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-medium text-gray-900">{crew.name}</span>
+                          <button
+                            onClick={() => handleEditCrew(crew)}
+                            className="flex items-center justify-center p-1 w-6 h-6 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                            title="Edit Crew"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
                         <span className={`px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full ${
@@ -728,21 +738,6 @@ if (false) { // Always continue with deletion for now
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
-                      </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs">
-                        <div className="flex space-x-2">
-                          {/* Edit button converted to icon-only */}
-                          <button
-                            onClick={() => handleEditCrew(crew)}
-                            className="flex items-center justify-center p-1 w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
-                            title="Edit Crew"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          {/* Delete button removed to prevent accidental deletions */}
-                        </div>
                       </td>
                     </tr>
                   );

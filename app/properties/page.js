@@ -403,11 +403,11 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
                 value={formData.company}
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter company"
+                placeholder="Enter company name"
               />
             </div>
 
-            <div className="space-y-2 col-span-2">
+            <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Client
               </label>
@@ -421,7 +421,7 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
               />
             </div>
 
-            <div className="space-y-2 col-span-2">
+            <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Address <span className="text-red-500">*</span>
               </label>
@@ -431,167 +431,149 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
                 value={formData.address}
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter full property address"
+                placeholder="Enter property address"
                 required
               />
-              <p className="text-xs text-gray-400">Required for route optimization</p>
             </div>
+          </div>
+        </div>
 
-            <div className="space-y-2 col-span-2">
+        {/* Complex Section */}
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Complex Assignment</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Complex
               </label>
-              {!showNewComplexInput ? (
-                <div className="flex gap-2">
-                  <div className="relative rounded-md shadow-sm flex-1">
-                    <select
-                      name="complex_id"
-                      value={formData.complex_id || ''}
-                      onChange={handleChange}
-                      className="block w-full px-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
-                      disabled={!formData.branch_id}
-                    >
-                      <option value="">No Complex (Standalone Property)</option>
-                      {complexes.map((complex) => (
-                        <option key={complex.id} value={complex.id}>
-                          {complex.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewComplexInput(true)}
+              <div className="flex gap-2">
+                <div className="relative rounded-md shadow-sm flex-1">
+                  <select
+                    name="complex_id"
+                    value={formData.complex_id || ''}
+                    onChange={handleChange}
+                    className="block w-full px-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
                     disabled={!formData.branch_id}
-                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    title="Add new complex"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    <option value="">No Complex</option>
+                    {complexes.map((complex) => (
+                      <option key={complex.id} value={complex.id}>
+                        {complex.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                  </button>
+                  </div>
                 </div>
-              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowNewComplexInput(!showNewComplexInput)}
+                  disabled={!formData.branch_id}
+                  className="px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 border border-orange-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Create new complex"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+              {!formData.branch_id && (
+                <p className="text-xs text-gray-500 mt-1">Select a branch first</p>
+              )}
+            </div>
+            
+            {/* New Complex Input */}
+            {showNewComplexInput && formData.branch_id && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  New Complex Name
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newComplexName}
                     onChange={(e) => setNewComplexName(e.target.value)}
-                    className="block flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm"
-                    placeholder="Enter new complex name"
-                    autoFocus
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                    placeholder="Enter complex name"
                   />
                   <button
                     type="button"
                     onClick={handleCreateComplex}
                     disabled={!newComplexName.trim() || creatingComplex}
-                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
                     {creatingComplex ? (
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                      'Create'
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowNewComplexInput(false); setNewComplexName(''); }}
-                    className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
                 </div>
-              )}
-              {!formData.branch_id && (
-                <p className="text-xs text-gray-500 mt-1">Select a branch first</p>
-              )}
-              <p className="text-xs text-gray-400">Group properties together for route optimization export</p>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Service Time Window Section */}
         <div className="border-t border-gray-200 pt-6">
           <h3 className="text-lg font-medium text-gray-700 mb-4">Service Time Window</h3>
-          <p className="text-sm text-gray-500 mb-4">Set the allowed time window for servicing this property (used for route optimization)</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Start Time
+                Window Start
               </label>
               <input
                 type="time"
                 name="service_window_start"
-                value={formData.service_window_start || ''}
+                value={formData.service_window_start}
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
-              <p className="text-xs text-gray-400">Earliest time service can begin</p>
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                End Time
+                Window End
               </label>
               <input
                 type="time"
                 name="service_window_end"
-                value={formData.service_window_end || ''}
+                value={formData.service_window_end}
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
-              <p className="text-xs text-gray-400">Latest time service must be completed</p>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-100">
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-4 pt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-            disabled={isLoading}
+            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-6 py-3 bg-blue-600 rounded-lg shadow-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center"
             disabled={isLoading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                 Saving...
-              </>
-            ) : property ? (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Update Property
               </>
             ) : (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Create Property
+                {property ? 'Update Property' : 'Create Property'}
               </>
             )}
           </button>
@@ -630,6 +612,9 @@ export default function PropertiesPage() {
   // State for return URL
   const [returnUrl, setReturnUrl] = useState(null);
   
+  // State for missing address box visibility
+  const [showMissingAddressBox, setShowMissingAddressBox] = useState(true);
+  
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
   const { crews, loading: crewsLoading } = useCrews();
@@ -645,6 +630,11 @@ export default function PropertiesPage() {
   const complexNameMap = React.useMemo(() => {
     return (complexes || []).reduce((acc, c) => { acc[c.id] = c.name; return acc; }, {});
   }, [complexes]);
+  
+  // Get properties without addresses
+  const propertiesWithoutAddress = React.useMemo(() => {
+    return (properties || []).filter(p => !p.address || !p.address.trim());
+  }, [properties]);
   
   // Check for edit and return parameters on component mount and when searchParams changes
   useEffect(() => {
@@ -986,6 +976,56 @@ export default function PropertiesPage() {
           </div>
         )}
         
+        {/* Missing Address Alert Box */}
+        {!isLoading && propertiesWithoutAddress.length > 0 && showMissingAddressBox && (
+          <div className="mx-6 my-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <div>
+                  <h3 className="text-amber-800 font-semibold text-sm">
+                    Properties Missing Address ({propertiesWithoutAddress.length})
+                  </h3>
+                  <p className="text-amber-700 text-xs mt-1 mb-2">
+                    The following properties need an address added:
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {propertiesWithoutAddress.map((property) => {
+                      const branchInfo = getBranchInfo(property.branch_id);
+                      return (
+                        <button
+                          key={property.id}
+                          onClick={() => handleEditProperty(property)}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-colors"
+                          title={`Click to edit ${property.name}`}
+                        >
+                          <span 
+                            className="w-2 h-2 rounded-full mr-1.5"
+                            style={{ backgroundColor: branchInfo.color }}
+                          />
+                          {property.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMissingAddressBox(false)}
+                className="text-amber-400 hover:text-amber-600 ml-4"
+                title="Dismiss"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* Properties List */}
         {isLoading ? (
           <div className="p-12 text-center">
@@ -1001,7 +1041,7 @@ export default function PropertiesPage() {
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('name')}>
                     <div className="flex items-center">
-                      Property Name
+                      Property
                       {sortBy === 'name' && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />

@@ -7,12 +7,15 @@ import {
   useRevenueForecasts,
   useAllBranchForecasts
 } from '../../hooks/useSupabase';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 export default function IrrigationForecastPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
   
   // Constants for Irrigation department
   const IRRIGATION_REVENUE_PERCENT = 0.25; // 25% of Maintenance Revenue

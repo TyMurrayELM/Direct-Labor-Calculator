@@ -8,12 +8,15 @@ import {
   useAllBranchForecasts,
   batchUpsertForecasts 
 } from '../hooks/useSupabase';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 export default function ForecastPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
   
   // Constants matching your existing calculator
   const GROSS_MARGIN_TARGET = 0.60;

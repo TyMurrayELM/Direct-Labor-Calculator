@@ -1,5 +1,5 @@
 import './globals.css'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import AuthProvider from './auth-provider';
 
@@ -9,8 +9,19 @@ export const metadata = {
 }
 
 export default async function RootLayout({ children }) {
-  // Get the initial session server-side
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = await cookies();
+  
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+      },
+    }
+  );
   
   const {
     data: { session },

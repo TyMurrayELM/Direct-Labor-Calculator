@@ -14,7 +14,7 @@ import {
   useCrewDayData,
   updateCrewDayDriveTime
 } from '../hooks/useSupabase';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 // Get branch icon path based on branch name
@@ -36,7 +36,10 @@ const getIconPath = (branchName) => {
 
 export default function SchedulePage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
   const [session, setSession] = useState(null);
   
   // Fetch data using your existing hooks

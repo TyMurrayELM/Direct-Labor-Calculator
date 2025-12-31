@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase-client';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
+
+// Helper function to create authenticated client
+function getSupabaseClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
 
 // Hook to fetch properties with comprehensive filtering
 export function useProperties({ 
@@ -1276,9 +1284,9 @@ export async function exportScheduleToCSV(crewId, crewName) {
 export async function getCrewDayData(crewId) {
   try {
     // Use authenticated client
-    const supabase = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('crew_day_data')
       .select('*')
       .eq('crew_id', crewId);
@@ -1320,7 +1328,7 @@ export async function getCrewDayData(crewId) {
 export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
   try {
     // Use authenticated client - CRITICAL FIX
-    const supabase = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
     // Validate inputs
     if (!crewId) {
@@ -1335,7 +1343,7 @@ export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
     const parsedDriveTime = parseFloat(driveTime) || 0;
     
     // Use upsert to insert or update
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('crew_day_data')
       .upsert(
         { 
@@ -1368,9 +1376,9 @@ export async function updateCrewDayDriveTime(crewId, serviceDay, driveTime) {
 export async function deleteCrewDayDriveTime(crewId, serviceDay) {
   try {
     // Use authenticated client
-    const supabase = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('crew_day_data')
       .delete()
       .eq('crew_id', crewId)
@@ -1405,9 +1413,9 @@ export function useCrewDayData(crewId) {
       setLoading(true);
       
       // Use authenticated client
-      const supabase = createClientComponentClient();
+      const supabaseClient = getSupabaseClient();
       
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('crew_day_data')
         .select('*')
         .eq('crew_id', crewId);
@@ -1459,7 +1467,7 @@ export function useRevenueForecasts(branchId, year) {
     try {
       setLoading(true);
       
-      const supabaseClient = createClientComponentClient();
+      const supabaseClient = getSupabaseClient();
       
       const { data, error } = await supabaseClient
         .from('revenue_forecasts')
@@ -1509,7 +1517,7 @@ export function useAllBranchForecasts(year) {
     try {
       setLoading(true);
       
-      const supabaseClient = createClientComponentClient();
+      const supabaseClient = getSupabaseClient();
       
       const { data, error } = await supabaseClient
         .from('revenue_forecasts')
@@ -1558,7 +1566,7 @@ export function useAllBranchForecasts(year) {
  */
 export async function upsertRevenueForecast(branchId, year, month, forecastRevenue, actualFtes = null) {
   try {
-    const supabaseClient = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
     const { data, error } = await supabaseClient
       .from('revenue_forecasts')
@@ -1592,7 +1600,7 @@ export async function upsertRevenueForecast(branchId, year, month, forecastReven
  */
 export async function batchUpsertForecasts(branchId, year, monthlyData) {
   try {
-    const supabaseClient = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
     // Build array of forecast records
     const forecasts = Object.entries(monthlyData).map(([month, data]) => ({
@@ -1631,7 +1639,7 @@ export async function batchUpsertForecasts(branchId, year, monthlyData) {
  */
 export async function deleteForecasts(branchId, year) {
   try {
-    const supabaseClient = createClientComponentClient();
+    const supabaseClient = getSupabaseClient();
     
     const { error } = await supabaseClient
       .from('revenue_forecasts')

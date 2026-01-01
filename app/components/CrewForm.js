@@ -155,11 +155,8 @@ const CrewForm = ({ crew, onSave, onCancel }) => {
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm appearance-none"
                 required
               >
-                <option value="Maintenance">Maintenance</option>
-                <option value="Enhancement">Enhancement</option>
-                <option value="Installation">Installation</option>
-                <option value="Irrigation">Irrigation</option>
-                <option value="Tree Care">Tree Care</option>
+                <option value="Maintenance">Maint</option>
+                <option value="Onsite">Onsite</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

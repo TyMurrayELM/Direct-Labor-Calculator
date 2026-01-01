@@ -601,6 +601,19 @@ export default function PropertiesPage() {
   const [crewFilter, setCrewFilter] = useState('');
   const [complexFilter, setComplexFilter] = useState('');
   
+  // Initialize filters from URL params on mount
+  useEffect(() => {
+    const crewParam = searchParams.get('crew');
+    const branchParam = searchParams.get('branch');
+    
+    if (crewParam) {
+      setCrewFilter(crewParam);
+    }
+    if (branchParam) {
+      setBranchFilter(branchParam);
+    }
+  }, [searchParams]);
+  
   // State for property form
   const [showForm, setShowForm] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -714,6 +727,8 @@ export default function PropertiesPage() {
     setCrewFilter('');
     setComplexFilter('');
     setSearchText('');
+    // Clear URL params
+    router.replace('/properties');
   };
   
   // Format currency

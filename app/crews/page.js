@@ -4,8 +4,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useCrews, useBranches, deleteCrew, getPropertyCountByCrew, useProperties } from '../hooks/useSupabase';
 import CrewForm from '../components/CrewForm';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function CrewsPage() {
+  // Router for navigation
+  const router = useRouter();
+  
   // Constants for Direct Labor calculations - same as DirectLaborCalculator
   const DRIVE_TIME_FACTOR = 0.9;
   const HOURLY_COST = 24.75;
@@ -820,12 +824,20 @@ if (false) { // Always continue with deletion for now
                   };
                   
                   return (
-                    <tr key={crew.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={crew.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/properties?crew=${crew.id}`)}
+                      title={`Click to view properties assigned to ${crew.name}`}
+                    >
                       <td className="px-3 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
                           <span className="text-xs font-medium text-gray-900">{crew.name}</span>
                           <button
-                            onClick={() => handleEditCrew(crew)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditCrew(crew);
+                            }}
                             className="flex items-center justify-center p-1 w-6 h-6 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
                             title="Edit Crew"
                           >

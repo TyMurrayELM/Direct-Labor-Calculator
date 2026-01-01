@@ -27,6 +27,7 @@ export default function CrewsPage() {
   // Filter state
   const [branchFilter, setBranchFilter] = useState('');
   const [crewTypeFilter, setCrewTypeFilter] = useState('');
+  const [infoBoxCollapsed, setInfoBoxCollapsed] = useState(true);
   
   // Sorting state
   const [sortBy, setSortBy] = useState('branch');
@@ -474,24 +475,38 @@ if (false) { // Always continue with deletion for now
             )}
           </div>
           
-          {/* Direct Labor Info Section */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="flex items-center text-blue-800 mb-2">
+          {/* Direct Labor Info Section - Collapsible */}
+          <div className="mt-4 bg-blue-50 rounded-lg border border-blue-100">
+            <button
+              onClick={() => setInfoBoxCollapsed(!infoBoxCollapsed)}
+              className="w-full p-4 flex items-center text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-medium">Direct Labor Target: {TARGET_DIRECT_LABOR_PERCENT}% (Green = Below Target, Red = Above Target)</span>
-            </div>
-            <div className="text-xs text-blue-700 ml-7">
-              <ul className="list-disc pl-4 space-y-1">
-                <li>The "Monthly Revenue Required" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
-                <li>For example, a 4-person crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month (52 weeks ÷ 12 months), this crew would need to generate approximately ${formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue to reach the target.</li>
-                <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
-                <li><strong>Assigned DL %</strong> - The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
-                <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
-                <li><strong>DL Utilization %</strong> - The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
-              </ul>
-            </div>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className={`h-4 w-4 ml-2 transition-transform duration-200 ${infoBoxCollapsed ? '' : 'rotate-180'}`} 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {!infoBoxCollapsed && (
+              <div className="px-4 pb-4 text-xs text-blue-700 ml-7">
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>The "Monthly Revenue Required" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
+                  <li>For example, a 4-person crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month (52 weeks ÷ 12 months), this crew would need to generate approximately ${formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue to reach the target.</li>
+                  <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
+                  <li><strong>Assigned DL %</strong> - The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
+                  <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
+                  <li><strong>DL Utilization %</strong> - The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Summary Metrics Row */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCrews, useBranches, deleteCrew, getPropertyCountByCrew, useProperties } from '../hooks/useSupabase';
 import CrewForm from '../components/CrewForm';
 import Link from 'next/link';
@@ -26,6 +26,7 @@ export default function CrewsPage() {
   
   // Filter state
   const [branchFilter, setBranchFilter] = useState('');
+  const [crewTypeFilter, setCrewTypeFilter] = useState('');
   
   // Sorting state
   const [sortBy, setSortBy] = useState('branch');
@@ -284,11 +285,111 @@ if (false) { // Always continue with deletion for now
     setSortedCrews(sorted);
   }, [crews, sortBy, sortOrder, branches, crewStats]);
 
-  // Filter crews by branch
+  // Filter crews by branch and crew type
   const filteredCrews = React.useMemo(() => {
-    if (!branchFilter) return sortedCrews;
-    return sortedCrews.filter(crew => crew.branch_id === parseInt(branchFilter));
-  }, [sortedCrews, branchFilter]);
+    let filtered = sortedCrews;
+    
+    if (branchFilter) {
+      filtered = filtered.filter(crew => crew.branch_id === parseInt(branchFilter));
+    }
+    
+    if (crewTypeFilter) {
+      filtered = filtered.filter(crew => crew.crew_type === crewTypeFilter);
+    }
+    
+    return filtered;
+  }, [sortedCrews, branchFilter, crewTypeFilter]);
+
+  // Calculate summary metrics for filtered crews
+  const summaryMetrics = useMemo(() => {
+    if (!filteredCrews || filteredCrews.length === 0 || !crewStats) {
+      return {
+        totalCrews: 0,
+        totalProperties: 0,
+        totalCrewSize: 0,
+        totalMonthlyRevenue: 0,
+        totalRequiredRevenue: 0,
+        totalCurrentHours: 0,
+        totalAvailableHours: 0,
+        avgUtilization: 0,
+        avgAssignedDL: 0,
+        avgEffectiveDL: 0,
+        totalMonthlyCost: 0
+      };
+    }
+
+    let totalProperties = 0;
+    let totalCrewSize = 0;
+    let totalMonthlyRevenue = 0;
+    let totalRequiredRevenue = 0;
+    let totalCurrentHours = 0;
+    let totalAvailableHours = 0;
+    let totalMonthlyCost = 0;
+
+    filteredCrews.forEach(crew => {
+      const stats = crewStats[crew.id] || { totalMonthlyInvoice: 0, totalCurrentHours: 0, propertyCount: 0 };
+      const crewSize = crew.size || 0;
+      const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
+      
+      totalProperties += stats.propertyCount;
+      totalCrewSize += crewSize;
+      totalMonthlyRevenue += stats.totalMonthlyInvoice;
+      totalCurrentHours += stats.totalCurrentHours;
+      
+      // Calculate required revenue for this crew
+      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;
+      const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
+      totalRequiredRevenue += requiredRevenue;
+      
+      // Calculate available hours (weekly, accounting for drive time factor)
+      const availableCrewHoursPerWeek = crewSize * 40 * hoursAdjustmentFactor;
+      totalAvailableHours += availableCrewHoursPerWeek;
+      
+      // Calculate total monthly labor cost
+      const totalHoursPerMonth = crewSize * 40 * WEEKS_PER_MONTH;
+      totalMonthlyCost += totalHoursPerMonth * HOURLY_COST;
+    });
+
+    // Calculate aggregate percentages
+    const avgUtilization = totalAvailableHours > 0 ? (totalCurrentHours / totalAvailableHours) * 100 : 0;
+    
+    // Assigned DL% - weighted by revenue (simplified: use total hours and total revenue)
+    const avgAssignedDL = totalMonthlyRevenue > 0 
+      ? (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / (totalMonthlyRevenue * DRIVE_TIME_FACTOR) * 100 
+      : 0;
+    
+    // Effective DL% - total labor cost divided by total revenue
+    const avgEffectiveDL = totalMonthlyRevenue > 0 
+      ? (totalMonthlyCost / totalMonthlyRevenue) * 100 
+      : 0;
+
+    return {
+      totalCrews: filteredCrews.length,
+      totalProperties,
+      totalCrewSize,
+      totalMonthlyRevenue,
+      totalRequiredRevenue,
+      totalCurrentHours,
+      totalAvailableHours,
+      avgUtilization,
+      avgAssignedDL,
+      avgEffectiveDL,
+      totalMonthlyCost
+    };
+  }, [filteredCrews, crewStats]);
+
+  // Color coding functions for summary
+  const getUtilizationColorClass = (percent) => {
+    if (percent >= 95) return 'bg-green-100 text-green-800 border-green-300';
+    if (percent >= 90) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-red-100 text-red-800 border-red-300';
+  };
+
+  const getDLColorClass = (percent) => {
+    return percent <= TARGET_DIRECT_LABOR_PERCENT 
+      ? 'bg-green-100 text-green-800 border-green-300' 
+      : 'bg-red-100 text-red-800 border-red-300';
+  };
 
   if (crewsLoading || branchesLoading || propertiesLoading) {
     return (
@@ -334,7 +435,7 @@ if (false) { // Always continue with deletion for now
             </div>
           </div>
 
-          {/* Branch Filter */}
+          {/* Branch and Crew Type Filters */}
           <div className="mt-4 flex items-center gap-3">
             <select
               value={branchFilter}
@@ -346,15 +447,29 @@ if (false) { // Always continue with deletion for now
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
-            {branchFilter && (
+            
+            <select
+              value={crewTypeFilter}
+              onChange={(e) => setCrewTypeFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="">All Crew Types</option>
+              <option value="Maintenance">Maint</option>
+              <option value="Onsite">Onsite</option>
+            </select>
+            
+            {(branchFilter || crewTypeFilter) && (
               <button
-                onClick={() => setBranchFilter('')}
+                onClick={() => {
+                  setBranchFilter('');
+                  setCrewTypeFilter('');
+                }}
                 className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Clear
+                Clear Filters
               </button>
             )}
           </div>
@@ -376,6 +491,72 @@ if (false) { // Always continue with deletion for now
                 <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
                 <li><strong>DL Utilization %</strong> - The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
               </ul>
+            </div>
+          </div>
+
+          {/* Summary Metrics Row */}
+          <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Summary {branchFilter || crewTypeFilter ? `(${[
+                  branchFilter ? branches.find(b => b.id === parseInt(branchFilter))?.name : null,
+                  crewTypeFilter ? (crewTypeFilter === 'Maintenance' ? 'Maint' : crewTypeFilter) : null
+                ].filter(Boolean).join(' / ') || 'Filtered'})` : '(All Branches)'}
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+              {/* Crews */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Crews</div>
+                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalCrews}</div>
+              </div>
+              
+              {/* Properties */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Properties</div>
+                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalProperties}</div>
+              </div>
+              
+              {/* Total Crew Size */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Total FTEs</div>
+                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalCrewSize}</div>
+              </div>
+              
+              {/* Monthly Revenue */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Monthly Revenue</div>
+                <div className="text-lg font-bold text-gray-800">{formatCurrency(summaryMetrics.totalMonthlyRevenue)}</div>
+              </div>
+              
+              {/* Current Hours */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Assigned Hrs/Wk</div>
+                <div className="text-lg font-bold text-gray-800">
+                  {summaryMetrics.totalCurrentHours.toFixed(1)} / {summaryMetrics.totalAvailableHours.toFixed(0)}
+                </div>
+              </div>
+              
+              {/* DL Utilization % */}
+              <div className={`rounded-lg p-3 border shadow-sm ${getUtilizationColorClass(summaryMetrics.avgUtilization)}`}>
+                <div className="text-xs uppercase tracking-wide opacity-75">DL Utilization %</div>
+                <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgUtilization)}</div>
+              </div>
+              
+              {/* Assigned DL % */}
+              <div className={`rounded-lg p-3 border shadow-sm ${getDLColorClass(summaryMetrics.avgAssignedDL)}`}>
+                <div className="text-xs uppercase tracking-wide opacity-75">Assigned DL %</div>
+                <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgAssignedDL)}</div>
+              </div>
+              
+              {/* Effective DL % */}
+              <div className={`rounded-lg p-3 border-2 shadow-sm ${getDLColorClass(summaryMetrics.avgEffectiveDL)} border-blue-400`}>
+                <div className="text-xs uppercase tracking-wide opacity-75 font-semibold">Effective DL %</div>
+                <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgEffectiveDL)}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -617,7 +798,7 @@ if (false) { // Always continue with deletion for now
                   };
                   
                   // Utilization color coding: Green >= 95%, Yellow 90-95%, Red < 90%
-                  const getUtilizationColorClass = (percent) => {
+                  const getRowUtilizationColorClass = (percent) => {
                     if (percent >= 95) return 'bg-green-100 text-green-800'; // Good (green)
                     if (percent >= 90) return 'bg-yellow-100 text-yellow-800'; // Warning (yellow)
                     return 'bg-red-100 text-red-800'; // Bad (red)
@@ -707,7 +888,7 @@ if (false) { // Always continue with deletion for now
                       <td className="px-3 py-4 whitespace-nowrap">
                         {crew.size ? (
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            getUtilizationColorClass(utilizationPercent)
+                            getRowUtilizationColorClass(utilizationPercent)
                           }`}>
                             {formatPercent(utilizationPercent)}
                           </span>

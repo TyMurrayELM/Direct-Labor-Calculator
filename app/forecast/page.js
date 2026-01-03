@@ -6,7 +6,8 @@ import {
   useBranches, 
   useRevenueForecasts,
   useAllBranchForecasts,
-  batchUpsertForecasts 
+  batchUpsertForecasts,
+  useCrews
 } from '../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
@@ -21,7 +22,34 @@ export default function ForecastPage() {
   // Constants matching your existing calculator
   const GROSS_MARGIN_TARGET = 0.60;
   const HOURS_PER_MONTH = 173.33; // ~40 hrs/week * 4.333 weeks
-  const DEFAULT_HOURLY_RATE = 25.81;
+  
+  // Branch-specific hourly costs (Maintenance rates - matching Crew Management page)
+  const HOURLY_COST_LAS_VEGAS = 24.50;
+  const HOURLY_COST_PHOENIX = 25.50;
+  const DEFAULT_HOURLY_RATE = 25.00;
+  
+  // Helper function to get hourly cost based on branch name
+  const getHourlyRateByBranch = (branch) => {
+    if (!branch || !branch.name) return DEFAULT_HOURLY_RATE;
+    
+    const branchName = branch.name.toLowerCase();
+    
+    // Las Vegas branch
+    if (branchName.includes('las vegas') || branchName.includes('vegas')) {
+      return HOURLY_COST_LAS_VEGAS;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (branchName.includes('phoenix') || 
+        branchName.includes('southeast') || 
+        branchName.includes('southwest') || 
+        branchName.includes('north') ||
+        branchName.includes('phx')) {
+      return HOURLY_COST_PHOENIX;
+    }
+    
+    return DEFAULT_HOURLY_RATE;
+  };
   
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
@@ -52,8 +80,13 @@ export default function ForecastPage() {
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
-  const { forecasts, loading: forecastsLoading, refetchForecasts } = useRevenueForecasts(selectedBranchId, selectedYear);
+  // Don't fetch individual branch forecasts when Encore or Phoenix (combined views) is selected
+  const { forecasts, loading: forecastsLoading, refetchForecasts } = useRevenueForecasts(
+    (selectedBranchId === 'encore' || selectedBranchId === 'phoenix') ? null : selectedBranchId, 
+    selectedYear
+  );
   const { forecasts: allBranchForecasts, loading: allForecastsLoading, refetchForecasts: refetchAllForecasts } = useAllBranchForecasts(selectedYear);
+  const { crews, loading: crewsLoading } = useCrews(); // Fetch all crews (no branchId filter)
   
   // Check authentication
   useEffect(() => {
@@ -75,9 +108,9 @@ export default function ForecastPage() {
     }
   }, [branches, selectedBranchId]);
   
-  // Refetch all branch forecasts when switching to Encore view
+  // Refetch all branch forecasts when switching to Encore or Phoenix view
   useEffect(() => {
-    if (selectedBranchId === 'encore') {
+    if (selectedBranchId === 'encore' || selectedBranchId === 'phoenix') {
       refetchAllForecasts();
     }
   }, [selectedBranchId, refetchAllForecasts]);
@@ -161,14 +194,65 @@ export default function ForecastPage() {
     return parseFloat(String(value).replace(/,/g, '')) || 0;
   };
 
-  // Check if Encore (company-wide) view is selected
+  // Check if Encore (company-wide) or Phoenix (combined Phoenix branches) view is selected
   const isEncoreView = selectedBranchId === 'encore';
+  const isPhoenixView = selectedBranchId === 'phoenix';
+  const isCombinedView = isEncoreView || isPhoenixView;
+  
+  // Helper to check if a branch is a Phoenix branch
+  const isPhoenixBranch = (branch) => {
+    if (!branch || !branch.name) return false;
+    const name = branch.name.toLowerCase();
+    return name.includes('phoenix') || 
+           name.includes('southeast') || 
+           name.includes('southwest') || 
+           name.includes('north') ||
+           name.includes('phx');
+  };
 
   // Get selected branch and its hourly rate
   const selectedBranch = isEncoreView 
     ? { name: 'Encore (All Branches)', color: '#374151' }
+    : isPhoenixView
+    ? { name: 'Phoenix (Combined)', color: '#DC2626' }
     : branches.find(b => b.id === selectedBranchId) || {};
-  const hourlyRate = isEncoreView ? DEFAULT_HOURLY_RATE : (selectedBranch.hourly_rate || DEFAULT_HOURLY_RATE);
+  const hourlyRate = isEncoreView 
+    ? DEFAULT_HOURLY_RATE 
+    : isPhoenixView 
+    ? HOURLY_COST_PHOENIX 
+    : getHourlyRateByBranch(selectedBranch);
+
+  // Calculate Phoenix (combined Phoenix branches) data
+  const phoenixData = isPhoenixView ? months.reduce((acc, month) => {
+    let monthRevenue = 0;
+    let monthLaborCost = 0;
+    let monthActualHours = 0;
+    let monthActualFtes = 0;
+    let monthWeeks = 4.33;
+    
+    branches.filter(isPhoenixBranch).forEach(branch => {
+      const branchForecasts = allBranchForecasts[branch.id] || [];
+      const forecast = branchForecasts.find(f => f.month === month);
+      if (forecast) {
+        monthRevenue += parseFloat(forecast.forecast_revenue) || 0;
+        monthLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
+        monthActualHours += parseFloat(forecast.actual_hours) || 0;
+        monthActualFtes += parseFloat(forecast.actual_ftes) || 0;
+        if (forecast.weeks_in_month) {
+          monthWeeks = parseFloat(forecast.weeks_in_month);
+        }
+      }
+    });
+    
+    acc[month] = {
+      revenue: monthRevenue,
+      laborCost: monthLaborCost,
+      actualHours: monthActualHours,
+      actualFtes: monthActualFtes,
+      weeks: monthWeeks
+    };
+    return acc;
+  }, {}) : null;
 
   // Calculate Encore (combined) data from all branches
   const encoreData = isEncoreView ? months.reduce((acc, month) => {
@@ -202,6 +286,9 @@ export default function ForecastPage() {
     };
     return acc;
   }, {}) : null;
+
+  // Helper to get combined data for either Encore or Phoenix view
+  const combinedData = isEncoreView ? encoreData : isPhoenixView ? phoenixData : null;
 
   const calculateMetrics = (revenue) => {
     const rev = parseRevenue(revenue);
@@ -279,7 +366,7 @@ export default function ForecastPage() {
     try {
       setSaveMessage({ type: 'success', text: 'Preparing export...' });
       
-      const branchName = isEncoreView ? 'Encore_All_Branches' : (selectedBranch.name || 'Unknown').replace(/\s+/g, '_');
+      const branchName = isEncoreView ? 'Encore_All_Branches' : isPhoenixView ? 'Phoenix_Combined' : (selectedBranch.name || 'Unknown').replace(/\s+/g, '_');
       
       // Escape CSV values
       const escapeCSV = (value) => {
@@ -292,10 +379,10 @@ export default function ForecastPage() {
       
       // Calculate all monthly data first
       const monthlyData = months.map(month => {
-        const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+        const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
         const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-        const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-        const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+        const laborHours = laborBudget / hourlyRate;
+        const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
         
         // FTEs calculation (normalized or real)
         const displayHours = isNormalized ? laborHours : (laborHours / 4.33) * weeks;
@@ -303,9 +390,9 @@ export default function ForecastPage() {
         const crews = ftes > 0 ? Math.ceil(ftes / 4) : '';
         
         // Actual values
-        const actLaborCost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
-        const actHours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
-        const actHC = isEncoreView ? (encoreData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
+        const actLaborCost = isCombinedView ? (combinedData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+        const actHours = isCombinedView ? (combinedData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+        const actHC = isCombinedView ? (combinedData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
         
         // Actual DL % calculation (from labor cost)
         const displayCost = isNormalized && weeks > 0 ? (actLaborCost / weeks) * 4.33 : actLaborCost;
@@ -324,7 +411,7 @@ export default function ForecastPage() {
         let dlPercentHC = null;
         if (revenue > 0 && actHC > 0) {
           const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
-          const actualLaborCostCalc = actHC * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+          const actualLaborCostCalc = actHC * hoursMultiplier * hourlyRate;
           dlPercentHC = (actualLaborCostCalc / revenue) * 100;
         }
         
@@ -401,6 +488,9 @@ export default function ForecastPage() {
       // Actual HC row
       rows.push(['Actual HC', ...monthlyData.map(d => d.actHC || ''), avgActHC ? avgActHC.toFixed(1) + ' (avg)' : '']);
       
+      // Scheduled HC row (from crews)
+      rows.push(['Scheduled HC (Crews)', ...months.map(() => scheduledHC || ''), scheduledHC || '']);
+      
       // Actual DL % (from HC) row
       rows.push(['Actual DL % (HC)', ...monthlyData.map(d => d.dlPercentHC !== null ? d.dlPercentHC.toFixed(1) + '%' : ''), '']);
       
@@ -443,7 +533,7 @@ export default function ForecastPage() {
   const companyTotals = branches.reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
-    const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
+    const branchHourlyRate = getHourlyRateByBranch(branch);
     const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
     const branchLaborHours = branchLaborBudget / branchHourlyRate;
     return {
@@ -453,10 +543,45 @@ export default function ForecastPage() {
     };
   }, { revenue: 0, laborBudget: 0, laborHours: 0 });
 
-  // Use company totals when in Encore mode, otherwise use branch totals
-  const totals = isEncoreView ? companyTotals : branchTotals;
+  // Calculate Phoenix-only totals (combined Phoenix branches)
+  const phoenixTotals = branches.filter(isPhoenixBranch).reduce((acc, branch) => {
+    const branchForecasts = allBranchForecasts[branch.id] || [];
+    const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+    const branchHourlyRate = getHourlyRateByBranch(branch);
+    const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
+    const branchLaborHours = branchLaborBudget / branchHourlyRate;
+    return {
+      revenue: acc.revenue + branchRevenue,
+      laborBudget: acc.laborBudget + branchLaborBudget,
+      laborHours: acc.laborHours + branchLaborHours
+    };
+  }, { revenue: 0, laborBudget: 0, laborHours: 0 });
+
+  // Use appropriate totals based on view
+  const totals = isEncoreView ? companyTotals : isPhoenixView ? phoenixTotals : branchTotals;
 
   const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
+
+  // Calculate Scheduled HC (sum of crew sizes)
+  const getScheduledHC = () => {
+    if (isEncoreView) {
+      // Sum all crews across all branches
+      return crews.reduce((sum, crew) => sum + (crew.size || 0), 0);
+    } else if (isPhoenixView) {
+      // Sum crews from Phoenix branches only
+      const phoenixBranchIds = branches.filter(isPhoenixBranch).map(b => b.id);
+      return crews
+        .filter(crew => phoenixBranchIds.includes(crew.branch_id))
+        .reduce((sum, crew) => sum + (crew.size || 0), 0);
+    } else {
+      // Sum crews from selected branch only
+      return crews
+        .filter(crew => crew.branch_id === selectedBranchId)
+        .reduce((sum, crew) => sum + (crew.size || 0), 0);
+    }
+  };
+  
+  const scheduledHC = getScheduledHC();
 
   // Year options
   const currentYear = new Date().getFullYear();
@@ -517,7 +642,7 @@ export default function ForecastPage() {
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       selectedBranchId === branch.id
                         ? 'text-white shadow-md'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -526,12 +651,22 @@ export default function ForecastPage() {
                       backgroundColor: selectedBranchId === branch.id ? (branch.color || '#4F46E5') : undefined
                     }}
                   >
-                    {branch.name}
+                    {branch.name.replace('Phoenix ', '').replace('Las Vegas', 'LV')}
                   </button>
                 ))}
                 <button
+                  onClick={() => setSelectedBranchId('phoenix')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    selectedBranchId === 'phoenix'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Phoenix
+                </button>
+                <button
                   onClick={() => setSelectedBranchId('encore')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     selectedBranchId === 'encore'
                       ? 'bg-gray-800 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -568,9 +703,9 @@ export default function ForecastPage() {
             
             <button
               onClick={handleSave}
-              disabled={isSaving || !selectedBranchId || selectedBranchId === 'encore'}
+              disabled={isSaving || !selectedBranchId || isCombinedView}
               className={`ml-auto px-6 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center space-x-2 ${
-                isSaving || selectedBranchId === 'encore'
+                isSaving || isCombinedView
                   ? 'bg-gray-400 text-white cursor-not-allowed' 
                   : 'bg-green-600 text-white hover:bg-green-700'
               }`}
@@ -668,9 +803,9 @@ export default function ForecastPage() {
                 </th>
                 {months.map(month => (
                   <th key={month} className="px-1 py-1 font-normal">
-                    {isEncoreView ? (
+                    {isCombinedView ? (
                       <div className="text-center text-xs text-gray-600">
-                        {encoreData[month]?.weeks || 4.33}
+                        {combinedData[month]?.weeks || 4.33}
                       </div>
                     ) : (
                       <input
@@ -705,9 +840,9 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    {isEncoreView ? (
+                    {isCombinedView ? (
                       <div className="text-center text-green-700 font-medium">
-                        {formatCurrency(encoreData[month]?.revenue || 0)}
+                        {formatCurrency(combinedData[month]?.revenue || 0)}
                       </div>
                     ) : (
                       <div className="relative">
@@ -724,8 +859,8 @@ export default function ForecastPage() {
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-green-700 bg-green-100">
-                  {isEncoreView 
-                    ? formatCurrency(months.reduce((sum, m) => sum + (encoreData[m]?.revenue || 0), 0))
+                  {isCombinedView 
+                    ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.revenue || 0), 0))
                     : formatCurrency(totals.revenue)
                   }
                 </td>
@@ -737,8 +872,8 @@ export default function ForecastPage() {
                   Labor Target (40%)
                 </td>
                 {months.map(month => {
-                  const revenue = isEncoreView 
-                    ? (encoreData[month]?.revenue || 0)
+                  const revenue = isCombinedView 
+                    ? (combinedData[month]?.revenue || 0)
                     : parseRevenue(monthlyRevenue[month]);
                   const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
                   return (
@@ -759,9 +894,9 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    {isEncoreView ? (
+                    {isCombinedView ? (
                       <div className="text-center text-sky-700 font-medium">
-                        {formatCurrency(encoreData[month]?.laborCost || 0)}
+                        {formatCurrency(combinedData[month]?.laborCost || 0)}
                       </div>
                     ) : (
                       <div className="relative">
@@ -778,8 +913,8 @@ export default function ForecastPage() {
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
-                  {isEncoreView
-                    ? formatCurrency(months.reduce((sum, m) => sum + (encoreData[m]?.laborCost || 0), 0))
+                  {isCombinedView
+                    ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.laborCost || 0), 0))
                     : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))
                   }
                 </td>
@@ -791,9 +926,9 @@ export default function ForecastPage() {
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const rev = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
-                  const cost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const rev = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const cost = isCombinedView ? (combinedData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: (cost / weeks) * 4.33, Real: actual cost
                   const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                   const dlPercent = rev > 0 && cost > 0 ? (displayCost / rev) * 100 : null;
@@ -811,8 +946,8 @@ export default function ForecastPage() {
                   {(() => {
                     const totalRev = totals.revenue;
                     const totalCost = months.reduce((sum, month) => {
-                      const cost = isEncoreView ? (encoreData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
-                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                      const cost = isCombinedView ? (combinedData[month]?.laborCost || 0) : parseRevenue(actualLaborCost[month]);
+                      const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                       const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                       return sum + displayCost;
                     }, 0);
@@ -833,10 +968,10 @@ export default function ForecastPage() {
                   FTEs Required{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const laborHours = laborBudget / hourlyRate;
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: base hours (standard 4.33 weeks), Real: scale UP by actual weeks
                   const displayHours = isNormalized 
                     ? laborHours 
@@ -857,10 +992,10 @@ export default function ForecastPage() {
                   <span className="inline-block bg-orange-300 text-orange-900 font-bold px-2 py-0.5 rounded-full text-sm">
                     {(() => {
                       const totalHours = months.reduce((sum, month) => {
-                        const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                        const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                         const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                        const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                        const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                        const laborHours = laborBudget / hourlyRate;
+                        const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                         return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                       }, 0);
                       return Math.floor(totalHours / HOURS_PER_MONTH / 12);
@@ -875,10 +1010,10 @@ export default function ForecastPage() {
                   Labor Hours Est{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const laborHours = laborBudget / hourlyRate;
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   // Normalized: base hours (standard 4.33 weeks), Real: scale UP by actual weeks
                   const displayHours = isNormalized 
                     ? laborHours 
@@ -891,10 +1026,10 @@ export default function ForecastPage() {
                 })}
                 <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-orange-100/50">
                   {formatNumber(months.reduce((sum, month) => {
-                    const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                    const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                     const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                    const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                    const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                    const laborHours = laborBudget / hourlyRate;
+                    const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                     return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                   }, 0), 0)}
                 </td>
@@ -906,7 +1041,7 @@ export default function ForecastPage() {
                   Target DL %
                 </td>
                 {months.map(month => {
-                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   return (
                     <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-500">
                       {revenue > 0 ? '40.0%' : '—'}
@@ -925,9 +1060,9 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    {isEncoreView ? (
+                    {isCombinedView ? (
                       <div className="text-center text-red-700 font-medium">
-                        {formatNumber(encoreData[month]?.actualHours || 0, 0)}
+                        {formatNumber(combinedData[month]?.actualHours || 0, 0)}
                       </div>
                     ) : (
                       <input
@@ -941,8 +1076,8 @@ export default function ForecastPage() {
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center font-semibold text-red-700 bg-red-100">
-                  {isEncoreView
-                    ? formatNumber(months.reduce((sum, m) => sum + (encoreData[m]?.actualHours || 0), 0), 0)
+                  {isCombinedView
+                    ? formatNumber(months.reduce((sum, m) => sum + (combinedData[m]?.actualHours || 0), 0), 0)
                     : formatNumber(months.reduce((sum, month) => sum + (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0), 0), 0)
                   }
                 </td>
@@ -954,8 +1089,8 @@ export default function ForecastPage() {
                   Actual FTEs{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const hours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const hours = isCombinedView ? (combinedData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (hours <= 0 || weeks <= 0) {
                     return (
                       <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
@@ -980,8 +1115,8 @@ export default function ForecastPage() {
                     let totalFtes = 0;
                     let monthsWithData = 0;
                     months.forEach(month => {
-                      const hours = isEncoreView ? (encoreData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
-                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                      const hours = isCombinedView ? (combinedData[month]?.actualHours || 0) : (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0);
+                      const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                       if (hours > 0 && weeks > 0) {
                         const displayHours = isNormalized ? (hours / weeks) * 4.33 : hours;
                         const rawFtes = displayHours / HOURS_PER_MONTH;
@@ -1005,9 +1140,9 @@ export default function ForecastPage() {
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
-                    {isEncoreView ? (
+                    {isCombinedView ? (
                       <div className="text-center text-teal-700 font-medium">
-                        {encoreData[month]?.actualFtes || '—'}
+                        {combinedData[month]?.actualFtes || '—'}
                       </div>
                     ) : (
                       <input
@@ -1023,10 +1158,10 @@ export default function ForecastPage() {
                 <td className="px-2 py-2 text-center bg-teal-100">
                   <div className="text-xs text-gray-500">Avg</div>
                   <span className="font-semibold text-teal-700">
-                    {isEncoreView
+                    {isCombinedView
                       ? formatNumber(
-                          months.reduce((sum, m) => sum + (encoreData[m]?.actualFtes || 0), 0) / 
-                          (months.filter(m => (encoreData[m]?.actualFtes || 0) > 0).length || 1),
+                          months.reduce((sum, m) => sum + (combinedData[m]?.actualFtes || 0), 0) / 
+                          (months.filter(m => (combinedData[m]?.actualFtes || 0) > 0).length || 1),
                           2
                         )
                       : formatNumber(
@@ -1039,22 +1174,38 @@ export default function ForecastPage() {
                 </td>
               </tr>
 
+              {/* Scheduled HC Row (from crews table) */}
+              <tr className="bg-cyan-50 border-b border-cyan-200">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-cyan-50 z-10">
+                  Scheduled HC
+                  <span className="text-xs text-gray-400 ml-1">(crews)</span>
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-2 py-2 text-center text-cyan-700 font-medium">
+                    {scheduledHC || '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center bg-cyan-100 font-semibold text-cyan-700">
+                  {scheduledHC || '—'}
+                </td>
+              </tr>
+
               {/* Actual DL % Row (based on HC) */}
               <tr className="bg-teal-50/50">
                 <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
-                  const rev = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
-                  const ftes = isEncoreView ? (encoreData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const rev = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const ftes = isCombinedView ? (combinedData[month]?.actualFtes || 0) : (parseFloat(actualFtes[month]) || 0);
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (rev === 0 || ftes === 0) {
                     return (
                       <td key={month} className="px-2 py-1.5 text-center">—</td>
                     );
                   }
                   const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
-                  const actualLaborCostCalc = ftes * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
+                  const actualLaborCostCalc = ftes * hoursMultiplier * hourlyRate;
                   const actualDL = (actualLaborCostCalc / rev) * 100;
                   return (
                     <td key={month} className="px-2 py-1.5 text-center">
@@ -1067,25 +1218,25 @@ export default function ForecastPage() {
                 <td className="px-2 py-1.5 text-center bg-teal-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
-                    const totalActualFtes = isEncoreView 
-                      ? months.reduce((sum, m) => sum + (encoreData[m]?.actualFtes || 0), 0)
+                    const totalActualFtes = isCombinedView 
+                      ? months.reduce((sum, m) => sum + (combinedData[m]?.actualFtes || 0), 0)
                       : months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0);
-                    const monthsWithFtes = isEncoreView
-                      ? months.filter(m => (encoreData[m]?.actualFtes || 0) > 0).length
+                    const monthsWithFtes = isCombinedView
+                      ? months.filter(m => (combinedData[m]?.actualFtes || 0) > 0).length
                       : months.filter(m => parseFloat(actualFtes[m]) > 0).length;
                     const avgActualFtes = monthsWithFtes > 0 ? totalActualFtes / monthsWithFtes : 0;
-                    const monthsWithRev = isEncoreView
-                      ? months.filter(m => (encoreData[m]?.revenue || 0) > 0).length
+                    const monthsWithRev = isCombinedView
+                      ? months.filter(m => (combinedData[m]?.revenue || 0) > 0).length
                       : months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
                     if (avgRev === 0 || avgActualFtes === 0) return '—';
                     // For total, calculate weighted average of weeks
                     const avgWeeks = months.reduce((sum, m) => {
-                      const weeks = isEncoreView ? (encoreData[m]?.weeks || 4.33) : (parseFloat(weeksInMonth[m]) || 4.33);
+                      const weeks = isCombinedView ? (combinedData[m]?.weeks || 4.33) : (parseFloat(weeksInMonth[m]) || 4.33);
                       return sum + weeks;
                     }, 0) / 12;
                     const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * avgWeeks;
-                    const avgDL = (avgActualFtes * hoursMultiplier * (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate) / avgRev) * 100;
+                    const avgDL = (avgActualFtes * hoursMultiplier * hourlyRate / avgRev) * 100;
                     return (
                       <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatNumber(avgDL, 1)}%
@@ -1106,10 +1257,10 @@ export default function ForecastPage() {
                   </div>
                 </td>
                 {months.map((month, index) => {
-                  const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                  const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                  const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                  const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                  const laborHours = laborBudget / hourlyRate;
+                  const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   const displayHours = isNormalized 
                     ? laborHours 
                     : (laborHours / 4.33) * weeks;
@@ -1120,10 +1271,10 @@ export default function ForecastPage() {
                   let priorCrews = null;
                   if (index > 0) {
                     const priorMonth = months[index - 1];
-                    const priorRevenue = isEncoreView ? (encoreData[priorMonth]?.revenue || 0) : parseRevenue(monthlyRevenue[priorMonth]);
+                    const priorRevenue = isCombinedView ? (combinedData[priorMonth]?.revenue || 0) : parseRevenue(monthlyRevenue[priorMonth]);
                     const priorLaborBudget = priorRevenue * (1 - GROSS_MARGIN_TARGET);
-                    const priorLaborHours = priorLaborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                    const priorWeeks = isEncoreView ? (encoreData[priorMonth]?.weeks || 4.33) : (parseFloat(weeksInMonth[priorMonth]) || 4.33);
+                    const priorLaborHours = priorLaborBudget / hourlyRate;
+                    const priorWeeks = isCombinedView ? (combinedData[priorMonth]?.weeks || 4.33) : (parseFloat(weeksInMonth[priorMonth]) || 4.33);
                     const priorDisplayHours = isNormalized 
                       ? priorLaborHours 
                       : (priorLaborHours / 4.33) * priorWeeks;
@@ -1142,10 +1293,10 @@ export default function ForecastPage() {
                 <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-gray-200">
                   {(() => {
                     const totalHours = months.reduce((sum, month) => {
-                      const revenue = isEncoreView ? (encoreData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
+                      const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                       const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
-                      const laborHours = laborBudget / (isEncoreView ? DEFAULT_HOURLY_RATE : hourlyRate);
-                      const weeks = isEncoreView ? (encoreData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
+                      const laborHours = laborBudget / hourlyRate;
+                      const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                       return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                     }, 0);
                     const avgFtes = Math.floor(totalHours / HOURS_PER_MONTH / 12);
@@ -1187,10 +1338,10 @@ export default function ForecastPage() {
                     
                     let totalActualCost, totalRevenue;
                     
-                    if (isEncoreView) {
+                    if (isCombinedView) {
                       // Use encoreData for Encore view
-                      totalActualCost = ytdMonths.reduce((sum, month) => sum + (encoreData[month]?.laborCost || 0), 0);
-                      totalRevenue = ytdMonths.reduce((sum, month) => sum + (encoreData[month]?.revenue || 0), 0);
+                      totalActualCost = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.laborCost || 0), 0);
+                      totalRevenue = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.revenue || 0), 0);
                     } else {
                       // Use local state for single branch
                       totalActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
@@ -1232,7 +1383,7 @@ export default function ForecastPage() {
                 {branches.map(branch => {
                   const branchForecasts = allBranchForecasts[branch.id] || [];
                   const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
-                  const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
+                  const branchHourlyRate = getHourlyRateByBranch(branch);
                   const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
                   const branchLaborHours = branchLaborBudget / branchHourlyRate;
                   const branchAvgFtes = Math.floor(branchLaborHours / HOURS_PER_MONTH / 12);
@@ -1386,7 +1537,7 @@ export default function ForecastPage() {
                       
                       branches.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
-                        const branchHourlyRate = branch.hourly_rate || DEFAULT_HOURLY_RATE;
+                        const branchHourlyRate = getHourlyRateByBranch(branch);
                         const forecast = branchForecasts.find(f => f.month === lastMonth);
                         if (forecast) {
                           const revenue = parseFloat(forecast.forecast_revenue) || 0;

@@ -613,22 +613,22 @@ export default function ForecastPage() {
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-gray-800">Maintenance FTE Forecast Based on Revenue</h1>
             
-            <div className="flex space-x-3">
+            <div className="flex space-x-2">
               <Link 
                 href="/" 
-                className="px-2 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
+                className="px-2 py-1 bg-white text-gray-600 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                <span>Back to Calculator</span>
+                <span>Calculator</span>
               </Link>
               
               <Link 
                 href="/schedule" 
-                className="px-2 py-1.5 bg-white text-indigo-700 border-2 border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+                className="px-2 py-1 bg-white text-indigo-600 text-sm border border-indigo-400 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                 </svg>
                 <span>Schedule</span>
@@ -641,38 +641,80 @@ export default function ForecastPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">Branch:</label>
               <div className="flex flex-wrap gap-2">
-                {branches.map(branch => (
-                  <button
-                    key={branch.id}
-                    onClick={() => setSelectedBranchId(branch.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedBranchId === branch.id
-                        ? 'text-white shadow-md'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    style={{
-                      backgroundColor: selectedBranchId === branch.id ? (branch.color || '#4F46E5') : undefined
-                    }}
-                  >
-                    {branch.name.replace('Phoenix ', '').replace('Las Vegas', 'LV')}
-                  </button>
-                ))}
+                {branches.map(branch => {
+                  // Define colors based on branch name
+                  const branchName = branch.name.toLowerCase();
+                  let lightBg, darkBg, lightText, darkText, hoverBg;
+                  
+                  if (branchName.includes('north')) {
+                    // Green for North
+                    lightBg = 'bg-green-100';
+                    darkBg = 'bg-green-600';
+                    lightText = 'text-green-700';
+                    darkText = 'text-white';
+                    hoverBg = 'hover:bg-green-200';
+                  } else if (branchName.includes('southeast')) {
+                    // Red for Southeast
+                    lightBg = 'bg-red-100';
+                    darkBg = 'bg-red-600';
+                    lightText = 'text-red-700';
+                    darkText = 'text-white';
+                    hoverBg = 'hover:bg-red-200';
+                  } else if (branchName.includes('southwest')) {
+                    // Blue for Southwest
+                    lightBg = 'bg-blue-100';
+                    darkBg = 'bg-blue-600';
+                    lightText = 'text-blue-700';
+                    darkText = 'text-white';
+                    hoverBg = 'hover:bg-blue-200';
+                  } else if (branchName.includes('vegas')) {
+                    // Yellowish Gold for Las Vegas
+                    lightBg = 'bg-amber-100';
+                    darkBg = 'bg-amber-500';
+                    lightText = 'text-amber-700';
+                    darkText = 'text-white';
+                    hoverBg = 'hover:bg-amber-200';
+                  } else {
+                    // Default gray
+                    lightBg = 'bg-gray-200';
+                    darkBg = 'bg-gray-600';
+                    lightText = 'text-gray-700';
+                    darkText = 'text-white';
+                    hoverBg = 'hover:bg-gray-300';
+                  }
+                  
+                  const isSelected = selectedBranchId === branch.id;
+                  
+                  return (
+                    <button
+                      key={branch.id}
+                      onClick={() => setSelectedBranchId(branch.id)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm ${
+                        isSelected
+                          ? `${darkBg} ${darkText} shadow-md`
+                          : `${lightBg} ${lightText} ${hoverBg}`
+                      }`}
+                    >
+                      {branch.name.replace('Phoenix ', '').replace('Las Vegas', 'LV')}
+                    </button>
+                  );
+                })}
                 <button
                   onClick={() => setSelectedBranchId('phoenix')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm ${
                     selectedBranchId === 'phoenix'
-                      ? 'bg-red-600 text-white shadow-md'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                   }`}
                 >
                   Phoenix
                 </button>
                 <button
                   onClick={() => setSelectedBranchId('encore')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm ${
                     selectedBranchId === 'encore'
-                      ? 'bg-gray-800 text-white shadow-md'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-blue-700 text-white shadow-md'
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                   }`}
                 >
                   Encore
@@ -696,18 +738,18 @@ export default function ForecastPage() {
             {/* Export CSV Button */}
             <button
               onClick={exportToCSV}
-              className="px-4 py-2 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+              className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
-              <span>Export CSV</span>
+              <span>Export</span>
             </button>
             
             <button
               onClick={handleSave}
               disabled={isSaving || !selectedBranchId || isCombinedView}
-              className={`ml-auto px-6 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center space-x-2 ${
+              className={`ml-auto px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center space-x-1.5 ${
                 isSaving || isCombinedView
                   ? 'bg-gray-400 text-white cursor-not-allowed' 
                   : 'bg-green-600 text-white hover:bg-green-700'
@@ -715,15 +757,15 @@ export default function ForecastPage() {
             >
               {isSaving ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
                   </svg>
-                  <span>Save Forecast</span>
+                  <span>Save</span>
                 </>
               )}
             </button>
@@ -796,18 +838,18 @@ export default function ForecastPage() {
         </div>
 
         {/* Main Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          <table className="w-full border-collapse">
             <thead>
               {/* Pay Weeks Row - above header */}
-              <tr className="bg-gray-100 text-sm">
-                <th className="px-2 py-1.5 text-left text-xs text-gray-600 font-normal sticky left-0 bg-gray-100 z-10">
+              <tr className="bg-slate-50 text-sm">
+                <th className="px-3 py-2 text-left text-xs text-slate-500 font-medium tracking-wide uppercase sticky left-0 bg-slate-50 z-10">
                   Pay Weeks
                 </th>
                 {months.map(month => (
-                  <th key={month} className="px-1 py-1 font-normal">
+                  <th key={month} className="px-1 py-1.5 font-normal">
                     {isCombinedView ? (
-                      <div className="text-center text-xs text-gray-600">
+                      <div className="text-center text-xs text-slate-600 font-medium">
                         {combinedData[month]?.weeks || 4.33}
                       </div>
                     ) : (
@@ -816,62 +858,64 @@ export default function ForecastPage() {
                         value={weeksInMonth[month]}
                         onChange={(e) => handleWeeksInMonthChange(month, e.target.value)}
                         placeholder="4.33"
-                        className="w-full px-1 py-1 border border-gray-300 rounded text-center text-xs focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none bg-white"
+                        className="w-full px-1 py-1.5 border border-slate-200 rounded text-center text-xs font-mono focus:ring-2 focus:ring-slate-400 focus:border-slate-400 outline-none bg-white transition-all duration-150 hover:border-slate-300"
                       />
                     )}
                   </th>
                 ))}
-                <th className="px-2 py-1.5 text-center text-xs text-gray-500 bg-gray-200 font-normal">
+                <th className="px-3 py-2 text-center text-xs text-slate-400 bg-slate-100 font-normal">
                   —
                 </th>
               </tr>
-              <tr className="bg-gray-800 text-white text-sm">
-                <th className="px-3 py-2 text-left font-semibold sticky left-0 bg-gray-800 z-10">Metric</th>
+              <tr className="bg-gradient-to-r from-slate-700 to-slate-800 text-white text-sm">
+                <th className="px-3 py-3 text-left font-semibold tracking-wide sticky left-0 bg-slate-700 z-10">Metric</th>
                 {months.map(month => (
-                  <th key={month} className="px-2 py-2 text-center font-semibold min-w-20">
+                  <th key={month} className="px-2 py-3 text-center font-semibold min-w-20">
                     {month}
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center font-semibold bg-gray-700 min-w-24">Total</th>
+                <th className="px-3 py-3 text-center font-semibold bg-slate-900/30 min-w-28">Total / Avg</th>
               </tr>
             </thead>
             <tbody className="text-sm">
               {/* Revenue Input Row */}
-              <tr className="bg-green-50 border-b border-green-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-green-50 z-10">
+              <tr className="bg-emerald-50/60 border-b border-emerald-100 hover:bg-emerald-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-emerald-50/60 z-10">
                   Monthly Revenue
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
-                      <div className="text-center text-green-700 font-medium">
+                      <div className="text-center text-emerald-700 font-semibold tabular-nums">
                         {formatCurrency(combinedData[month]?.revenue || 0)}
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                         <input
                           type="text"
                           value={monthlyRevenue[month]}
                           onChange={(e) => handleRevenueChange(month, e.target.value)}
                           placeholder="0"
-                          className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                          className="w-full pl-5 pr-1 py-1.5 border border-slate-200 rounded text-right text-sm font-mono focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none bg-white transition-all duration-150 hover:border-emerald-300"
                         />
                       </div>
                     )}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-green-700 bg-green-100">
-                  {isCombinedView 
-                    ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.revenue || 0), 0))
-                    : formatCurrency(totals.revenue)
-                  }
+                <td className="px-3 py-2.5 text-center bg-emerald-100/80">
+                  <span className="font-bold text-emerald-800 text-base tabular-nums">
+                    {isCombinedView 
+                      ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.revenue || 0), 0))
+                      : formatCurrency(totals.revenue)
+                    }
+                  </span>
                 </td>
               </tr>
 
               {/* Labor Target Row */}
-              <tr className="bg-blue-50 border-b border-blue-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
+              <tr className="bg-blue-50/60 border-b border-blue-100 hover:bg-blue-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-blue-50/60 z-10">
                   Labor Target (40%)
                 </td>
                 {months.map(month => {
@@ -880,52 +924,56 @@ export default function ForecastPage() {
                     : parseRevenue(monthlyRevenue[month]);
                   const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
                   return (
-                    <td key={month} className="px-2 py-2 text-center text-blue-700">
+                    <td key={month} className="px-2 py-2.5 text-center text-blue-700 tabular-nums">
                       {revenue > 0 ? formatCurrency(laborBudget) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-2 py-2 text-center font-semibold text-blue-700 bg-blue-100">
-                  {formatCurrency(totals.laborBudget)}
+                <td className="px-3 py-2.5 text-center bg-blue-100/80">
+                  <span className="font-bold text-blue-800 text-base tabular-nums">
+                    {formatCurrency(totals.laborBudget)}
+                  </span>
                 </td>
               </tr>
 
               {/* Actual Labor Cost Input Row */}
-              <tr className="bg-sky-50 border-b border-sky-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-sky-50 z-10">
+              <tr className="bg-sky-50/60 border-b border-sky-100 hover:bg-sky-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-sky-50/60 z-10">
                   Actual Labor Cost
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
-                      <div className="text-center text-sky-700 font-medium">
+                      <div className="text-center text-sky-700 font-semibold tabular-nums">
                         {formatCurrency(combinedData[month]?.laborCost || 0)}
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                         <input
                           type="text"
                           value={actualLaborCost[month]}
                           onChange={(e) => handleActualLaborCostChange(month, e.target.value)}
                           placeholder="0"
-                          className="w-full pl-5 pr-1 py-1.5 border border-gray-300 rounded text-right text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none bg-white"
+                          className="w-full pl-5 pr-1 py-1.5 border border-slate-200 rounded text-right text-sm font-mono focus:ring-2 focus:ring-sky-400 focus:border-sky-400 outline-none bg-white transition-all duration-150 hover:border-sky-300"
                         />
                       </div>
                     )}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-sky-700 bg-sky-100">
-                  {isCombinedView
-                    ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.laborCost || 0), 0))
-                    : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))
-                  }
+                <td className="px-3 py-2.5 text-center bg-sky-100/80">
+                  <span className="font-bold text-sky-800 text-base tabular-nums">
+                    {isCombinedView
+                      ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.laborCost || 0), 0))
+                      : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0))
+                    }
+                  </span>
                 </td>
               </tr>
 
               {/* Actual Labor Cost DL % Row */}
-              <tr className="bg-sky-50/50 border-b border-sky-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-sky-50/50 z-10">
+              <tr className="bg-sky-50/30 border-b border-sky-100/50 hover:bg-sky-50/50 transition-colors duration-150">
+                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-sky-50/30 z-10">
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -936,16 +984,16 @@ export default function ForecastPage() {
                   const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                   const dlPercent = rev > 0 && cost > 0 ? (displayCost / rev) * 100 : null;
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center">
+                    <td key={month} className="px-2 py-2 text-center">
                       {dlPercent !== null ? (
-                        <span className={`text-xs font-medium ${dlPercent > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className={`text-xs font-bold tabular-nums ${dlPercent > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
                           {formatNumber(dlPercent, 1)}%
                         </span>
-                      ) : '—'}
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center bg-sky-100/50">
+                <td className="px-3 py-2 text-center bg-sky-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
                     const totalCost = months.reduce((sum, month) => {
@@ -954,10 +1002,10 @@ export default function ForecastPage() {
                       const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                       return sum + displayCost;
                     }, 0);
-                    if (totalRev === 0 || totalCost === 0) return '—';
+                    if (totalRev === 0 || totalCost === 0) return <span className="text-slate-300">—</span>;
                     const avgDL = (totalCost / totalRev) * 100;
                     return (
-                      <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`text-sm font-bold tabular-nums ${avgDL > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatNumber(avgDL, 1)}%
                       </span>
                     );
@@ -966,8 +1014,8 @@ export default function ForecastPage() {
               </tr>
 
               {/* FTEs Row */}
-              <tr className="bg-orange-50 border-b border-orange-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
+              <tr className="bg-amber-50/60 border-b border-amber-100 hover:bg-amber-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-amber-50/60 z-10">
                   FTEs Required{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -981,18 +1029,18 @@ export default function ForecastPage() {
                     : (laborHours / 4.33) * weeks;
                   const displayFtes = Math.floor(displayHours / HOURS_PER_MONTH);
                   return (
-                    <td key={month} className="px-2 py-2 text-center">
+                    <td key={month} className="px-2 py-2.5 text-center">
                       {revenue > 0 ? (
-                        <span className="inline-block bg-orange-200 text-orange-800 font-bold px-2 py-0.5 rounded-full text-sm">
+                        <span className="inline-flex items-center justify-center min-w-8 h-7 bg-amber-200/80 text-amber-900 font-bold px-2 rounded-md text-sm tabular-nums shadow-sm">
                           {displayFtes}
                         </span>
-                      ) : '—'}
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
                   );
                 })}
-                <td className="px-2 py-2 text-center bg-orange-100">
-                  <div className="text-xs text-gray-500">Avg</div>
-                  <span className="inline-block bg-orange-300 text-orange-900 font-bold px-2 py-0.5 rounded-full text-sm">
+                <td className="px-3 py-2.5 text-center bg-amber-100/80">
+                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <span className="inline-flex items-center justify-center min-w-10 h-7 bg-amber-300/80 text-amber-900 font-bold px-2 rounded-md text-base tabular-nums shadow-sm">
                     {(() => {
                       const totalHours = months.reduce((sum, month) => {
                         const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
@@ -1039,32 +1087,32 @@ export default function ForecastPage() {
               </tr>
 
               {/* Target DL % Row */}
-              <tr className="bg-orange-50/50 border-b border-orange-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
+              <tr className="bg-amber-50/30 border-b border-amber-100/50 hover:bg-amber-50/50 transition-colors duration-150">
+                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-amber-50/30 z-10">
                   Target DL %
                 </td>
                 {months.map(month => {
                   const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-500">
-                      {revenue > 0 ? '40.0%' : '—'}
+                    <td key={month} className="px-2 py-2 text-center text-xs font-medium text-slate-500 tabular-nums">
+                      {revenue > 0 ? '40.0%' : <span className="text-slate-300">—</span>}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-orange-100/50">
+                <td className="px-3 py-2 text-center text-sm font-medium text-slate-500 bg-amber-100/50 tabular-nums">
                   40.0%
                 </td>
               </tr>
 
               {/* Actual Hours Input Row */}
-              <tr className="bg-red-50 border-b border-red-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-red-50 z-10">
+              <tr className="bg-rose-50/60 border-b border-rose-100 hover:bg-rose-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-rose-50/60 z-10">
                   Actual Hours
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
-                      <div className="text-center text-red-700 font-medium">
+                      <div className="text-center text-rose-700 font-semibold tabular-nums">
                         {formatNumber(combinedData[month]?.actualHours || 0, 0)}
                       </div>
                     ) : (
@@ -1073,22 +1121,24 @@ export default function ForecastPage() {
                         value={actualHours[month]}
                         onChange={(e) => handleActualHoursChange(month, e.target.value)}
                         placeholder="0"
-                        className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white"
+                        className="w-full px-1 py-1.5 border border-slate-200 rounded text-center text-sm font-mono focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-white transition-all duration-150 hover:border-rose-300"
                       />
                     )}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-red-700 bg-red-100">
-                  {isCombinedView
-                    ? formatNumber(months.reduce((sum, m) => sum + (combinedData[m]?.actualHours || 0), 0), 0)
-                    : formatNumber(months.reduce((sum, month) => sum + (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0), 0), 0)
-                  }
+                <td className="px-3 py-2.5 text-center bg-rose-100/80">
+                  <span className="font-bold text-rose-800 text-base tabular-nums">
+                    {isCombinedView
+                      ? formatNumber(months.reduce((sum, m) => sum + (combinedData[m]?.actualHours || 0), 0), 0)
+                      : formatNumber(months.reduce((sum, month) => sum + (parseFloat(String(actualHours[month]).replace(/,/g, '')) || 0), 0), 0)
+                    }
+                  </span>
                 </td>
               </tr>
 
               {/* Actual FTEs Row (calculated from Actual Hours) */}
-              <tr className="bg-red-50/50 border-b border-red-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-red-50/50 z-10">
+              <tr className="bg-rose-50/30 border-b border-rose-100/50 hover:bg-rose-50/50 transition-colors duration-150">
+                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-rose-50/30 z-10">
                   Actual FTEs{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1096,8 +1146,8 @@ export default function ForecastPage() {
                   const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (hours <= 0 || weeks <= 0) {
                     return (
-                      <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
-                        —
+                      <td key={month} className="px-2 py-2 text-center">
+                        <span className="text-slate-300">—</span>
                       </td>
                     );
                   }
@@ -1108,12 +1158,12 @@ export default function ForecastPage() {
                   // Round up if decimal > 0.1, otherwise floor
                   const displayFtes = decimal > 0.1 ? Math.ceil(rawFtes) : Math.floor(rawFtes);
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center text-xs text-red-600">
+                    <td key={month} className="px-2 py-2 text-center text-xs font-semibold text-rose-600 tabular-nums">
                       {displayFtes}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-red-600 bg-red-100/50">
+                <td className="px-3 py-2 text-center text-sm font-bold text-rose-600 bg-rose-100/50 tabular-nums">
                   {(() => {
                     let totalFtes = 0;
                     let monthsWithData = 0;
@@ -1128,7 +1178,7 @@ export default function ForecastPage() {
                         monthsWithData++;
                       }
                     });
-                    if (monthsWithData === 0) return '—';
+                    if (monthsWithData === 0) return <span className="text-slate-300">—</span>;
                     const avgFtes = totalFtes / monthsWithData;
                     const decimal = avgFtes % 1;
                     return decimal > 0.1 ? Math.ceil(avgFtes) : Math.floor(avgFtes);
@@ -1137,15 +1187,15 @@ export default function ForecastPage() {
               </tr>
 
               {/* Actual HC Input Row */}
-              <tr className="bg-teal-50 border-b border-teal-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-teal-50 z-10">
+              <tr className="bg-teal-50/60 border-b border-teal-100 hover:bg-teal-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-teal-50/60 z-10">
                   Actual HC
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
-                      <div className="text-center text-teal-700 font-medium">
-                        {combinedData[month]?.actualFtes || '—'}
+                      <div className="text-center text-teal-700 font-semibold tabular-nums">
+                        {combinedData[month]?.actualFtes || <span className="text-slate-300">—</span>}
                       </div>
                     ) : (
                       <input
@@ -1153,24 +1203,24 @@ export default function ForecastPage() {
                         value={actualFtes[month]}
                         onChange={(e) => handleActualFtesChange(month, e.target.value)}
                         placeholder="0"
-                        className="w-full px-1 py-1.5 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white"
+                        className="w-full px-1 py-1.5 border border-slate-200 rounded text-center text-sm font-mono focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none bg-white transition-all duration-150 hover:border-teal-300"
                       />
                     )}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center bg-teal-100">
-                  <div className="text-xs text-gray-500">Avg</div>
-                  <span className="font-semibold text-teal-700">
+                <td className="px-3 py-2.5 text-center bg-teal-100/80">
+                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <span className="font-bold text-teal-800 text-base tabular-nums">
                     {isCombinedView
                       ? formatNumber(
                           months.reduce((sum, m) => sum + (combinedData[m]?.actualFtes || 0), 0) / 
                           (months.filter(m => (combinedData[m]?.actualFtes || 0) > 0).length || 1),
-                          2
+                          1
                         )
                       : formatNumber(
                           months.reduce((sum, m) => sum + (parseFloat(actualFtes[m]) || 0), 0) / 
                           (months.filter(m => parseFloat(actualFtes[m]) > 0).length || 1),
-                          2
+                          1
                         )
                     }
                   </span>
@@ -1178,24 +1228,26 @@ export default function ForecastPage() {
               </tr>
 
               {/* Scheduled HC Row (from crews table) */}
-              <tr className="bg-cyan-50 border-b border-cyan-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-cyan-50 z-10">
+              <tr className="bg-cyan-50/60 border-b border-cyan-100 hover:bg-cyan-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-cyan-50/60 z-10">
                   Scheduled HC
-                  <span className="text-xs text-gray-400 ml-1">(crews)</span>
+                  <span className="text-xs text-slate-400 ml-1">(crews)</span>
                 </td>
                 {months.map(month => (
-                  <td key={month} className="px-2 py-2 text-center text-cyan-700 font-medium">
-                    {scheduledHC || '—'}
+                  <td key={month} className="px-2 py-2.5 text-center text-cyan-700 font-semibold tabular-nums">
+                    {scheduledHC || <span className="text-slate-300">—</span>}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center bg-cyan-100 font-semibold text-cyan-700">
-                  {scheduledHC || '—'}
+                <td className="px-3 py-2.5 text-center bg-cyan-100/80">
+                  <span className="font-bold text-cyan-800 text-base tabular-nums">
+                    {scheduledHC || <span className="text-slate-300">—</span>}
+                  </span>
                 </td>
               </tr>
 
               {/* Actual DL % Row (based on HC) */}
-              <tr className="bg-teal-50/50">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-teal-50/50 z-10">
+              <tr className="bg-teal-50/30 border-b border-teal-100/50 hover:bg-teal-50/50 transition-colors duration-150">
+                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-teal-50/30 z-10">
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1204,21 +1256,21 @@ export default function ForecastPage() {
                   const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (rev === 0 || ftes === 0) {
                     return (
-                      <td key={month} className="px-2 py-1.5 text-center">—</td>
+                      <td key={month} className="px-2 py-2 text-center"><span className="text-slate-300">—</span></td>
                     );
                   }
                   const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
                   const actualLaborCostCalc = ftes * hoursMultiplier * hourlyRate;
                   const actualDL = (actualLaborCostCalc / rev) * 100;
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center">
-                      <span className={`text-xs font-medium ${actualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                    <td key={month} className="px-2 py-2 text-center">
+                      <span className={`text-xs font-bold tabular-nums ${actualDL > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatNumber(actualDL, 1)}%
                       </span>
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center bg-teal-100/50">
+                <td className="px-3 py-2 text-center bg-teal-100/50">
                   {(() => {
                     const totalRev = totals.revenue;
                     const totalActualFtes = isCombinedView 
@@ -1232,7 +1284,7 @@ export default function ForecastPage() {
                       ? months.filter(m => (combinedData[m]?.revenue || 0) > 0).length
                       : months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
-                    if (avgRev === 0 || avgActualFtes === 0) return '—';
+                    if (avgRev === 0 || avgActualFtes === 0) return <span className="text-slate-300">—</span>;
                     // For total, calculate weighted average of weeks
                     const avgWeeks = months.reduce((sum, m) => {
                       const weeks = isCombinedView ? (combinedData[m]?.weeks || 4.33) : (parseFloat(weeksInMonth[m]) || 4.33);
@@ -1241,7 +1293,7 @@ export default function ForecastPage() {
                     const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * avgWeeks;
                     const avgDL = (avgActualFtes * hoursMultiplier * hourlyRate / avgRev) * 100;
                     return (
-                      <span className={`text-xs font-medium ${avgDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`text-sm font-bold tabular-nums ${avgDL > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {formatNumber(avgDL, 1)}%
                       </span>
                     );
@@ -1250,10 +1302,10 @@ export default function ForecastPage() {
               </tr>
 
               {/* Maint Crews Row */}
-              <tr className="bg-gray-100 border-b border-gray-200">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-gray-100 z-10">
-                  <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <tr className="bg-slate-100/60 border-b border-slate-200 hover:bg-slate-100 transition-colors duration-150">
+                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-slate-100/60 z-10">
+                  <div className="flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v-4m-6 8h12a2 2 0 002-2V7a2 2 0 00-2-2h-3l-1-2H10L9 5H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     <span>Maint Crews (4m){isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}</span>
@@ -1288,12 +1340,12 @@ export default function ForecastPage() {
                   const hasJump = crews !== null && priorCrews !== null && crews !== priorCrews;
                   
                   return (
-                    <td key={month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-gray-600'}`}>
-                      {crews !== null ? crews : '—'}
+                    <td key={month} className={`px-2 py-2 text-center text-xs tabular-nums ${hasJump ? 'bg-amber-100 text-amber-800 font-bold' : 'text-slate-600 font-medium'}`}>
+                      {crews !== null ? crews : <span className="text-slate-300">—</span>}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-gray-200">
+                <td className="px-3 py-2 text-center text-sm font-bold text-slate-700 bg-slate-200/80 tabular-nums">
                   {(() => {
                     const totalHours = months.reduce((sum, month) => {
                       const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
@@ -1303,7 +1355,7 @@ export default function ForecastPage() {
                       return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                     }, 0);
                     const avgFtes = Math.floor(totalHours / HOURS_PER_MONTH / 12);
-                    return avgFtes > 0 ? Math.ceil(avgFtes / 4) : '—';
+                    return avgFtes > 0 ? Math.ceil(avgFtes / 4) : <span className="text-slate-300">—</span>;
                   })()}
                 </td>
               </tr>

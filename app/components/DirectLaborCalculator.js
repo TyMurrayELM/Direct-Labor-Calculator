@@ -145,9 +145,15 @@ const DirectLaborCalculator = () => {
   
   // Constants for calculations
   const DRIVE_TIME_FACTOR = 0.9;
-  const HOURLY_COST = 24.75;
   const WEEKS_PER_MONTH = 4.33;
   const HOURS_PER_WEEK = 40; // Weekly hours for headcount calculation
+  
+  // Branch-specific hourly costs by crew type
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const DEFAULT_HOURLY_COST = 25.00;
   
   // State for target direct labor percentage
   const [targetDirectLaborPercent, setTargetDirectLaborPercent] = useState(0.40);
@@ -261,20 +267,53 @@ const DirectLaborCalculator = () => {
   // Get selected branch
   const selectedBranch = branches.find(branch => branch.id === selectedBranchId) || {};
   
-  // Calculate target hours based on formula
-  const calculateTargetHours = (monthlyInvoice) => {
-    return (monthlyInvoice * targetDirectLaborPercent * DRIVE_TIME_FACTOR) / (HOURLY_COST * WEEKS_PER_MONTH);
-  };
-
-  // Calculate direct labor percentage
-  const calculateDirectLaborPercent = (hours, monthlyInvoice) => {
-    if (hours === 0 || monthlyInvoice === 0) return 0;
-    return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
+  // Helper function to get hourly cost based on branch name and crew type
+  const getHourlyCost = (branchName, crewType) => {
+    if (!branchName) return DEFAULT_HOURLY_COST;
+    
+    const name = branchName.toLowerCase();
+    const isOnsite = crewType === 'Onsite';
+    
+    // Las Vegas branch
+    if (name.includes('las vegas') || name.includes('vegas')) {
+      return isOnsite ? HOURLY_COST_LAS_VEGAS_ONSITE : HOURLY_COST_LAS_VEGAS_MAINTENANCE;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (name.includes('phoenix') || 
+        name.includes('southeast') || 
+        name.includes('southwest') || 
+        name.includes('north')) {
+      return isOnsite ? HOURLY_COST_PHOENIX_ONSITE : HOURLY_COST_PHOENIX_MAINTENANCE;
+    }
+    
+    return DEFAULT_HOURLY_COST;
   };
   
-  // Calculate weekly cost from hours - UPDATED to not multiply by WEEKS_PER_MONTH
-  const calculateWeeklyCost = (hours) => {
-    return hours * HOURLY_COST;
+  // Helper function to get drive time factor based on crew type
+  const getDriveTimeFactor = (crewType) => {
+    return crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
+  };
+  
+  // Calculate target hours based on formula - now with branch/crew-specific rates
+  const calculateTargetHours = (monthlyInvoice, branchName, crewType) => {
+    const hourlyCost = getHourlyCost(branchName, crewType);
+    const driveTimeFactor = getDriveTimeFactor(crewType);
+    return (monthlyInvoice * targetDirectLaborPercent * driveTimeFactor) / (hourlyCost * WEEKS_PER_MONTH);
+  };
+
+  // Calculate direct labor percentage - now with branch/crew-specific rates
+  const calculateDirectLaborPercent = (hours, monthlyInvoice, branchName, crewType) => {
+    if (hours === 0 || monthlyInvoice === 0) return 0;
+    const hourlyCost = getHourlyCost(branchName, crewType);
+    const driveTimeFactor = getDriveTimeFactor(crewType);
+    return (hours * hourlyCost * WEEKS_PER_MONTH) / (monthlyInvoice * driveTimeFactor) * 100;
+  };
+  
+  // Calculate weekly cost from hours - now with branch/crew-specific rates
+  const calculateWeeklyCost = (hours, branchName, crewType) => {
+    const hourlyCost = getHourlyCost(branchName, crewType);
+    return hours * hourlyCost;
   };
 
   // Handle change for new hours input
@@ -567,17 +606,49 @@ const DirectLaborCalculator = () => {
     const adjustedHour = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
     return sum + (editedHour !== undefined ? editedHour : adjustedHour);
   }, 0);
-  const currentPageTargetHours = filteredProperties.reduce((sum, prop) => sum + calculateTargetHours(prop.monthly_invoice), 0);
+  const currentPageTargetHours = filteredProperties.reduce((sum, prop) => {
+    const branchName = prop.branches?.name || '';
+    const crewType = prop.crews?.crew_type || '';
+    return sum + calculateTargetHours(prop.monthly_invoice, branchName, crewType);
+  }, 0);
   
   // Always use actual totals from the backend, no estimation
   const totalMonthlyInvoice = backendTotalMonthlyInvoice || 0;
   const totalCurrentHours = backendTotalCurrentHours || 0;
   const totalNewHours = backendTotalNewHours || 0;
-  const totalTargetHours = calculateTargetHours(totalMonthlyInvoice);
   
-  // Calculate percentages based on all-pages data
-  const currentOverallDirectLabor = calculateDirectLaborPercent(totalCurrentHours, totalMonthlyInvoice);
-  const newOverallDirectLabor = calculateDirectLaborPercent(totalNewHours, totalMonthlyInvoice);
+  // Calculate total target hours using property-level calculations
+  const totalTargetHours = filteredProperties.reduce((sum, prop) => {
+    const branchName = prop.branches?.name || '';
+    const crewType = prop.crews?.crew_type || '';
+    return sum + calculateTargetHours(prop.monthly_invoice, branchName, crewType);
+  }, 0);
+  
+  // Calculate percentages based on property-level data with correct rates
+  const calculateWeightedDLPercent = (getHoursForProperty) => {
+    let totalLaborCost = 0;
+    let totalAdjustedRevenue = 0;
+    
+    filteredProperties.forEach(prop => {
+      const branchName = prop.branches?.name || '';
+      const crewType = prop.crews?.crew_type || '';
+      const hourlyCost = getHourlyCost(branchName, crewType);
+      const driveTimeFactor = getDriveTimeFactor(crewType);
+      const hours = getHoursForProperty(prop);
+      
+      totalLaborCost += hours * hourlyCost * WEEKS_PER_MONTH;
+      totalAdjustedRevenue += prop.monthly_invoice * driveTimeFactor;
+    });
+    
+    return totalAdjustedRevenue > 0 ? (totalLaborCost / totalAdjustedRevenue) * 100 : 0;
+  };
+  
+  const currentOverallDirectLabor = calculateWeightedDLPercent(prop => prop.current_hours);
+  const newOverallDirectLabor = calculateWeightedDLPercent(prop => {
+    const editedHour = editedHours[prop.id];
+    const adjustedHour = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
+    return editedHour !== undefined ? editedHour : adjustedHour;
+  });
 
   // Calculate headcounts - adding 10% for drive time
   const currentHeadcount = (totalCurrentHours * 1.1) / HOURS_PER_WEEK;
@@ -793,7 +864,7 @@ const DirectLaborCalculator = () => {
                       {formatNumber(totalTargetHours)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalTargetHours)} HC | Cost: {formatCurrency(calculateWeeklyCost(totalTargetHours))})
+                      ({formatHeadcount(totalTargetHours)} HC)
                     </span>
                   </div>
                 </div>
@@ -814,7 +885,7 @@ const DirectLaborCalculator = () => {
                       {formatNumber(totalCurrentHours)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalCurrentHours)} HC | Cost: {formatCurrency(calculateWeeklyCost(totalCurrentHours))})
+                      ({formatHeadcount(totalCurrentHours)} HC)
                     </span>
                   </div>
                 </div>
@@ -824,9 +895,9 @@ const DirectLaborCalculator = () => {
             <div className="bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-3">Hourly Cost:</span>
-                  <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm">
-                    {formatCurrency(HOURLY_COST)}
+                  <span className="text-sm font-medium text-gray-700 mr-3">Hourly Rates:</span>
+                  <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-bold shadow-sm">
+                    PHX: ${HOURLY_COST_PHOENIX_MAINTENANCE}/${HOURLY_COST_PHOENIX_ONSITE} | LV: ${HOURLY_COST_LAS_VEGAS_MAINTENANCE}/${HOURLY_COST_LAS_VEGAS_ONSITE}
                   </span>
                 </div>
                 
@@ -837,7 +908,7 @@ const DirectLaborCalculator = () => {
                       {formatNumber(totalNewHours)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalNewHours)} HC | Cost: {formatCurrency(calculateWeeklyCost(totalNewHours))})
+                      ({formatHeadcount(totalNewHours)} HC)
                     </span>
                   </div>
                 </div>
@@ -858,7 +929,7 @@ const DirectLaborCalculator = () => {
                       {formatNumber(totalNewHours - totalTargetHours)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ({(newHeadcount - targetHeadcount).toFixed(1)} HC | Cost: {formatCurrency(calculateWeeklyCost(totalNewHours - totalTargetHours))})
+                      ({(newHeadcount - targetHeadcount).toFixed(1)} HC)
                     </span>
                   </div>
                 </div>
@@ -1102,12 +1173,14 @@ const DirectLaborCalculator = () => {
                   </tr>
                 ) : (
                   filteredProperties.map((property, index) => {
-                    const targetHours = calculateTargetHours(property.monthly_invoice);
-                    const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice);
+                    const branchName = property.branches?.name || '';
+                    const crewType = property.crews?.crew_type || '';
+                    const targetHours = calculateTargetHours(property.monthly_invoice, branchName, crewType);
+                    const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice, branchName, crewType);
                     const newHours = editedHours[property.id] !== undefined 
                       ? editedHours[property.id] 
                       : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
-                    const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice);
+                    const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice, branchName, crewType);
                     
                     // Determine if this property is currently being saved
                     const isSaving = savingPropertyId === property.id;
@@ -1248,15 +1321,15 @@ const DirectLaborCalculator = () => {
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>
                   <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${calculateDirectLaborPercent(currentPageCurrentHours, currentPageMonthlyInvoice) < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {formatPercent(calculateDirectLaborPercent(currentPageCurrentHours, currentPageMonthlyInvoice))}
+                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${currentOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {formatPercent(currentOverallDirectLabor)}
                     </span>
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageTargetHours)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageNewHours)}</td>
                   <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${calculateDirectLaborPercent(currentPageNewHours, currentPageMonthlyInvoice) < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {currentPageNewHours > 0 ? formatPercent(calculateDirectLaborPercent(currentPageNewHours, currentPageMonthlyInvoice)) : "-"}
+                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${newOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {currentPageNewHours > 0 ? formatPercent(newOverallDirectLabor) : "-"}
                     </span>
                   </td>
                 </tr>
@@ -1269,8 +1342,8 @@ const DirectLaborCalculator = () => {
         <div className="border-t border-gray-200">
           <div className="bg-gray-50 p-4 sm:p-6">
             <div className="text-sm text-gray-500 border-l-4 border-blue-500 pl-3 py-1 bg-blue-50 rounded-r-md">
-              <p className="font-medium text-blue-900">Formula: (Monthly Invoice × Target DL%) × 0.9 ÷ 24.75 ÷ 4.33</p>
-              <p className="text-blue-800 mt-1">Target DL% is adjustable, 0.9 accounts for Drive Time, 24.75 is hourly cost, 4.33 is weeks per month</p>
+              <p className="font-medium text-blue-900">Formula: (Monthly Invoice × Target DL%) × Drive Time Factor ÷ Hourly Cost ÷ 4.33</p>
+              <p className="text-blue-800 mt-1">Hourly rates: PHX Maint $25.50, PHX Onsite $30.00, LV Maint $24.50, LV Onsite $25.00 | Drive Time: Maint 0.9, Onsite 1.0</p>
             </div>
           </div>
         </div>

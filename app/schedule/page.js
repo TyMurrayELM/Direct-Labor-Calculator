@@ -34,6 +34,14 @@ const getIconPath = (branchName) => {
   return null;
 };
 
+// Helper function to get effective hours (adjusted_hours if set, otherwise current_hours)
+// This matches the logic used in Crew Management page for consistency
+const getEffectiveHours = (job) => {
+  return job.adjusted_hours !== null && job.adjusted_hours !== undefined 
+    ? job.adjusted_hours 
+    : (job.current_hours || 0);
+};
+
 export default function SchedulePage() {
   const router = useRouter();
   const supabase = createBrowserClient(
@@ -120,11 +128,47 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
 
   // Constants (matching your Direct Labor Calculator)
   const DRIVE_TIME_FACTOR = 0.9;
-  const HOURLY_COST = 24.75;
   const OVERTIME_MULTIPLIER = 1.5;
-  const OVERTIME_HOURLY_COST = HOURLY_COST * OVERTIME_MULTIPLIER; // $37.125
   const WEEKS_PER_MONTH = 4.33;
   const TARGET_DIRECT_LABOR_PERCENT = 40;
+  
+  // Branch-specific hourly costs by crew type (matching Crew Management page)
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const DEFAULT_HOURLY_COST = 25.00;
+
+  // Helper function to get hourly cost based on branch and crew type
+  const getHourlyCostByBranch = (branchId, crewType) => {
+    if (!branches || branches.length === 0) return DEFAULT_HOURLY_COST;
+    
+    const branch = branches.find(b => b.id === branchId);
+    if (!branch) return DEFAULT_HOURLY_COST;
+    
+    const branchName = branch.name.toLowerCase();
+    const isOnsite = crewType === 'Onsite';
+    
+    // Las Vegas branch
+    if (branchName.includes('las vegas') || branchName.includes('vegas')) {
+      return isOnsite ? HOURLY_COST_LAS_VEGAS_ONSITE : HOURLY_COST_LAS_VEGAS_MAINTENANCE;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (branchName.includes('phoenix') || 
+        branchName.includes('southeast') || 
+        branchName.includes('southwest') || 
+        branchName.includes('north') ||
+        branchName.includes('phx')) {
+      return isOnsite ? HOURLY_COST_PHOENIX_ONSITE : HOURLY_COST_PHOENIX_MAINTENANCE;
+    }
+    
+    return DEFAULT_HOURLY_COST;
+  };
+
+  // Get the current hourly cost based on selected crew
+  const HOURLY_COST = selectedCrew ? getHourlyCostByBranch(selectedCrew.branch_id, selectedCrew.crew_type) : DEFAULT_HOURLY_COST;
+  const OVERTIME_HOURLY_COST = HOURLY_COST * OVERTIME_MULTIPLIER;
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -596,12 +640,12 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
 
   // Calculate statistics
   const calculateWeeklyStats = () => {
-    const totalScheduledHours = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.current_hours || 0), 0);
+    const totalScheduledHours = Object.values(weekSchedule).flat().reduce((sum, job) => sum + getEffectiveHours(job), 0);
     const totalRevenue = Object.values(weekSchedule).flat().reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     
     // Get Saturday scheduled hours and revenue specifically for OT calculation
     const saturdayScheduledHours = weekSchedule.Saturday ? 
-      weekSchedule.Saturday.reduce((sum, job) => sum + (job.current_hours || 0), 0) : 0;
+      weekSchedule.Saturday.reduce((sum, job) => sum + getEffectiveHours(job), 0) : 0;
     const saturdayRevenue = weekSchedule.Saturday ?
       weekSchedule.Saturday.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0) : 0;
     const regularScheduledHours = totalScheduledHours - saturdayScheduledHours;
@@ -615,10 +659,14 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
     const utilizationPercent = weeklyCapacity > 0 ? (totalScheduledHours / weeklyCapacity) * 100 : 0;
     
     // Calculate direct labor with OT for Saturday scheduled hours
+    // Apply DRIVE_TIME_FACTOR to revenue (same as Crew Management page for Maintenance crews)
     const regularLaborCost = regularScheduledHours * HOURLY_COST * WEEKS_PER_MONTH;
     const saturdayLaborCost = saturdayScheduledHours * OVERTIME_HOURLY_COST * WEEKS_PER_MONTH;
     const totalLaborCost = regularLaborCost + saturdayLaborCost;
-    const directLaborPercent = totalRevenue > 0 ? (totalLaborCost / totalRevenue) * 100 : 0;
+    // For Maintenance crews, divide by revenue * DRIVE_TIME_FACTOR (matching Crew Management page)
+    const isOnsiteCrew = selectedCrew?.crew_type === 'Onsite';
+    const revenueAdjustmentFactor = isOnsiteCrew ? 1.0 : DRIVE_TIME_FACTOR;
+    const directLaborPercent = totalRevenue > 0 ? (totalLaborCost / (totalRevenue * revenueAdjustmentFactor)) * 100 : 0;
     
     // Calculate effective DL based on full crew cost with OT for Saturday
     let monthlyCrewCost, monthlyRegularCrewCost, monthlySaturdayCrewCost;
@@ -665,13 +713,16 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
 
   // Calculate Direct Labor percentage for each day
   const calculateDailyDL = (dayJobs, isOvertimeDay = false) => {
-    const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
+    const dayHours = dayJobs.reduce((sum, job) => sum + getEffectiveHours(job), 0);
     const dayRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
     if (dayRevenue === 0) return 0;
     
     const hourlyRate = isOvertimeDay ? OVERTIME_HOURLY_COST : HOURLY_COST;
     const dailyLaborCost = dayHours * hourlyRate * WEEKS_PER_MONTH;
-    return (dailyLaborCost / dayRevenue) * 100;
+    // Apply DRIVE_TIME_FACTOR for Maintenance crews (same as Crew Management page)
+    const isOnsiteCrew = selectedCrew?.crew_type === 'Onsite';
+    const revenueAdjustmentFactor = isOnsiteCrew ? 1.0 : DRIVE_TIME_FACTOR;
+    return (dailyLaborCost / (dayRevenue * revenueAdjustmentFactor)) * 100;
   };
 
   // Calculate Effective Direct Labor percentage for each day
@@ -1082,10 +1133,10 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
           </div>
           <div>
             <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
-              js Direct Labor %
+              Assigned DL %
               <span 
                 className="cursor-help text-gray-400 hover:text-gray-600" 
-                title={`Total Labor cost based on On-Property Hours for each job on the schedule vs the Total Revenue for those jobs. Ignores Utilization %${stats.hasSaturdayWork ? '. Saturday hours calculated at 1.5x OT rate.' : ''}`}
+                title={`Assigned Direct Labor: Labor cost based on scheduled hours vs revenue (adjusted for drive time). Target is <40%${stats.hasSaturdayWork ? '. Saturday hours calculated at 1.5x OT rate.' : ''}`}
               >ℹ</span>
             </div>
             <div className={`text-lg font-bold ${
@@ -1303,10 +1354,10 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     
                   </div>
                   <div className="flex justify-between text-xs mt-1 pt-1 border-t">
-                    <span className="text-gray-600" title={`Job Scheduled Direct Labor: Labor cost based on actual scheduled hours${isSaturday ? ' at OT rate' : ''}`}>jsDL:</span>
+                    <span className="text-gray-600" title={`Assigned Direct Labor: Labor cost based on scheduled hours${isSaturday ? ' at OT rate' : ''} (adjusted for drive time)`}>aDL:</span>
                     <span 
                       className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}
-                      title={`Scheduled hours (${dayHours.toFixed(1)}) × ${isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST}/hr × ${WEEKS_PER_MONTH} weeks ÷ ${(dayMonthlyRevenue).toFixed(0)} revenue = ${dlPercent.toFixed(1)}%`}
+                      title={`Scheduled hours (${dayHours.toFixed(1)}) × $${(isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST).toFixed(2)}/hr × ${WEEKS_PER_MONTH} weeks ÷ (${(dayMonthlyRevenue).toFixed(0)} revenue × ${DRIVE_TIME_FACTOR}) = ${dlPercent.toFixed(1)}%`}
                     >
                       {dlPercent.toFixed(1)}%
                     </span>

@@ -56,25 +56,67 @@ export default function CrewSchedulePrintPage() {
   const { crewDayData, loading: crewDayLoading } = useCrewDayData(selectedCrewId);
 
   // Constants
-  const HOURLY_COST = 24.75;
   const WEEKS_PER_MONTH = 4.33;
   const TARGET_DL_PERCENT = 40;
   const DRIVE_TIME_FACTOR = 0.9;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  // Branch-specific hourly costs by crew type
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const DEFAULT_HOURLY_COST = 25.00;
+  
+  // Get selected branch for calculations
+  const selectedBranch = branches.find(b => b.id === selectedBranchId);
+  
+  // Helper function to get hourly cost based on branch name and crew type
+  const getHourlyCost = (branchName, crewType) => {
+    if (!branchName) return DEFAULT_HOURLY_COST;
+    
+    const name = branchName.toLowerCase();
+    const isOnsite = crewType === 'Onsite';
+    
+    // Las Vegas branch
+    if (name.includes('las vegas') || name.includes('vegas')) {
+      return isOnsite ? HOURLY_COST_LAS_VEGAS_ONSITE : HOURLY_COST_LAS_VEGAS_MAINTENANCE;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (name.includes('phoenix') || 
+        name.includes('southeast') || 
+        name.includes('southwest') || 
+        name.includes('north')) {
+      return isOnsite ? HOURLY_COST_PHOENIX_ONSITE : HOURLY_COST_PHOENIX_MAINTENANCE;
+    }
+    
+    return DEFAULT_HOURLY_COST;
+  };
+  
+  // Helper function to get drive time factor based on crew type
+  const getDriveTimeFactor = (crewType) => {
+    return crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
+  };
 
-  // Calculate DL metrics for a property
+  // Calculate DL metrics for a property - uses selected crew's branch and type
   const calculatePropertyMetrics = (job) => {
-    const currentHours = job.current_hours || 0;
+    // Use adjusted_hours if set, otherwise fall back to current_hours (same as Direct Labor Calculator)
+    const currentHours = job.adjusted_hours !== null ? job.adjusted_hours : (job.current_hours || 0);
     const monthlyRevenue = job.monthly_invoice || 0;
     
+    // Get hourly cost and drive time factor based on selected crew
+    const hourlyCost = getHourlyCost(selectedBranch?.name, selectedCrew?.crew_type);
+    const driveTimeFactor = getDriveTimeFactor(selectedCrew?.crew_type);
+    
     // Monthly labor cost
-    const laborCost = currentHours * HOURLY_COST * WEEKS_PER_MONTH;
+    const laborCost = currentHours * hourlyCost * WEEKS_PER_MONTH;
     
-    // DL% - labor cost as % of revenue
-    const dlPercent = monthlyRevenue > 0 ? (laborCost / monthlyRevenue) * 100 : 0;
+    // DL% - labor cost as % of revenue (adjusted for drive time)
+    const dlPercent = monthlyRevenue > 0 ? (laborCost / (monthlyRevenue * driveTimeFactor)) * 100 : 0;
     
-    // Target hours formula: (Monthly Invoice × Target DL%) × 0.9 ÷ 24.75 ÷ 4.33
-    const targetHours = (monthlyRevenue * (TARGET_DL_PERCENT / 100) * DRIVE_TIME_FACTOR) / HOURLY_COST / WEEKS_PER_MONTH;
+    // Target hours formula: (Monthly Invoice × Target DL%) × driveTimeFactor ÷ hourlyCost ÷ 4.33
+    const targetHours = (monthlyRevenue * (TARGET_DL_PERCENT / 100) * driveTimeFactor) / hourlyCost / WEEKS_PER_MONTH;
     
     return { currentHours, targetHours, dlPercent, laborCost, monthlyRevenue };
   };
@@ -129,7 +171,10 @@ export default function CrewSchedulePrintPage() {
 
   // Calculate daily totals
   const calculateDayTotals = (dayJobs) => {
-    const totalManHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
+    const totalManHours = dayJobs.reduce((sum, job) => {
+      const hours = job.adjusted_hours !== null ? job.adjusted_hours : (job.current_hours || 0);
+      return sum + hours;
+    }, 0);
     const crewSize = selectedCrew?.size || 4;
     const crewHours = crewSize > 0 ? totalManHours / crewSize : 0;
     return { totalManHours, crewHours };
@@ -202,7 +247,7 @@ export default function CrewSchedulePrintPage() {
       
       if (dayJobs.length > 0) {
         dayJobs.forEach((job, index) => {
-          const manHours = job.current_hours || 0;
+          const manHours = job.adjusted_hours !== null ? job.adjusted_hours : (job.current_hours || 0);
           const crewHours = crewSize > 0 ? manHours / crewSize : 0;
           const hasTurf = job.has_turf ? 'TRUE' : 'FALSE';
           const hasFlowers = job.has_flowers ? 'TRUE' : 'FALSE';
@@ -248,7 +293,6 @@ export default function CrewSchedulePrintPage() {
     );
   }
 
-  const selectedBranch = branches.find(b => b.id === selectedBranchId);
   const weeklyTotals = calculateWeeklyTotals();
 
   return (
@@ -515,7 +559,7 @@ export default function CrewSchedulePrintPage() {
                   return (
                     <React.Fragment key={day}>
                       {dayJobs.map((job, index) => {
-                        const manHours = job.current_hours || 0;
+                        const manHours = job.adjusted_hours !== null ? job.adjusted_hours : (job.current_hours || 0);
                         const jobCrewHours = crewSize > 0 ? manHours / crewSize : 0;
                         const minutes = Math.round(jobCrewHours * 60);
                         

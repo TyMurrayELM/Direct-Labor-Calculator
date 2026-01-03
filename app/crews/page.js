@@ -12,10 +12,19 @@ export default function CrewsPage() {
   
   // Constants for Direct Labor calculations - same as DirectLaborCalculator
   const DRIVE_TIME_FACTOR = 0.9;
-  const HOURLY_COST = 24.75;
   const WEEKS_PER_MONTH = 4.33;
   const TARGET_DIRECT_LABOR_PERCENT = 40; // Default target percentage
   const HOURS_PER_MONTH = 173.2; // 40 hrs/week * 4.33 weeks/month
+  
+  // Branch-specific hourly costs by crew type
+  // Maintenance rates
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
+  // Onsite rates
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  // Default fallback
+  const DEFAULT_HOURLY_COST = 25.00;
   
   const { crews, loading: crewsLoading } = useCrews();
   const { branches, loading: branchesLoading } = useBranches();
@@ -38,22 +47,48 @@ export default function CrewsPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [sortedCrews, setSortedCrews] = useState([]);
 
+  // Helper function to get hourly cost based on branch and crew type
+  const getHourlyCostByBranch = React.useCallback((branchId, crewType) => {
+    if (!branches) return DEFAULT_HOURLY_COST;
+    
+    const branch = branches.find(b => b.id === branchId);
+    if (!branch) return DEFAULT_HOURLY_COST;
+    
+    const branchName = branch.name.toLowerCase();
+    const isOnsite = crewType === 'Onsite';
+    
+    // Las Vegas branch
+    if (branchName.includes('las vegas') || branchName.includes('vegas')) {
+      return isOnsite ? HOURLY_COST_LAS_VEGAS_ONSITE : HOURLY_COST_LAS_VEGAS_MAINTENANCE;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (branchName.includes('phoenix') || 
+        branchName.includes('southeast') || 
+        branchName.includes('southwest') || 
+        branchName.includes('north')) {
+      return isOnsite ? HOURLY_COST_PHOENIX_ONSITE : HOURLY_COST_PHOENIX_MAINTENANCE;
+    }
+    
+    return DEFAULT_HOURLY_COST;
+  }, [branches]);
+
   // Helper function to determine whether to apply drive time factor based on crew type
   const getAvailableHoursFactor = (crewType) => {
     return crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
   };
 
   // Calculate Direct Labor percentage - adjusted for Onsite crews
-  const calculateDirectLaborPercent = (hours, monthlyInvoice, crewType) => {
+  const calculateDirectLaborPercent = (hours, monthlyInvoice, crewType, hourlyCost) => {
     if (hours === 0 || monthlyInvoice === 0) return 0;
     
     // NO drive time factor adjustment for Onsite crews
     if (crewType === 'Onsite') {
-      return (hours * HOURLY_COST * WEEKS_PER_MONTH) / monthlyInvoice * 100;
+      return (hours * hourlyCost * WEEKS_PER_MONTH) / monthlyInvoice * 100;
     } 
     // Apply drive time factor for all other crew types
     else {
-      return (hours * HOURLY_COST * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
+      return (hours * hourlyCost * WEEKS_PER_MONTH) / (monthlyInvoice * DRIVE_TIME_FACTOR) * 100;
     }
   };
   
@@ -64,7 +99,7 @@ export default function CrewsPage() {
   
   // Calculate crew statistics once properties are loaded
   useEffect(() => {
-    if (propertiesLoading || !properties || !crews) return;
+    if (propertiesLoading || !properties || !crews || !branches) return;
     
     const stats = {};
     
@@ -84,7 +119,9 @@ export default function CrewsPage() {
     properties.forEach(property => {
       if (property.crew_id && stats[property.crew_id]) {
         stats[property.crew_id].totalMonthlyInvoice += property.monthly_invoice || 0;
-        stats[property.crew_id].totalCurrentHours += property.current_hours || 0;
+        // Use adjusted_hours if set, otherwise fall back to current_hours (same as Direct Labor Calculator)
+        const effectiveHours = property.adjusted_hours !== null ? property.adjusted_hours : (property.current_hours || 0);
+        stats[property.crew_id].totalCurrentHours += effectiveHours;
         stats[property.crew_id].propertyCount += 1;
       }
     });
@@ -92,23 +129,26 @@ export default function CrewsPage() {
     // Calculate metrics for each crew
     Object.keys(stats).forEach(crewId => {
       const { totalCurrentHours, totalMonthlyInvoice } = stats[crewId];
-      const crew = crews.find(c => c.id === crewId);
+      const crew = crews.find(c => String(c.id) === String(crewId));
       const crewSize = crew?.size || 0;
+      
+      // Get branch-specific hourly cost (based on branch AND crew type)
+      const hourlyCost = getHourlyCostByBranch(crew?.branch_id, crew?.crew_type);
       
       // Calculate DL percentages and utilization - directly without helper function
       // This ensures complete consistency in calculation method
       if (crew?.crew_type === 'Onsite') {
         // For Onsite crews - NO drive time factor adjustment
         stats[crewId].directLaborPercent = totalCurrentHours > 0 && totalMonthlyInvoice > 0 ?
-          (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / totalMonthlyInvoice * 100 : 0;
+          (totalCurrentHours * hourlyCost * WEEKS_PER_MONTH) / totalMonthlyInvoice * 100 : 0;
       } else {
         // For all other crew types - apply DRIVE_TIME_FACTOR
         stats[crewId].directLaborPercent = totalCurrentHours > 0 && totalMonthlyInvoice > 0 ?
-          (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / (totalMonthlyInvoice * DRIVE_TIME_FACTOR) * 100 : 0;
+          (totalCurrentHours * hourlyCost * WEEKS_PER_MONTH) / (totalMonthlyInvoice * DRIVE_TIME_FACTOR) * 100 : 0;
       }
       
       // Calculate monthly required revenue (important for Effective DL%)
-      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;
+      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * hourlyCost;
       const requiredRevenue = crewSize > 0 ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
       
       // Calculate effective DL percentage - 100% means we're meeting the target exactly
@@ -129,7 +169,7 @@ export default function CrewsPage() {
     });
     
     setCrewStats(stats);
-  }, [properties, crews, propertiesLoading]);
+  }, [properties, crews, propertiesLoading, branches, getHourlyCostByBranch]);
 
   const handleAddCrew = () => {
     setSelectedCrew(null);
@@ -307,7 +347,7 @@ if (false) { // Always continue with deletion for now
 
   // Calculate summary metrics for filtered crews
   const summaryMetrics = useMemo(() => {
-    if (!filteredCrews || filteredCrews.length === 0 || !crewStats) {
+    if (!filteredCrews || filteredCrews.length === 0 || !crewStats || !branches) {
       return {
         totalCrews: 0,
         totalProperties: 0,
@@ -319,7 +359,8 @@ if (false) { // Always continue with deletion for now
         avgUtilization: 0,
         avgAssignedDL: 0,
         avgEffectiveDL: 0,
-        totalMonthlyCost: 0
+        totalMonthlyCost: 0,
+        requiredFTEs: 0
       };
     }
 
@@ -330,19 +371,41 @@ if (false) { // Always continue with deletion for now
     let totalCurrentHours = 0;
     let totalAvailableHours = 0;
     let totalMonthlyCost = 0;
+    let weightedHourlyCostSum = 0;
+    let totalHoursForWeighting = 0;
+    
+    // Track hours and revenue separately for Onsite vs non-Onsite for proper DL calculation
+    let onsiteHours = 0;
+    let onsiteRevenue = 0;
+    let onsiteWeightedCost = 0;
+    let nonOnsiteHours = 0;
+    let nonOnsiteRevenue = 0;
+    let nonOnsiteWeightedCost = 0;
 
     filteredCrews.forEach(crew => {
       const stats = crewStats[crew.id] || { totalMonthlyInvoice: 0, totalCurrentHours: 0, propertyCount: 0 };
       const crewSize = crew.size || 0;
       const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
+      const hourlyCost = getHourlyCostByBranch(crew.branch_id, crew.crew_type);
       
       totalProperties += stats.propertyCount;
       totalCrewSize += crewSize;
       totalMonthlyRevenue += stats.totalMonthlyInvoice;
       totalCurrentHours += stats.totalCurrentHours;
       
-      // Calculate required revenue for this crew
-      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * HOURLY_COST;
+      // Track Onsite vs non-Onsite separately for proper Assigned DL% calculation
+      if (crew.crew_type === 'Onsite') {
+        onsiteHours += stats.totalCurrentHours;
+        onsiteRevenue += stats.totalMonthlyInvoice;
+        onsiteWeightedCost += stats.totalCurrentHours * hourlyCost;
+      } else {
+        nonOnsiteHours += stats.totalCurrentHours;
+        nonOnsiteRevenue += stats.totalMonthlyInvoice;
+        nonOnsiteWeightedCost += stats.totalCurrentHours * hourlyCost;
+      }
+      
+      // Calculate required revenue for this crew (using branch-specific hourly cost)
+      const monthlyLaborCost = crewSize * HOURS_PER_MONTH * hourlyCost;
       const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
       totalRequiredRevenue += requiredRevenue;
       
@@ -350,23 +413,76 @@ if (false) { // Always continue with deletion for now
       const availableCrewHoursPerWeek = crewSize * 40 * hoursAdjustmentFactor;
       totalAvailableHours += availableCrewHoursPerWeek;
       
-      // Calculate total monthly labor cost
+      // Calculate total monthly labor cost (using branch-specific hourly cost)
       const totalHoursPerMonth = crewSize * 40 * WEEKS_PER_MONTH;
-      totalMonthlyCost += totalHoursPerMonth * HOURLY_COST;
+      totalMonthlyCost += totalHoursPerMonth * hourlyCost;
+      
+      // Track weighted hourly cost for aggregate DL calculation
+      weightedHourlyCostSum += stats.totalCurrentHours * hourlyCost;
+      totalHoursForWeighting += stats.totalCurrentHours;
     });
+
+    // Calculate weighted average hourly cost for aggregate calculations
+    const weightedAvgHourlyCost = totalHoursForWeighting > 0 
+      ? weightedHourlyCostSum / totalHoursForWeighting 
+      : DEFAULT_HOURLY_COST;
 
     // Calculate aggregate percentages
     const avgUtilization = totalAvailableHours > 0 ? (totalCurrentHours / totalAvailableHours) * 100 : 0;
     
-    // Assigned DL% - weighted by revenue (simplified: use total hours and total revenue)
+    // Assigned DL% - Use the pre-calculated directLaborPercent from crewStats (same as rows display)
+    // Weight by revenue to get aggregate
+    let assignedDLNumerator = 0;
+    filteredCrews.forEach(crew => {
+      const stats = crewStats[crew.id] || { totalMonthlyInvoice: 0, directLaborPercent: 0 };
+      // Weight each crew's DL% by their revenue contribution
+      assignedDLNumerator += stats.directLaborPercent * stats.totalMonthlyInvoice;
+    });
     const avgAssignedDL = totalMonthlyRevenue > 0 
-      ? (totalCurrentHours * HOURLY_COST * WEEKS_PER_MONTH) / (totalMonthlyRevenue * DRIVE_TIME_FACTOR) * 100 
+      ? assignedDLNumerator / totalMonthlyRevenue 
       : 0;
     
-    // Effective DL% - total labor cost divided by total revenue
+    // Effective DL% - For Onsite crews at ~100% utilization, use Assigned DL%
+    // For others, use capacity-based calculation
+    // Weight by revenue to get aggregate
+    let effectiveDLNumerator = 0;
+    filteredCrews.forEach(crew => {
+      const stats = crewStats[crew.id] || { totalMonthlyInvoice: 0, totalCurrentHours: 0, directLaborPercent: 0 };
+      const crewSize = crew.size || 0;
+      const hoursAdjustmentFactor = getAvailableHoursFactor(crew.crew_type);
+      const hourlyCost = getHourlyCostByBranch(crew.branch_id, crew.crew_type);
+      
+      // Calculate utilization for this crew (weekly basis, same as row)
+      const availableCrewHoursPerWeek = crewSize * 40 * hoursAdjustmentFactor;
+      const utilizationPercent = availableCrewHoursPerWeek > 0 
+        ? (stats.totalCurrentHours / availableCrewHoursPerWeek) * 100 
+        : 0;
+      
+      // Check if Onsite with ~100% utilization
+      const isOnsiteWithFullUtilization = crew.crew_type === 'Onsite' && 
+        Math.abs(utilizationPercent - 100) < 0.5;
+      
+      if (isOnsiteWithFullUtilization) {
+        // Use the same directLaborPercent as Assigned DL% (weighted by revenue)
+        effectiveDLNumerator += stats.directLaborPercent * stats.totalMonthlyInvoice;
+      } else {
+        // Use capacity-based cost: (crew size * 40 * weeks * hourly cost) / revenue * 100
+        // Weighted by revenue
+        const capacityBasedDL = stats.totalMonthlyInvoice > 0 
+          ? (crewSize * 40 * WEEKS_PER_MONTH * hourlyCost) / stats.totalMonthlyInvoice * 100 
+          : 0;
+        effectiveDLNumerator += capacityBasedDL * stats.totalMonthlyInvoice;
+      }
+    });
+    
     const avgEffectiveDL = totalMonthlyRevenue > 0 
-      ? (totalMonthlyCost / totalMonthlyRevenue) * 100 
+      ? effectiveDLNumerator / totalMonthlyRevenue 
       : 0;
+
+    // Calculate required FTEs to hit 40% DL target based on total revenue
+    // Use weighted average hourly cost for this calculation
+    const requiredLaborCost = totalMonthlyRevenue * (TARGET_DIRECT_LABOR_PERCENT / 100);
+    const requiredFTEs = requiredLaborCost / (HOURS_PER_MONTH * weightedAvgHourlyCost);
 
     return {
       totalCrews: filteredCrews.length,
@@ -379,9 +495,10 @@ if (false) { // Always continue with deletion for now
       avgUtilization,
       avgAssignedDL,
       avgEffectiveDL,
-      totalMonthlyCost
+      totalMonthlyCost,
+      requiredFTEs
     };
-  }, [filteredCrews, crewStats]);
+  }, [filteredCrews, crewStats, branches]);
 
   // Color coding functions for summary
   const getUtilizationColorClass = (percent) => {
@@ -502,8 +619,13 @@ if (false) { // Always continue with deletion for now
             {!infoBoxCollapsed && (
               <div className="px-4 pb-4 text-xs text-blue-700 ml-7">
                 <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Hourly Cost Assumptions:</strong></li>
+                  <ul className="list-none pl-4 space-y-0.5">
+                    <li>• Phoenix Maintenance: ${HOURLY_COST_PHOENIX_MAINTENANCE.toFixed(2)}/hr | Phoenix Onsite: ${HOURLY_COST_PHOENIX_ONSITE.toFixed(2)}/hr</li>
+                    <li>• Las Vegas Maintenance: ${HOURLY_COST_LAS_VEGAS_MAINTENANCE.toFixed(2)}/hr | Las Vegas Onsite: ${HOURLY_COST_LAS_VEGAS_ONSITE.toFixed(2)}/hr</li>
+                  </ul>
                   <li>The "Monthly Revenue Required" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
-                  <li>For example, a 4-person crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month (52 weeks ÷ 12 months), this crew would need to generate approximately ${formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue to reach the target.</li>
+                  <li>For example, a 4-person Phoenix Maintenance crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month, this crew would need approximately {formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST_PHOENIX_MAINTENANCE / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue.</li>
                   <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
                   <li><strong>Assigned DL %</strong> - The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
                   <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
@@ -542,7 +664,10 @@ if (false) { // Always continue with deletion for now
               {/* Total Crew Size */}
               <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                 <div className="text-xs text-gray-500 uppercase tracking-wide">Total FTEs</div>
-                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalCrewSize}</div>
+                <div className="text-lg font-bold text-gray-800">
+                  {summaryMetrics.totalCrewSize}
+                  <span className="text-sm font-normal text-gray-400"> / {summaryMetrics.requiredFTEs.toFixed(1)}</span>
+                </div>
               </div>
               
               {/* Monthly Revenue */}
@@ -763,6 +888,9 @@ if (false) { // Always continue with deletion for now
                   // Get branch information including color
                   const branchInfo = getBranchInfo(crew.branch_id);
                   
+                  // Get branch and crew type specific hourly cost
+                  const hourlyCost = getHourlyCostByBranch(crew.branch_id, crew.crew_type);
+                  
                   // Get crew stats
                   const stats = crewStats[crew.id] || {
                     totalMonthlyInvoice: 0,
@@ -773,8 +901,8 @@ if (false) { // Always continue with deletion for now
                     utilizationPercent: 0
                   };
                   
-                  // Calculate monthly required revenue
-                  const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * HOURLY_COST : 0;
+                  // Calculate monthly required revenue (using branch-specific hourly cost)
+                  const monthlyLaborCost = crew.size ? crew.size * HOURS_PER_MONTH * hourlyCost : 0;
                   const requiredRevenue = monthlyLaborCost ? monthlyLaborCost / (TARGET_DIRECT_LABOR_PERCENT / 100) : 0;
                   
                   // Get the hours adjustment factor based on crew type
@@ -782,8 +910,8 @@ if (false) { // Always continue with deletion for now
                   
                   // Calculate total hours paid per month
                   const totalHoursPerMonth = crew.size * 40 * WEEKS_PER_MONTH;
-                  // Calculate monthly labor cost
-                  const totalMonthlyCost = totalHoursPerMonth * HOURLY_COST;
+                  // Calculate monthly labor cost (using branch-specific hourly cost)
+                  const totalMonthlyCost = totalHoursPerMonth * hourlyCost;
                   
                   // Direct calculation of Utilization %
                   // Available hours per week for this specific crew (including crew size)

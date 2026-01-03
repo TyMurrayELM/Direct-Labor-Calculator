@@ -731,6 +731,54 @@ export default function PropertiesPage() {
     router.replace('/properties');
   };
   
+  // Constants for Direct Labor calculations
+  const DRIVE_TIME_FACTOR = 0.9;
+  const WEEKS_PER_MONTH = 4.33;
+  const TARGET_DIRECT_LABOR_PERCENT = 40;
+  
+  // Branch-specific hourly costs by crew type
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const DEFAULT_HOURLY_COST = 25.00;
+  
+  // Helper function to get hourly cost based on branch name and crew type
+  const getHourlyCost = (branchName, crewType) => {
+    if (!branchName) return DEFAULT_HOURLY_COST;
+    
+    const name = branchName.toLowerCase();
+    const isOnsite = crewType === 'Onsite';
+    
+    // Las Vegas branch
+    if (name.includes('las vegas') || name.includes('vegas')) {
+      return isOnsite ? HOURLY_COST_LAS_VEGAS_ONSITE : HOURLY_COST_LAS_VEGAS_MAINTENANCE;
+    }
+    
+    // Phoenix branches (Southeast, Southwest, North)
+    if (name.includes('phoenix') || 
+        name.includes('southeast') || 
+        name.includes('southwest') || 
+        name.includes('north')) {
+      return isOnsite ? HOURLY_COST_PHOENIX_ONSITE : HOURLY_COST_PHOENIX_MAINTENANCE;
+    }
+    
+    return DEFAULT_HOURLY_COST;
+  };
+  
+  // Helper function to get drive time factor based on crew type
+  const getDriveTimeFactor = (crewType) => {
+    return crewType === 'Onsite' ? 1.0 : DRIVE_TIME_FACTOR;
+  };
+  
+  // Calculate target hours based on monthly invoice - now with branch/crew-specific rates
+  const calculateTargetHours = (monthlyInvoice, branchName, crewType) => {
+    if (!monthlyInvoice || monthlyInvoice === 0) return 0;
+    const hourlyCost = getHourlyCost(branchName, crewType);
+    const driveTimeFactor = getDriveTimeFactor(crewType);
+    return (monthlyInvoice * (TARGET_DIRECT_LABOR_PERCENT / 100) * driveTimeFactor) / hourlyCost / WEEKS_PER_MONTH;
+  };
+  
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -747,7 +795,13 @@ export default function PropertiesPage() {
     return `${hexColor}26`; // 26 is hex for 15% opacity
   };
   
-  // Get crew name helper function
+  // Get crew info helper function
+  const getCrewInfo = (crewId) => {
+    const crew = crews?.find(c => c.id === crewId);
+    return crew ? { name: crew.name, size: crew.size, crew_type: crew.crew_type } : null;
+  };
+  
+  // Get crew name helper function (for backwards compatibility)
   const getCrewName = (crewId) => {
     const crew = crews?.find(c => c.id === crewId);
     return crew ? crew.name : '';
@@ -1076,7 +1130,10 @@ export default function PropertiesPage() {
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('current_hours')}>
                     <div className="flex items-center">
-                      Current Hours
+                      <div>
+                        <div>Hours</div>
+                        <div className="text-[0.6rem] font-normal normal-case text-gray-400">Current / Target</div>
+                      </div>
                       {sortBy === 'current_hours' && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
@@ -1126,8 +1183,24 @@ export default function PropertiesPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {formatCurrency(property.monthly_invoice)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {property.current_hours?.toFixed(1) || "0.0"}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {(() => {
+                            const currentHrs = property.current_hours || 0;
+                            const crewInfo = getCrewInfo(property.crew_id);
+                            const targetHrs = calculateTargetHours(property.monthly_invoice, branchInfo.name, crewInfo?.crew_type);
+                            // Green if at or below 102% of target, red if over
+                            const isOver = currentHrs > targetHrs * 1.02 && targetHrs > 0;
+                            const dotColor = isOver ? 'bg-red-500' : 'bg-green-500';
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
+                                <div>
+                                  <div className="font-medium">{currentHrs.toFixed(1)}</div>
+                                  <div className="text-xs text-gray-400">/ {targetHrs.toFixed(1)}</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div 
@@ -1142,7 +1215,16 @@ export default function PropertiesPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {getCrewName(property.crew_id) || '-'}
+                          {(() => {
+                            const crewInfo = getCrewInfo(property.crew_id);
+                            if (!crewInfo) return '-';
+                            return (
+                              <span>
+                                {crewInfo.name}
+                                <span className="text-xs text-gray-400 ml-1">({crewInfo.size}m)</span>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           {property.property_type || '-'}

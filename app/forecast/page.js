@@ -562,20 +562,23 @@ export default function ForecastPage() {
 
   const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
 
-  // Calculate Scheduled HC (sum of crew sizes)
+  // Calculate Scheduled HC (sum of crew sizes, excluding Onsite crews)
   const getScheduledHC = () => {
+    // Filter out Onsite crews - only count Maintenance crews
+    const maintenanceCrews = crews.filter(crew => crew.crew_type !== 'Onsite');
+    
     if (isEncoreView) {
-      // Sum all crews across all branches
-      return crews.reduce((sum, crew) => sum + (crew.size || 0), 0);
+      // Sum all maintenance crews across all branches
+      return maintenanceCrews.reduce((sum, crew) => sum + (crew.size || 0), 0);
     } else if (isPhoenixView) {
-      // Sum crews from Phoenix branches only
+      // Sum maintenance crews from Phoenix branches only
       const phoenixBranchIds = branches.filter(isPhoenixBranch).map(b => b.id);
-      return crews
+      return maintenanceCrews
         .filter(crew => phoenixBranchIds.includes(crew.branch_id))
         .reduce((sum, crew) => sum + (crew.size || 0), 0);
     } else {
-      // Sum crews from selected branch only
-      return crews
+      // Sum maintenance crews from selected branch only
+      return maintenanceCrews
         .filter(crew => crew.branch_id === selectedBranchId)
         .reduce((sum, crew) => sum + (crew.size || 0), 0);
     }

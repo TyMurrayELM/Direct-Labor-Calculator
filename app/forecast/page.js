@@ -783,17 +783,15 @@ export default function ForecastPage() {
           )}
           
           {/* Company-Wide Summary */}
-          <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg p-4 mb-4 text-white">
-            <div className="text-sm text-gray-300 mb-1">Company-Wide Annual Totals ({selectedYear})</div>
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <span className="text-gray-400 text-sm">Total Revenue:</span>
-                <span className="ml-2 font-bold text-lg">{formatCurrency(companyTotals.revenue)}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 text-sm">Total Labor Budget:</span>
-                <span className="ml-2 font-bold text-lg">{formatCurrency(companyTotals.laborBudget)}</span>
-              </div>
+          <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg px-4 py-2 mb-4 text-white flex items-center gap-6">
+            <div className="text-sm text-gray-300">Company-Wide Annual Totals ({selectedYear})</div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-400 text-sm">Total Revenue:</span>
+              <span className="font-bold">{formatCurrency(companyTotals.revenue)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-400 text-sm">Total Labor Budget:</span>
+              <span className="font-bold">{formatCurrency(companyTotals.laborBudget)}</span>
             </div>
           </div>
           

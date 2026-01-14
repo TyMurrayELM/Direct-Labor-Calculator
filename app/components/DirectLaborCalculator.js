@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useProperties, useCrews, useBranches, updatePropertyHours, usePropertyOptions, useComplexes } from '../hooks/useSupabase';
+import { useProperties, useCrews, useBranches, updatePropertyHours, updatePropertyQSVisitTime, usePropertyOptions, useComplexes } from '../hooks/useSupabase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -186,6 +186,9 @@ const DirectLaborCalculator = () => {
   // State for tracking edited hours
   const [editedHours, setEditedHours] = useState({});
   
+  // State for tracking edited QS visit times
+  const [editedQSTime, setEditedQSTime] = useState({});
+  
   // State for filtering only properties with hours mismatch - read from URL
   const [showMismatchOnly, setShowMismatchOnly] = useState(() => {
     return searchParams.get('needsUpdate') === 'true';
@@ -323,6 +326,44 @@ const DirectLaborCalculator = () => {
       ...editedHours,
       [id]: newValue
     });
+  };
+  
+  // Handle change for QS visit time input
+  const handleQSTimeChange = (id, value) => {
+    const newValue = value === "" ? "" : parseFloat(value);
+    setEditedQSTime({
+      ...editedQSTime,
+      [id]: newValue
+    });
+  };
+  
+  // Save QS visit time to Supabase
+  const saveQSTime = async (id, qsTime) => {
+    try {
+      setSavingPropertyId(id);
+      
+      const result = await updatePropertyQSVisitTime(id, qsTime);
+      
+      if (result.success) {
+        // Remove from edited QS times once saved
+        const updatedEditedQSTime = { ...editedQSTime };
+        delete updatedEditedQSTime[id];
+        setEditedQSTime(updatedEditedQSTime);
+        
+        // Refetch the data
+        await refetchProperties();
+        
+        // Trigger success animation
+        setRecentlySavedId(id);
+        setTimeout(() => setRecentlySavedId(null), 1500);
+      } else {
+        console.error('Failed to save QS time:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving QS time:', error);
+    } finally {
+      setSavingPropertyId(null);
+    }
   };
   
   // Clear all filters
@@ -585,6 +626,171 @@ const DirectLaborCalculator = () => {
     }
   };
 
+  // Export QS Schedule to CSV - exports QS Visit Time instead of crew hours
+  const exportQSSchedule = async () => {
+    try {
+      setMessage({ text: 'Preparing QS export...', type: 'success' });
+
+      // Fetch properties with complex_id and qs_visit_time
+      let query = supabase
+        .from('properties')
+        .select(`
+          id, name, address, monthly_invoice, current_hours, adjusted_hours, qs_visit_time,
+          region, account_manager, property_type, company, client,
+          service_window_start, service_window_end, complex_id,
+          branch_id, crew_id,
+          branches (id, name),
+          crews (id, name, crew_type, size)
+        `)
+        .order('name');
+
+      if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
+      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (regionFilter) query = query.eq('region', regionFilter);
+      if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
+      if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
+      if (companyFilter) query = query.eq('company', companyFilter);
+      if (clientFilter) query = query.eq('client', clientFilter);
+
+      const { data: allProperties, error } = await query;
+
+      if (error) {
+        setMessage({ text: 'Error exporting QS data', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      // Fetch complexes for this branch
+      let complexesQuery = supabase.from('complexes').select('*');
+      if (selectedBranchId) complexesQuery = complexesQuery.eq('branch_id', selectedBranchId);
+      const { data: complexes } = await complexesQuery;
+      const complexMap = (complexes || []).reduce((acc, c) => { acc[c.id] = c; return acc; }, {});
+
+      let filteredProps = allProperties;
+      if (selectedCrewType) {
+        filteredProps = filteredProps.filter(p => p.crews?.crew_type === selectedCrewType);
+      }
+      if (propertyNameFilter) {
+        filteredProps = filteredProps.filter(p => p.name?.toLowerCase().includes(propertyNameFilter.toLowerCase()));
+      }
+
+      if (!filteredProps || filteredProps.length === 0) {
+        setMessage({ text: 'No data to export', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      // Group properties by complex_id
+      const complexGroups = {};
+      const standaloneProperties = [];
+
+      filteredProps.forEach(property => {
+        if (property.complex_id && complexMap[property.complex_id]) {
+          if (!complexGroups[property.complex_id]) {
+            complexGroups[property.complex_id] = [];
+          }
+          complexGroups[property.complex_id].push(property);
+        } else {
+          standaloneProperties.push(property);
+        }
+      });
+
+      const headers = ['Property', 'Address', 'Minutes', 'Time Window Start', 'Time Window End', 'Notes'];
+      
+      // Fixed time window end for QS visits - noon
+      const QS_TIME_WINDOW_END = '12:00:00';
+
+      const rows = [];
+
+      // Process complex groups - sum QS times, use complex name/address
+      Object.entries(complexGroups).forEach(([complexId, properties]) => {
+        const complex = complexMap[complexId];
+        
+        let totalQSTime = 0;
+        let earliestStart = null;
+        let latestEnd = null;
+
+        properties.forEach(property => {
+          // Use edited QS time if available, otherwise use saved value
+          const qsTime = editedQSTime[property.id] !== undefined 
+            ? editedQSTime[property.id] 
+            : (property.qs_visit_time || 0);
+          
+          totalQSTime += qsTime || 0;
+
+          if (property.service_window_start) {
+            if (!earliestStart || property.service_window_start < earliestStart) {
+              earliestStart = property.service_window_start;
+            }
+          }
+          if (property.service_window_end) {
+            if (!latestEnd || property.service_window_end > latestEnd) {
+              latestEnd = property.service_window_end;
+            }
+          }
+        });
+
+        const propertyNames = properties.map(p => p.name).sort().join(', ');
+
+        rows.push([
+          complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
+          complex.address || properties[0]?.address || '',
+          Math.round(totalQSTime),
+          earliestStart || '',
+          QS_TIME_WINDOW_END,
+          propertyNames
+        ]);
+      });
+
+      // Process standalone properties
+      standaloneProperties.forEach(property => {
+        const qsTime = editedQSTime[property.id] !== undefined 
+          ? editedQSTime[property.id] 
+          : (property.qs_visit_time || 0);
+        
+        rows.push([
+          property.name || '',
+          property.address || '',
+          Math.round(qsTime || 0),
+          property.service_window_start || '',
+          QS_TIME_WINDOW_END,
+          ''
+        ]);
+      });
+
+      // Sort rows alphabetically by name
+      rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        return (str.includes(',') || str.includes('"') || str.includes('\n')) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const csvContent = [headers.map(escapeCSV).join(','), ...rows.map(row => row.map(escapeCSV).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.setAttribute('href', URL.createObjectURL(blob));
+      link.setAttribute('download', `qs-schedule${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      const complexCount = Object.keys(complexGroups).length;
+      const standaloneCount = standaloneProperties.length;
+      setMessage({ 
+        text: `QS Schedule exported: ${rows.length} rows (${complexCount} complexes, ${standaloneCount} standalone)`, 
+        type: 'success' 
+      });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    } catch (err) {
+      console.error('QS Export error:', err);
+      setMessage({ text: 'Error exporting QS data', type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    }
+  };
+
   // Filter properties for display (mismatch filter and property name filter)
   const filteredProperties = properties.filter(property => {
     // Property name filter (case-insensitive partial match)
@@ -680,16 +886,28 @@ const DirectLaborCalculator = () => {
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
             <div className="flex space-x-2">
-              <button
-                onClick={exportToCSV}
-                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-400 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
-                title="Export filtered data to CSV"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span>Export</span>
-              </button>
+              <div className="flex flex-col space-y-0.5">
+                <button
+                  onClick={exportToCSV}
+                  className="px-2 py-0.5 bg-white text-gray-700 border border-gray-400 rounded hover:bg-gray-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                  title="Export filtered data to CSV"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Route Export</span>
+                </button>
+                <button
+                  onClick={exportQSSchedule}
+                  className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                  title="Export QS Schedule with visit times"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  <span>QS Export</span>
+                </button>
+              </div>
               <Link 
                 href="/crews" 
                 className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
@@ -1144,12 +1362,13 @@ const DirectLaborCalculator = () => {
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
                   <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New DL%</th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">QS Visit<br/><span className="text-blue-200 normal-case">(minutes)</span></th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {filteredProperties.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
                         {showMismatchOnly ? (
                           <>
@@ -1271,7 +1490,7 @@ const DirectLaborCalculator = () => {
                               value={editedHours[property.id] !== undefined ? editedHours[property.id] : ""}
                               onChange={(e) => handleNewHoursChange(property.id, e.target.value)}
                               placeholder={(property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours).toString()}
-                              className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                              className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white text-center"
                               disabled={isSaving}
                             />
                             <span className="text-gray-400 text-sm">
@@ -1309,6 +1528,45 @@ const DirectLaborCalculator = () => {
                             {editedHours[property.id] !== undefined || property.adjusted_hours !== null ? formatPercent(newDLPercent) : "-"}
                           </span>
                         </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              value={editedQSTime[property.id] !== undefined ? editedQSTime[property.id] : ""}
+                              onChange={(e) => handleQSTimeChange(property.id, e.target.value)}
+                              placeholder={property.qs_visit_time !== null ? property.qs_visit_time.toString() : "—"}
+                              className="block w-20 sm:text-sm border-gray-300 border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm bg-white text-center"
+                              disabled={savingPropertyId === property.id}
+                              min="0"
+                              step="1"
+                            />
+                            {/* Show save button if edited value differs from saved value */}
+                            {editedQSTime[property.id] !== undefined && editedQSTime[property.id] !== property.qs_visit_time && (
+                              savingPropertyId === property.id ? (
+                                <div className="w-7 h-7 flex items-center justify-center">
+                                  <div className="w-4 h-4 border-t-2 border-b-2 border-teal-500 rounded-full animate-spin"></div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => saveQSTime(property.id, editedQSTime[property.id])}
+                                  className="bg-teal-600 hover:bg-teal-700 text-white p-1.5 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                                  title="Save QS time"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                              )
+                            )}
+                            {recentlySavedId === property.id && !editedQSTime[property.id] && property.qs_visit_time !== null && (
+                              <div className="w-7 h-7 flex items-center justify-center bg-green-500 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -1332,6 +1590,7 @@ const DirectLaborCalculator = () => {
                       {currentPageNewHours > 0 ? formatPercent(newOverallDirectLabor) : "-"}
                     </span>
                   </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
                 </tr>
               </tbody>
             </table>

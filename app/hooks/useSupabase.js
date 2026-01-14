@@ -44,7 +44,7 @@ export function useProperties({
       // Build query with filters
       let query = supabase
         .from('properties')
-        .select('*, crews(id, name, crew_type, region, supervisor, size)', { count: 'exact' });
+        .select('*, crews(id, name, crew_type, region, supervisor, size), qs_visit_time', { count: 'exact' });
       
       // Apply filters - only add where clauses for non-empty filters
       if (branchId) {
@@ -593,6 +593,23 @@ export async function updatePropertyHours(propertyId, newHours) {
     return { success: true };
   } catch (error) {
     console.error('Error updating property hours:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to update QS Visit Time for a property
+export async function updatePropertyQSVisitTime(propertyId, qsVisitTime) {
+  try {
+    const { error } = await supabase
+      .from('properties')
+      .update({ qs_visit_time: qsVisitTime })
+      .eq('id', propertyId);
+      
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating QS visit time:', error);
     return { success: false, error: error.message };
   }
 }

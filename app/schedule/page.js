@@ -1043,7 +1043,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             <div className="flex items-center space-x-2">
               {hasChanges && (
                 <span className="text-sm text-yellow-600 font-medium mr-2">
-                  ⚠️ Unsaved changes
+                 ⚠️ Unsaved changes
                 </span>
               )}
               <button
@@ -1236,11 +1236,11 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex flex-col">
-                        <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">
-                          MH: {(job.current_hours || 0).toFixed(1)}
+                        <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job (uses adjusted hours when available)">
+                          MH: {getEffectiveHours(job).toFixed(1)}
                         </span>
                         <span className="text-xs text-purple-600" title="Crew Hours: Total Hours for a crew for this job">
-                          CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
+                          CH: {selectedCrew ? (getEffectiveHours(job) / selectedCrew.size).toFixed(1) : '0.0'}
                         </span>
                       </div>
                       <div className="flex flex-col items-end">
@@ -1249,14 +1249,14 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                         </span>
                         <span 
                           className={`text-xs font-semibold ${
-                            ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                            (getEffectiveHours(job) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
                               ? 'text-red-600' 
                               : 'text-green-600'
                           }`}
                           title="Direct Labor Cost vs Revenue for this specific job"
                         >
                           DL: {job.monthly_invoice > 0 
-                            ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
+                            ? ((getEffectiveHours(job) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
                             : '0.0'}%
                         </span>
                       </div>
@@ -1271,7 +1271,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
           {days.map(day => {
             const isSaturday = day === 'Saturday';
             const dayJobs = weekSchedule[day];
-            const dayHours = dayJobs.reduce((sum, job) => sum + (job.current_hours || 0), 0);
+            const dayHours = dayJobs.reduce((sum, job) => sum + getEffectiveHours(job), 0);
             const dayMonthlyRevenue = dayJobs.reduce((sum, job) => sum + (job.monthly_invoice || 0), 0);
             const dayWeeklyRevenue = dayMonthlyRevenue / WEEKS_PER_MONTH;
             // Explicitly calculate Saturday at OT rate
@@ -1469,11 +1469,11 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                           </div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex flex-col">
-                              <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job">
-                                MH: {(job.current_hours || 0).toFixed(1)}
+                              <span className="text-xs text-blue-600" title="Man Hours: Total Hours for this job (uses adjusted hours when available)">
+                                MH: {getEffectiveHours(job).toFixed(1)}
                               </span>
                               <span className="text-xs text-purple-600" title="Crew Hours: Total Hours for a crew for this job">
-                                CH: {selectedCrew ? ((job.current_hours || 0) / selectedCrew.size).toFixed(1) : '0.0'}
+                                CH: {selectedCrew ? (getEffectiveHours(job) / selectedCrew.size).toFixed(1) : '0.0'}
                               </span>
                             </div>
                             <div className="flex flex-col items-end">
@@ -1482,14 +1482,14 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                               </span>
                               <span 
                                 className={`text-xs font-semibold ${
-                                  ((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
+                                  (getEffectiveHours(job) * HOURLY_COST * WEEKS_PER_MONTH) / (job.monthly_invoice || 1) * 100 > TARGET_DIRECT_LABOR_PERCENT 
                                     ? 'text-red-600' 
                                     : 'text-green-600'
                                 }`}
                                 title="Direct Labor Cost vs Revenue for this specific job"
                               >
                                 DL: {job.monthly_invoice > 0 
-                                  ? (((job.current_hours || 0) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
+                                  ? ((getEffectiveHours(job) * HOURLY_COST * WEEKS_PER_MONTH) / job.monthly_invoice * 100).toFixed(1) 
                                   : '0.0'}%
                               </span>
                             </div>
@@ -1540,6 +1540,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             <li>• Drive times are saved automatically per crew and per day</li>
             <li>• Click "Save Schedule" to save changes and crew assignments to the database</li>
             <li>• Color coding: Green = Good, Yellow = High utilization, Red = Over capacity</li>
+            <li>• <strong>Hours displayed use adjusted hours (from Direct Labor Calculator) when available</strong></li>
           </ul>
         </div>
       </div>

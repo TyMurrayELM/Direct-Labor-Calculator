@@ -280,17 +280,44 @@ export default function QSRoutesPage() {
     setError('');
 
     try {
-      const { data: existingRoutes } = await supabase
+      // First, delete ALL existing routes for this branch
+      const { data: existingRoutes, error: fetchError } = await supabase
         .from('qs_routes')
         .select('id')
         .eq('branch_id', uploadBranchId);
 
-      if (existingRoutes && existingRoutes.length > 0) {
-        const existingIds = existingRoutes.map(r => r.id);
-        await supabase.from('qs_route_stops').delete().in('route_id', existingIds);
-        await supabase.from('qs_routes').delete().eq('branch_id', uploadBranchId);
+      if (fetchError) {
+        console.error('Error fetching existing routes:', fetchError);
+        throw fetchError;
       }
 
+      if (existingRoutes && existingRoutes.length > 0) {
+        const existingIds = existingRoutes.map(r => r.id);
+        
+        // Delete stops first (foreign key constraint)
+        const { error: stopsDeleteError } = await supabase
+          .from('qs_route_stops')
+          .delete()
+          .in('route_id', existingIds);
+        
+        if (stopsDeleteError) {
+          console.error('Error deleting stops:', stopsDeleteError);
+          throw stopsDeleteError;
+        }
+
+        // Delete routes
+        const { error: routesDeleteError } = await supabase
+          .from('qs_routes')
+          .delete()
+          .eq('branch_id', uploadBranchId);
+        
+        if (routesDeleteError) {
+          console.error('Error deleting routes:', routesDeleteError);
+          throw routesDeleteError;
+        }
+      }
+
+      // Now insert new routes
       for (const route of parsedRoutes) {
         const { data: routeData, error: routeError } = await supabase
           .from('qs_routes')
@@ -321,7 +348,17 @@ export default function QSRoutesPage() {
         }
       }
 
-      setSelectedBranchId(uploadBranchId);
+      // Force refresh by temporarily clearing routes, then setting branch
+      setRoutes([]);
+      
+      // If uploading to currently selected branch, force re-fetch
+      if (uploadBranchId === selectedBranchId) {
+        setSelectedBranchId(null);
+        setTimeout(() => setSelectedBranchId(uploadBranchId), 100);
+      } else {
+        setSelectedBranchId(uploadBranchId);
+      }
+      
       setPendingFile(null);
       setParsedRoutes([]);
       setUploadBranchId(null);
@@ -777,10 +814,8 @@ export default function QSRoutesPage() {
                                   {parseServiceTimeToMinutes(stop.serviceTime)} min
                                 </td>
                                 <td className="px-1.5 py-0.5 text-center text-gray-600 text-xs">
-                                  {isFirstInRoute ? formatDuration(route.duration) : ''}
                                 </td>
                                 <td className="px-1.5 py-0.5 text-center text-gray-600 text-xs">
-                                  {isFirstInRoute ? `${route.distance?.toFixed(1)}` : ''}
                                 </td>
                                 <td className="px-1.5 py-0.5 text-gray-500 text-xs truncate max-w-0" title={stop.notes}>
                                   {stop.notes || ''}

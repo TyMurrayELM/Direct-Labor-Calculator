@@ -646,6 +646,7 @@ const DirectLaborCalculator = () => {
   };
 
   // Export QS Schedule to CSV - exports QS Visit Time instead of crew hours
+  // Consolidates multiple visits (e.g., "Property (Visit 1)", "Property (Visit 2)") into single entries
   const exportQSSchedule = async () => {
     try {
       setMessage({ text: 'Preparing QS export...', type: 'success' });
@@ -697,6 +698,12 @@ const DirectLaborCalculator = () => {
         return;
       }
 
+      // Helper function to get base property name (strips "(Visit X)" suffix)
+      const getBasePropertyName = (name) => {
+        if (!name) return '';
+        return name.replace(/\s*\(Visit\s*\d+\)\s*$/i, '').trim();
+      };
+
       const complexGroups = {};
       const standaloneProperties = [];
 
@@ -712,25 +719,20 @@ const DirectLaborCalculator = () => {
       });
 
       const headers = ['Property', 'Address', 'Minutes', 'Time Window Start', 'Time Window End', 'Notes'];
-      const QS_TIME_WINDOW_END = '12:00:00';
+      const QS_TIME_WINDOW_START = '06:00:00';
+      const QS_TIME_WINDOW_END = '12:30:00';
       const rows = [];
 
+      // Process complex groups
       Object.entries(complexGroups).forEach(([complexId, properties]) => {
         const complex = complexMap[complexId];
         let totalQSTime = 0;
-        let earliestStart = null;
 
         properties.forEach(property => {
           const qsTime = editedQSTime[property.id] !== undefined 
             ? editedQSTime[property.id] 
             : (property.qs_visit_time || 0);
           totalQSTime += qsTime || 0;
-
-          if (property.service_window_start) {
-            if (!earliestStart || property.service_window_start < earliestStart) {
-              earliestStart = property.service_window_start;
-            }
-          }
         });
 
         const propertyNames = properties.map(p => p.name).sort().join(', ');
@@ -739,24 +741,52 @@ const DirectLaborCalculator = () => {
           complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
           complex.address || properties[0]?.address || '',
           Math.round(totalQSTime),
-          earliestStart || '',
+          QS_TIME_WINDOW_START,
           QS_TIME_WINDOW_END,
           propertyNames
         ]);
       });
 
+      // Group standalone properties by base name to consolidate multi-visit properties
+      const consolidatedProperties = {};
+      
       standaloneProperties.forEach(property => {
+        const baseName = getBasePropertyName(property.name);
         const qsTime = editedQSTime[property.id] !== undefined 
           ? editedQSTime[property.id] 
           : (property.qs_visit_time || 0);
         
+        if (!consolidatedProperties[baseName]) {
+          consolidatedProperties[baseName] = {
+            name: baseName,
+            address: property.address || '',
+            totalQSTime: 0,
+            visitCount: 0,
+            originalNames: []
+          };
+        }
+        
+        consolidatedProperties[baseName].totalQSTime += qsTime || 0;
+        consolidatedProperties[baseName].visitCount += 1;
+        consolidatedProperties[baseName].originalNames.push(property.name);
+        
+        // Use the first non-empty address found
+        if (!consolidatedProperties[baseName].address && property.address) {
+          consolidatedProperties[baseName].address = property.address;
+        }
+      });
+
+      // Convert consolidated properties to rows
+      Object.values(consolidatedProperties).forEach(prop => {
+        const notes = prop.visitCount > 1 ? `Combined from ${prop.visitCount} visits` : '';
+        
         rows.push([
-          property.name || '',
-          property.address || '',
-          Math.round(qsTime || 0),
-          property.service_window_start || '',
+          prop.name,
+          prop.address,
+          Math.round(prop.totalQSTime),
+          QS_TIME_WINDOW_START,
           QS_TIME_WINDOW_END,
-          ''
+          notes
         ]);
       });
 
@@ -931,15 +961,26 @@ const DirectLaborCalculator = () => {
                 <span>Properties</span>
               </Link>
               
-<Link 
-  href="/schedule" 
-  className="px-3 py-1.5 bg-white text-purple-700 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
->
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-  </svg>
-  <span>Scheduling</span>
-</Link>
+<div className="flex flex-col space-y-0.5">
+                <Link 
+                  href="/schedule" 
+                  className="px-2 py-0.5 bg-white text-purple-700 border border-purple-500 rounded hover:bg-purple-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                  <span>Scheduling</span>
+                </Link>
+                <Link 
+                  href="/qs-routes" 
+                  className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <span>QS Routes</span>
+                </Link>
+              </div>
 
 <Link 
   href="/forecast" 

@@ -350,12 +350,13 @@ const DirectLaborCalculator = () => {
     });
   };
   
-  // Handle change for QS visit time input
+  // Handle change for QS visit time input - store raw value for smooth typing
   const handleQSTimeChange = (id, value) => {
-    const newValue = value === "" ? "" : parseFloat(value);
+    // Only allow digits
+    const cleaned = value.replace(/[^0-9]/g, '');
     setEditedQSTime({
       ...editedQSTime,
-      [id]: newValue
+      [id]: cleaned
     });
   };
   
@@ -364,7 +365,9 @@ const DirectLaborCalculator = () => {
     try {
       setSavingPropertyId(id);
       
-      const result = await updatePropertyQSVisitTime(id, qsTime);
+      // Parse to integer, removing any leading zeros
+      const parsedTime = qsTime === "" ? null : parseInt(qsTime, 10);
+      const result = await updatePropertyQSVisitTime(id, parsedTime);
       
       if (result.success) {
         const updatedEditedQSTime = { ...editedQSTime };
@@ -1575,16 +1578,16 @@ const DirectLaborCalculator = () => {
                         <td className="px-4 py-2 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={editedQSTime[property.id] !== undefined ? editedQSTime[property.id] : ""}
                               onChange={(e) => handleQSTimeChange(property.id, e.target.value)}
                               placeholder={property.qs_visit_time !== null ? property.qs_visit_time.toString() : "—"}
                               className="block w-20 sm:text-sm border-gray-300 border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm bg-white text-center"
                               disabled={savingPropertyId === property.id}
-                              min="0"
-                              step="1"
                             />
-                            {editedQSTime[property.id] !== undefined && editedQSTime[property.id] !== property.qs_visit_time && (
+                            {editedQSTime[property.id] !== undefined && String(editedQSTime[property.id]) !== String(property.qs_visit_time || '') && (
                               savingPropertyId === property.id ? (
                                 <div className="w-7 h-7 flex items-center justify-center">
                                   <div className="w-4 h-4 border-t-2 border-b-2 border-teal-500 rounded-full animate-spin"></div>

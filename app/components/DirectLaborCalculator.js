@@ -1953,7 +1953,7 @@ const DirectLaborCalculator = () => {
                               value={editedHours[property.id] !== undefined ? editedHours[property.id] : ""}
                               onChange={(e) => handleNewHoursChange(property.id, e.target.value)}
                               placeholder={(property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours).toString()}
-                              className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white text-center"
+                              className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white text-center text-gray-900 placeholder:text-gray-900"
                               disabled={isSaving}
                             />
                             <span className="text-gray-700 text-sm">
@@ -2000,7 +2000,7 @@ const DirectLaborCalculator = () => {
                               value={editedQSTime[property.id] !== undefined ? editedQSTime[property.id] : ""}
                               onChange={(e) => handleQSTimeChange(property.id, e.target.value)}
                               placeholder={property.qs_visit_time !== null ? property.qs_visit_time.toString() : "—"}
-                              className="block w-20 sm:text-sm border-gray-300 border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm bg-white text-center"
+                              className="block w-20 sm:text-sm border-gray-300 border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm bg-white text-center text-gray-900 placeholder:text-gray-900"
                               disabled={savingPropertyId === property.id}
                             />
                             {editedQSTime[property.id] !== undefined && String(editedQSTime[property.id]) !== String(property.qs_visit_time || '') && (

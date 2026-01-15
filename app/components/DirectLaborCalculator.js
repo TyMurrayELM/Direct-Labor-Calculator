@@ -664,6 +664,111 @@ const DirectLaborCalculator = () => {
     }
   };
 
+  // Export ALL properties to CSV (no complex grouping)
+  const exportAllProperties = async () => {
+    try {
+      setMessage({ text: 'Preparing full property export...', type: 'success' });
+
+      let query = supabase
+        .from('properties')
+        .select(`
+          id, name, address, monthly_invoice, current_hours, adjusted_hours,
+          region, account_manager, property_type, company, client,
+          service_window_start, service_window_end, complex_id,
+          branch_id, crew_id,
+          branches (id, name),
+          crews (id, name, crew_type, size)
+        `)
+        .order('name');
+
+      if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
+      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (regionFilter) query = query.eq('region', regionFilter);
+      if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
+      if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
+      if (companyFilter) query = query.eq('company', companyFilter);
+      if (clientFilter) query = query.eq('client', clientFilter);
+
+      const { data: allProperties, error } = await query;
+
+      if (error) {
+        setMessage({ text: 'Error exporting data', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      let filteredProperties = allProperties;
+      if (selectedCrewType) {
+        filteredProperties = filteredProperties.filter(p => p.crews?.crew_type === selectedCrewType);
+      }
+      if (propertyNameFilter) {
+        filteredProperties = filteredProperties.filter(p => p.name?.toLowerCase().includes(propertyNameFilter.toLowerCase()));
+      }
+      if (showMismatchOnly) {
+        filteredProperties = filteredProperties.filter(p => p.adjusted_hours !== null && p.adjusted_hours !== p.current_hours);
+      }
+
+      if (!filteredProperties || filteredProperties.length === 0) {
+        setMessage({ text: 'No data to export', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End','Notes'];
+      const rows = [];
+
+      // Process ALL properties individually (no complex grouping)
+      filteredProperties.forEach(property => {
+        const newHours = editedHours[property.id] !== undefined 
+          ? editedHours[property.id] 
+          : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+        const crewSize = property.crews?.size || 1;
+        const crewHours = (newHours || 0) / crewSize;
+        const minutes = Math.round(crewHours * 60);
+        
+        rows.push([
+          property.name || '',
+          property.address || '',
+          newHours || 0,
+          crewHours.toFixed(1),
+          minutes,
+          property.service_window_start || '',
+          property.service_window_end || '',
+          ''
+        ]);
+      });
+
+      // Sort rows alphabetically by name
+      rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        return (str.includes(',') || str.includes('"') || str.includes('\n')) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const csvContent = [headers.map(escapeCSV).join(','), ...rows.map(row => row.map(escapeCSV).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.setAttribute('href', URL.createObjectURL(blob));
+      link.setAttribute('download', `all-properties${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setMessage({ 
+        text: `Exported ${rows.length} properties (no complex grouping)`, 
+        type: 'success' 
+      });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    } catch (err) {
+      console.error('Export error:', err);
+      setMessage({ text: 'Error exporting data', type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    }
+  };
+
   // Export QS Schedule to CSV - exports QS Visit Time instead of crew hours
   // Consolidates multiple visits (e.g., "Property (Visit 1)", "Property (Visit 2)") into single entries
   const exportQSSchedule = async () => {
@@ -1038,52 +1143,50 @@ const DirectLaborCalculator = () => {
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
-            <div className="flex space-x-2">
+            <div className="flex items-center space-x-2">
+              {/* Export Buttons Group */}
               {userRole === 'admin' && (
-                <div className="flex flex-col space-y-0.5">
+                <>
+                  {/* All Properties Export - No complex grouping */}
                   <button
-                    onClick={exportToCSV}
-                    className="px-2 py-0.5 bg-white text-gray-700 border border-gray-400 rounded hover:bg-gray-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                    title="Export filtered data to CSV"
+                    onClick={exportAllProperties}
+                    className="px-2 py-2.5 bg-white text-indigo-700 border border-indigo-400 rounded hover:bg-indigo-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                    title="Export all properties individually (no complex grouping)"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span>Route Export</span>
+                    <span>All Props</span>
                   </button>
-                  <button
-                    onClick={exportQSSchedule}
-                    className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                    title="Export QS Schedule with visit times"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    <span>QS Export</span>
-                  </button>
-                </div>
+
+                  {/* Route Export & QS Export Stack */}
+                  <div className="flex flex-col space-y-0.5">
+                    <button
+                      onClick={exportToCSV}
+                      className="px-2 py-0.5 bg-white text-gray-700 border border-gray-400 rounded hover:bg-gray-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                      title="Export with complex grouping for route optimization"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span>Route Export</span>
+                    </button>
+                    <button
+                      onClick={exportQSSchedule}
+                      className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
+                      title="Export QS Schedule with visit times"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                      <span>QS Export</span>
+                    </button>
+                  </div>
+                </>
               )}
-              <Link 
-                href="/crews" 
-                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                </svg>
-                <span>Crews</span>
-              </Link>
               
-              <Link 
-                href="/properties" 
-                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
-                <span>Properties</span>
-              </Link>
-              
-<div className="flex flex-col space-y-0.5">
+              {/* Scheduling & QS Routes - Now next to Route Export */}
+              <div className="flex flex-col space-y-0.5">
                 <Link 
                   href="/schedule" 
                   className="px-2 py-0.5 bg-white text-purple-700 border border-purple-500 rounded hover:bg-purple-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
@@ -1104,27 +1207,68 @@ const DirectLaborCalculator = () => {
                 </Link>
               </div>
 
-<Link 
-  href="/forecast" 
-  className="px-3 py-1.5 bg-white text-amber-700 border border-amber-600 rounded-lg hover:bg-amber-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
->
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-  </svg>
-  <span>FTE Forecast</span>
-</Link>
+              {/* Divider */}
+              <div className="h-8 w-px bg-gray-300"></div>
 
-             {session && (
-  <button 
-    onClick={handleSignOut}
-    className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11.293 9.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L10 10.414V15a1 1 0 102 0v-4.586l1.293 1.293z" />
-    </svg>
-    <span>Sign Out</span>
-  </button>
-)}
+              {/* Crews, Properties, FTE Forecast Group */}
+              <Link 
+                href="/crews" 
+                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                </svg>
+                <span>Crews</span>
+              </Link>
+              
+              <Link 
+                href="/properties" 
+                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+                <span>Properties</span>
+              </Link>
+
+              <Link 
+                href="/forecast" 
+                className="px-3 py-1.5 bg-white text-amber-700 border border-amber-600 rounded-lg hover:bg-amber-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                </svg>
+                <span>FTE Forecast</span>
+              </Link>
+
+              {/* Modern Google SSO Sign Out Button */}
+              {session && (
+                <button 
+                  onClick={handleSignOut}
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-300 rounded-full hover:bg-gray-50 hover:shadow-md transition-all shadow-sm"
+                  title={`Signed in as ${session.user?.email}`}
+                >
+                  {session.user?.user_metadata?.avatar_url ? (
+                    <img 
+                      src={session.user.user_metadata.avatar_url} 
+                      alt="Profile" 
+                      className="w-6 h-6 rounded-full"
+                      onError={(e) => { 
+                        e.target.style.display = 'none'; 
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className={`w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium ${session.user?.user_metadata?.avatar_url ? 'hidden' : ''}`}
+                  >
+                    {session.user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
           

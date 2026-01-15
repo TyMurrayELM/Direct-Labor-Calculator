@@ -1910,16 +1910,16 @@ const DirectLaborCalculator = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                           {property.account_manager || '—'}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
                           {formatCurrency(property.monthly_invoice)}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                           <div className="flex items-center">
                             {property.current_hours}
-                            <span className="text-gray-400 ml-1">
+                            <span className="text-gray-700 ml-1">
                               ({property.crews?.size ? (property.current_hours / property.crews.size).toFixed(1) : '—'})
                             </span>
                             {/* Hours mismatch indicator */}
@@ -1942,7 +1942,7 @@ const DirectLaborCalculator = () => {
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-indigo-600">
                           {targetHours.toFixed(1)}
-                          <span className="text-gray-400 font-normal ml-1">
+                          <span className="text-gray-700 font-normal ml-1">
                             ({property.crews?.size ? (targetHours / property.crews.size).toFixed(1) : '—'})
                           </span>
                         </td>
@@ -1956,7 +1956,7 @@ const DirectLaborCalculator = () => {
                               className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white text-center"
                               disabled={isSaving}
                             />
-                            <span className="text-gray-400 text-sm">
+                            <span className="text-gray-700 text-sm">
                               ({property.crews?.size ? (newHours / property.crews.size).toFixed(1) : '—'})
                             </span>
                             {justSaved && !editedHours[property.id] && (
@@ -2037,7 +2037,7 @@ const DirectLaborCalculator = () => {
                 {/* Totals row */}
                 <tr className="bg-gray-50 font-medium border-t-2 border-gray-200">
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 w-64 max-w-64">TOTALS</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">—</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>
                   <td className="px-4 py-2 whitespace-nowrap">
@@ -2052,7 +2052,7 @@ const DirectLaborCalculator = () => {
                       {currentPageNewHours > 0 ? formatPercent(newOverallDirectLabor) : "-"}
                     </span>
                   </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-400">—</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">—</td>
                 </tr>
               </tbody>
             </table>

@@ -52,7 +52,7 @@ const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="border rounded-lg pl-3 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium bg-white shadow-sm flex items-center"
+        className="border rounded-lg pl-3 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium bg-white shadow-sm flex items-center text-gray-900"
         style={{ minWidth: '180px' }}
       >
         {selectedBranchId ? (
@@ -76,7 +76,7 @@ const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
         )}
         
         <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
         </div>
@@ -87,7 +87,7 @@ const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
           <div className="py-1 max-h-60 overflow-y-auto">
             <button
               type="button"
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-900"
               onClick={() => {
                 onChange(null);
                 setIsOpen(false);
@@ -100,7 +100,7 @@ const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
               <button
                 key={branch.id}
                 type="button"
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center text-gray-900"
                 onClick={() => {
                   onChange(branch.id);
                   setIsOpen(false);
@@ -1298,7 +1298,7 @@ const DirectLaborCalculator = () => {
                     setSelectedCrewType(e.target.value);
                     setPage(1); // Reset to first page
                   }}
-                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm"
+                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
                   style={{ minWidth: '180px' }}
                 >
                   <option value="">All Crew Types</option>
@@ -1306,7 +1306,7 @@ const DirectLaborCalculator = () => {
                   <option value="Onsite">Onsite</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -1323,7 +1323,7 @@ const DirectLaborCalculator = () => {
                     setSelectedCrewId(crewId);
                     setPage(1); // Reset to first page
                   }}
-                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm"
+                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
                   disabled={crewsLoading}
                   style={{ minWidth: '180px' }}
                 >
@@ -1338,7 +1338,7 @@ const DirectLaborCalculator = () => {
                   }
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </div>

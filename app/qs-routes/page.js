@@ -552,11 +552,12 @@ export default function QSRoutesPage() {
     if (routes.length === 0) return null;
 
     const totalRoutes = routes.length;
-    const totalStops = routes.reduce((sum, r) => sum + r.stops.length, 0);
+    // Exclude "Branch Location" stops from count
+    const totalStops = routes.reduce((sum, r) => sum + r.stops.filter(s => s.name !== 'Branch Location').length, 0);
     const totalDistance = routes.reduce((sum, r) => sum + (r.distance || 0), 0);
     const totalDurationMinutes = routes.reduce((sum, r) => sum + parseDurationToMinutes(r.duration), 0);
     const totalServiceMinutes = routes.reduce((sum, r) => 
-      sum + r.stops.reduce((s, stop) => s + parseServiceTimeToMinutes(stop.serviceTime), 0), 0);
+      sum + r.stops.filter(s => s.name !== 'Branch Location').reduce((s, stop) => s + parseServiceTimeToMinutes(stop.serviceTime), 0), 0);
 
     return {
       totalRoutes,

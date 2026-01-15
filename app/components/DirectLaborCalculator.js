@@ -225,6 +225,10 @@ const DirectLaborCalculator = () => {
   // State for messages
   const [message, setMessage] = useState({ text: '', type: '' });
   
+  // State for table sorting
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
+  
   // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -385,6 +389,18 @@ const DirectLaborCalculator = () => {
       console.error('Error saving QS time:', error);
     } finally {
       setSavingPropertyId(null);
+    }
+  };
+  
+  // Handle column sort
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
   
@@ -726,6 +742,28 @@ const DirectLaborCalculator = () => {
       const QS_TIME_WINDOW_END = '12:30:00';
       const rows = [];
 
+      // Branch addresses lookup
+      const branchAddresses = {
+        'Las Vegas': '6290 S Pecos Rd, Las Vegas, Nevada, 89120',
+        'Phx - North': '23325 N 23rd Avenue, Phoenix, AZ 85027',
+        'Phx - SouthEast': '1715 N Arizona Ave, Chandler, AZ 85225',
+        'Phx - SouthWest': '2600 S. 20th Ave, Phoenix, AZ 85009'
+      };
+
+      // Add branch location as first row
+      const branchName = selectedBranch?.name || '';
+      const branchAddress = branchAddresses[branchName] || '';
+      if (branchAddress) {
+        rows.push([
+          'Branch Location',
+          branchAddress,
+          0,
+          '',
+          '',
+          `Start/End location for ${branchName}`
+        ]);
+      }
+
       // Process complex groups
       Object.entries(complexGroups).forEach(([complexId, properties]) => {
         const complex = complexMap[complexId];
@@ -793,7 +831,16 @@ const DirectLaborCalculator = () => {
         ]);
       });
 
+      // Separate branch row (first row) from property rows for sorting
+      const branchRow = rows.length > 0 && rows[0][0] === 'Branch Location' ? rows.shift() : null;
+      
+      // Sort property rows alphabetically
       rows.sort((a, b) => a[0].localeCompare(b[0]));
+      
+      // Put branch row back at the beginning
+      if (branchRow) {
+        rows.unshift(branchRow);
+      }
 
       const escapeCSV = (value) => {
         if (value === null || value === undefined) return '';
@@ -836,6 +883,78 @@ const DirectLaborCalculator = () => {
       return property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours;
     }
     return true;
+  });
+
+  // Sort filtered properties
+  const sortedProperties = [...filteredProperties].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aValue, bValue;
+    
+    // Get values based on sort field
+    switch (sortField) {
+      case 'property':
+        aValue = a.name?.toLowerCase() || '';
+        bValue = b.name?.toLowerCase() || '';
+        break;
+      case 'css':
+        aValue = a.account_manager?.toLowerCase() || '';
+        bValue = b.account_manager?.toLowerCase() || '';
+        break;
+      case 'monthlyInvoice':
+        aValue = a.monthly_invoice || 0;
+        bValue = b.monthly_invoice || 0;
+        break;
+      case 'currentHours':
+        aValue = a.current_hours || 0;
+        bValue = b.current_hours || 0;
+        break;
+      case 'currentDL':
+        const aBranchName = a.branches?.name || '';
+        const aCrewType = a.crews?.crew_type || '';
+        const bBranchName = b.branches?.name || '';
+        const bCrewType = b.crews?.crew_type || '';
+        aValue = calculateDirectLaborPercent(a.current_hours, a.monthly_invoice, aBranchName, aCrewType);
+        bValue = calculateDirectLaborPercent(b.current_hours, b.monthly_invoice, bBranchName, bCrewType);
+        break;
+      case 'targetHours':
+        const aBranch = a.branches?.name || '';
+        const aCrew = a.crews?.crew_type || '';
+        const bBranch = b.branches?.name || '';
+        const bCrew = b.crews?.crew_type || '';
+        aValue = calculateTargetHours(a.monthly_invoice, aBranch, aCrew);
+        bValue = calculateTargetHours(b.monthly_invoice, bBranch, bCrew);
+        break;
+      case 'newHours':
+        aValue = a.adjusted_hours !== null ? a.adjusted_hours : a.current_hours;
+        bValue = b.adjusted_hours !== null ? b.adjusted_hours : b.current_hours;
+        break;
+      case 'newDL':
+        const aNewHours = a.adjusted_hours !== null ? a.adjusted_hours : a.current_hours;
+        const bNewHours = b.adjusted_hours !== null ? b.adjusted_hours : b.current_hours;
+        const aBrName = a.branches?.name || '';
+        const aCrType = a.crews?.crew_type || '';
+        const bBrName = b.branches?.name || '';
+        const bCrType = b.crews?.crew_type || '';
+        aValue = calculateDirectLaborPercent(aNewHours, a.monthly_invoice, aBrName, aCrType);
+        bValue = calculateDirectLaborPercent(bNewHours, b.monthly_invoice, bBrName, bCrType);
+        break;
+      case 'qsVisit':
+        aValue = a.qs_visit_time || 0;
+        bValue = b.qs_visit_time || 0;
+        break;
+      default:
+        return 0;
+    }
+    
+    // Compare values
+    if (typeof aValue === 'string') {
+      const comparison = aValue.localeCompare(bValue);
+      return sortDirection === 'asc' ? comparison : -comparison;
+    } else {
+      const comparison = aValue - bValue;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
   });
 
   // Calculate totals for current page (using filtered properties)
@@ -1401,19 +1520,172 @@ const DirectLaborCalculator = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-900 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 w-64 max-w-64">Property</th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">CSS</th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Monthly Invoice</th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Current DL%</th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">New DL%</th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900">QS Visit<br/><span className="text-blue-200 normal-case">(minutes)</span></th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 w-64 max-w-64 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('property')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Property</span>
+                      {sortField === 'property' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('css')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>CSS</span>
+                      {sortField === 'css' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('monthlyInvoice')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Monthly Invoice</span>
+                      {sortField === 'monthlyInvoice' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('currentHours')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      {sortField === 'currentHours' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('currentDL')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Current DL%</span>
+                      {sortField === 'currentDL' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('targetHours')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      {sortField === 'targetHours' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('newHours')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      {sortField === 'newHours' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('newDL')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>New DL%</span>
+                      {sortField === 'newDL' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                    onClick={() => handleSort('qsVisit')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>QS Visit<br/><span className="text-blue-200 normal-case">(minutes)</span></span>
+                      {sortField === 'qsVisit' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          {sortDirection === 'asc' ? (
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {filteredProperties.length === 0 ? (
+                {sortedProperties.length === 0 ? (
                   <tr>
                     <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
@@ -1438,7 +1710,7 @@ const DirectLaborCalculator = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredProperties.map((property, index) => {
+                  sortedProperties.map((property, index) => {
                     const branchName = property.branches?.name || '';
                     const crewType = property.crews?.crew_type || '';
                     const targetHours = calculateTargetHours(property.monthly_invoice, branchName, crewType);

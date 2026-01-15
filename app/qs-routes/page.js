@@ -166,6 +166,7 @@ export default function QSRoutesPage() {
             distance: route.distance,
             uploadedAt: route.uploaded_at,
             dayOfWeek: route.day_of_week || null,
+            branchAddress: route.branch_address || null,
             stops: (stopsData || [])
               .filter(stop => stop.route_id === route.id)
               .map(stop => ({
@@ -229,10 +230,18 @@ export default function QSRoutesPage() {
       const notes = row[notesIdx]?.trim() || '';
 
       if (!routeNum) continue;
-      if (!alias && serviceTime === '00:00:00') continue;
+
+      // Check if this is a branch location row (no alias and zero service time)
+      const isBranchLocation = !alias && serviceTime === '00:00:00';
 
       if (!routeMap[routeNum]) {
-        routeMap[routeNum] = { routeNumber: routeNum, duration, distance, stops: [] };
+        routeMap[routeNum] = { routeNumber: routeNum, duration, distance, branchAddress: null, stops: [] };
+      }
+
+      // Capture branch address from start/end rows
+      if (isBranchLocation && address) {
+        routeMap[routeNum].branchAddress = address;
+        continue; // Don't add to stops
       }
 
       routeMap[routeNum].stops.push({ name: alias, address, serviceTime, notes });
@@ -326,6 +335,7 @@ export default function QSRoutesPage() {
             route_number: route.routeNumber,
             duration: route.duration,
             distance: route.distance,
+            branch_address: route.branchAddress,
             uploaded_at: new Date().toISOString()
           })
           .select()
@@ -413,7 +423,73 @@ export default function QSRoutesPage() {
     return `${hours}h ${mins}m`;
   };
 
-  const handlePrint = () => window.print();
+  // Export routes to CSV
+  const handleExportCSV = () => {
+    if (filteredRoutes.length === 0) return;
+
+    // Build CSV content
+    const headers = ['Route', 'Day', 'Stop #', 'Property', 'Address', 'Service Time (min)', 'Route Time', 'Miles', 'Notes'];
+    const rows = [];
+
+    filteredRoutes.forEach(route => {
+      route.stops.forEach((stop, index) => {
+        rows.push([
+          index === 0 ? `Route ${route.routeNumber}` : '',
+          index === 0 ? (route.dayOfWeek || 'Unassigned') : '',
+          index + 1,
+          `"${(stop.name || '').replace(/"/g, '""')}"`,
+          `"${(stop.address || '').replace(/"/g, '""')}"`,
+          parseServiceTimeToMinutes(stop.serviceTime),
+          index === 0 ? formatDuration(route.duration) : '',
+          index === 0 ? route.distance?.toFixed(1) : '',
+          `"${(stop.notes || '').replace(/"/g, '""')}"`
+        ]);
+      });
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `routes-${selectedBranchName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Open route in Google Maps
+  const handleOpenInMaps = (route) => {
+    if (!route.stops || route.stops.length === 0) return;
+
+    // Get addresses, filter out empty ones
+    const addresses = route.stops
+      .map(stop => stop.address)
+      .filter(addr => addr && addr.trim());
+
+    if (addresses.length === 0) return;
+
+    // Google Maps supports up to ~25 waypoints
+    // Start from branch, go through all stops, return to branch
+    const encodedAddresses = addresses
+      .slice(0, 23) // Limit to 23 stops (leaving room for branch start & end)
+      .map(addr => encodeURIComponent(addr))
+      .join('/');
+
+    // Use branch address if available, otherwise current location
+    const startEnd = route.branchAddress 
+      ? encodeURIComponent(route.branchAddress)
+      : 'Current+Location';
+
+    const mapsUrl = `https://www.google.com/maps/dir/${startEnd}/${encodedAddresses}/${startEnd}`;
+    window.open(mapsUrl, '_blank');
+  };
 
   // Update route day assignment
   const handleDayChange = async (routeId, day) => {
@@ -513,17 +589,6 @@ export default function QSRoutesPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <style jsx global>{`
-        @media print {
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
-          .no-print { display: none !important; }
-          .print-area { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-          .print-area > div { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; width: 100% !important; }
-          .print-area table { width: 100% !important; font-size: 8px; line-height: 1.1; }
-          .print-area td, .print-area th { padding: 1px 2px !important; }
-        }
-      `}</style>
 
       {/* Header */}
       <div className="no-print bg-white shadow-sm border-b">
@@ -582,11 +647,11 @@ export default function QSRoutesPage() {
               )}
 
               {routes.length > 0 && (
-                <button onClick={handlePrint} className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5">
+                <button onClick={handleExportCSV} className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
-                  <span>Print</span>
+                  <span>Export CSV</span>
                 </button>
               )}
 
@@ -697,7 +762,11 @@ export default function QSRoutesPage() {
           <div className="print-area">
             {/* Summary Stats */}
             {stats && (
-              <div className="no-print grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
+              <>
+                <div className="no-print mb-3 text-xs text-gray-500 italic">
+                  Maximum route duration set to 6.5 hours. Start and ending location set to the branch location.
+                </div>
+                <div className="no-print grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
                 <div className="bg-white rounded-lg border p-2 text-center">
                   <div className="text-xl font-bold text-teal-700">{stats.totalRoutes}</div>
                   <div className="text-xs text-gray-500">Routes</div>
@@ -727,6 +796,7 @@ export default function QSRoutesPage() {
                   <div className="text-xs text-gray-500">Avg Time</div>
                 </div>
               </div>
+              </>
             )}
 
             {/* Routes Table Card */}
@@ -826,7 +896,18 @@ export default function QSRoutesPage() {
                           {/* Route Total Row */}
                           <tr className="bg-gray-100 font-bold border-b-2 border-gray-300">
                             <td className="px-1.5 py-0.5"></td>
-                            <td className="px-1.5 py-0.5"></td>
+                            <td className="px-1.5 py-0.5">
+                              <button
+                                onClick={() => handleOpenInMaps(route)}
+                                className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center space-x-1"
+                                title="Open route in Google Maps"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                </svg>
+                                <span>Maps</span>
+                              </button>
+                            </td>
                             <td className="px-1.5 py-0.5"></td>
                             <td className="px-1.5 py-0.5 text-right text-gray-700 text-xs">Route {route.routeNumber} Total:</td>
                             <td className="px-1.5 py-0.5"></td>

@@ -5,7 +5,7 @@ export const metadata = {
     title: '✨ Enhancements FTE Forecast',
     description: 'Enhancement Revenue Target • Labor Revenue • Labor Cost • FTEs Required',
     type: 'website',
-    siteName: 'Encore Services',
+    siteName: 'Forecast Tool',
   },
   twitter: {
     card: 'summary',

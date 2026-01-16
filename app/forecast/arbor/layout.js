@@ -5,7 +5,7 @@ export const metadata = {
     title: '🌳 Arbor FTE Forecast',
     description: 'Arbor Revenue Target • Billable Hours • Labor Cost • FTEs Required',
     type: 'website',
-    siteName: 'Encore Services',
+    siteName: 'Forecast Tool',
   },
   twitter: {
     card: 'summary',

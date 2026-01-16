@@ -4,8 +4,22 @@ import { cookies } from 'next/headers';
 import AuthProvider from './auth-provider';
 
 export const metadata = {
-  title: 'Direct Labor Maintenance Calculator',
-  description: 'Calculate and manage direct labor for landscape maintenance',
+  title: {
+    default: 'Encore FTE Dashboard',
+    template: '%s | Encore Services',
+  },
+  description: 'FTE forecasting and labor management for landscape maintenance operations',
+  openGraph: {
+    title: 'Encore Services Dashboard',
+    description: 'FTE forecasting and labor management for landscape maintenance operations',
+    type: 'website',
+    siteName: 'Encore Services',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Encore Services Dashboard',
+    description: 'FTE forecasting and labor management for landscape maintenance operations',
+  },
 }
 
 export default async function RootLayout({ children }) {

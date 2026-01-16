@@ -18,7 +18,7 @@ export default function ArborForecastPage() {
   );
   
   // Constants for Arbor department
-  const ARBOR_REVENUE_PERCENT = 0.50; // 50% of Maintenance Revenue
+  const ARBOR_REVENUE_PERCENT = 0.50; // 50% of (Maintenance + Onsite) Revenue
   const BILLING_RATE = 110; // $110/hr billing rate
   const HOURLY_COST = 29; // $29/hr fully burdened cost
   const HOURS_PER_MONTH = 173.33; // ~40 hrs/week * 4.333 weeks
@@ -106,9 +106,29 @@ export default function ArborForecastPage() {
     }
   };
 
-  // Calculate Arbor metrics for a given maintenance revenue
-  const calculateArborMetrics = (maintenanceRevenue) => {
-    const arborRevenue = maintenanceRevenue * ARBOR_REVENUE_PERCENT;
+  // Get onsite revenue data
+  const getOnsiteRevenue = (month) => {
+    if (isPhoenixView) {
+      // Combine all Phoenix branches
+      let total = 0;
+      phoenixBranches.forEach(branch => {
+        const branchForecasts = allBranchForecasts[branch.id] || [];
+        const forecast = branchForecasts.find(f => f.month === month);
+        if (forecast) {
+          total += parseFloat(forecast.onsite_revenue) || 0;
+        }
+      });
+      return total;
+    } else {
+      const forecast = forecasts?.find(f => f.month === month);
+      return forecast ? parseFloat(forecast.onsite_revenue) || 0 : 0;
+    }
+  };
+
+  // Calculate Arbor metrics for a given maintenance and onsite revenue
+  const calculateArborMetrics = (maintenanceRevenue, onsiteRevenue) => {
+    const combinedRevenue = maintenanceRevenue + onsiteRevenue;
+    const arborRevenue = combinedRevenue * ARBOR_REVENUE_PERCENT;
     const billableHours = arborRevenue / BILLING_RATE;
     const laborCost = billableHours * HOURLY_COST;
     const ftes = billableHours / HOURS_PER_MONTH;
@@ -116,6 +136,8 @@ export default function ArborForecastPage() {
     
     return {
       maintenanceRevenue,
+      onsiteRevenue,
+      combinedRevenue,
       arborRevenue,
       billableHours,
       laborCost,
@@ -127,20 +149,25 @@ export default function ArborForecastPage() {
   // Calculate monthly data
   const monthlyData = months.map(month => {
     const maintenanceRevenue = getMaintenanceRevenue(month);
+    const onsiteRevenue = getOnsiteRevenue(month);
     return {
       month,
-      ...calculateArborMetrics(maintenanceRevenue)
+      ...calculateArborMetrics(maintenanceRevenue, onsiteRevenue)
     };
   });
 
   // Calculate totals
   const totals = monthlyData.reduce((acc, d) => ({
     maintenanceRevenue: acc.maintenanceRevenue + d.maintenanceRevenue,
+    onsiteRevenue: acc.onsiteRevenue + d.onsiteRevenue,
+    combinedRevenue: acc.combinedRevenue + d.combinedRevenue,
     arborRevenue: acc.arborRevenue + d.arborRevenue,
     billableHours: acc.billableHours + d.billableHours,
     laborCost: acc.laborCost + d.laborCost
   }), {
     maintenanceRevenue: 0,
+    onsiteRevenue: 0,
+    combinedRevenue: 0,
     arborRevenue: 0,
     billableHours: 0,
     laborCost: 0
@@ -175,10 +202,16 @@ export default function ArborForecastPage() {
       rows.push(['Metric', ...months, 'Total']);
       
       // Maintenance Revenue (source)
-      rows.push(['Maintenance Revenue (Source)', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      rows.push(['Maintenance Revenue', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      
+      // Onsite Revenue (source)
+      rows.push(['Onsite Revenue', ...monthlyData.map(d => d.onsiteRevenue), totals.onsiteRevenue]);
+      
+      // Combined Revenue (source)
+      rows.push(['Combined Revenue (Maint + Onsite)', ...monthlyData.map(d => d.combinedRevenue), totals.combinedRevenue]);
       
       // Arbor Revenue Target
-      rows.push(['Arbor Revenue (50%)', ...monthlyData.map(d => d.arborRevenue), totals.arborRevenue]);
+      rows.push(['Arbor Revenue (50% of Combined)', ...monthlyData.map(d => d.arborRevenue), totals.arborRevenue]);
       
       // Billable Hours
       rows.push(['Billable Hours (@$110/hr)', ...monthlyData.map(d => Math.round(d.billableHours)), Math.round(totals.billableHours)]);
@@ -349,7 +382,7 @@ export default function ArborForecastPage() {
           <div className="flex flex-wrap gap-4 text-sm bg-green-50 rounded-lg p-4 border border-green-200">
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Arbor Target:</span>
-              <span className="text-green-700 font-semibold">50% of Maint Rev</span>
+              <span className="text-green-700 font-semibold">50% of (Maint + Onsite)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Billing Rate:</span>
@@ -401,10 +434,30 @@ export default function ArborForecastPage() {
                 </td>
               </tr>
 
+              {/* Onsite Revenue (Source) Row */}
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <td className="px-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10">
+                  <div className="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Onsite Revenue
+                  </div>
+                </td>
+                {monthlyData.map(d => (
+                  <td key={d.month} className="px-2 py-2 text-center text-gray-500">
+                    {d.onsiteRevenue > 0 ? formatCurrency(d.onsiteRevenue) : '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-gray-500 bg-gray-100">
+                  {formatCurrency(totals.onsiteRevenue)}
+                </td>
+              </tr>
+
               {/* Arbor Revenue Target Row */}
               <tr className="bg-green-50 border-b border-green-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-green-50 z-10">
-                  Arbor Revenue (50%)
+                  Arbor Revenue (50% of Maint + Onsite)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-2 text-center text-green-700 font-medium">
@@ -502,7 +555,7 @@ export default function ArborForecastPage() {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-green-100 text-sm font-medium mb-1">Annual Arbor Revenue</div>
+                <div className="text-green-100 text-sm font-medium mb-1">Annual Arbor Revenue Target</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.arborRevenue)}</div>
                 <div className="text-green-200 text-xs mt-1">50% of Maintenance</div>
               </div>
@@ -511,10 +564,10 @@ export default function ArborForecastPage() {
                 <div className="text-2xl font-bold">{formatNumber(totals.billableHours, 0)}</div>
                 <div className="text-purple-200 text-xs mt-1">@ ${BILLING_RATE}/hr</div>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-orange-100 text-sm font-medium mb-1">Annual Labor Cost</div>
+              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-red-100 text-sm font-medium mb-1">Annual Labor Cost</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborCost)}</div>
-                <div className="text-orange-200 text-xs mt-1">@ ${HOURLY_COST}/hr</div>
+                <div className="text-red-200 text-xs mt-1">@ ${HOURLY_COST}/hr</div>
               </div>
               <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-teal-100 text-sm font-medium mb-1">Average FTEs/Month</div>

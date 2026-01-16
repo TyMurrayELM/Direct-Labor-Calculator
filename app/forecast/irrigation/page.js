@@ -18,7 +18,7 @@ export default function IrrigationForecastPage() {
   );
   
   // Constants for Irrigation department
-  const IRRIGATION_REVENUE_PERCENT = 0.25; // 25% of Maintenance Revenue
+  const IRRIGATION_REVENUE_PERCENT = 0.25; // 25% of (Maintenance + Onsite) Revenue
   const LABOR_REVENUE_PERCENT = 0.85; // 85% of Irrigation Revenue goes to labor
   const BILLING_RATE = 105; // $105/hr billing rate
   const BILLABLE_PERCENT = 0.75; // 75% of tech's time is billable
@@ -108,9 +108,29 @@ export default function IrrigationForecastPage() {
     }
   };
 
-  // Calculate Irrigation metrics for a given maintenance revenue
-  const calculateIrrigationMetrics = (maintenanceRevenue) => {
-    const irrigationRevenue = maintenanceRevenue * IRRIGATION_REVENUE_PERCENT;
+  // Get onsite revenue data
+  const getOnsiteRevenue = (month) => {
+    if (isPhoenixView) {
+      // Combine all Phoenix branches
+      let total = 0;
+      phoenixBranches.forEach(branch => {
+        const branchForecasts = allBranchForecasts[branch.id] || [];
+        const forecast = branchForecasts.find(f => f.month === month);
+        if (forecast) {
+          total += parseFloat(forecast.onsite_revenue) || 0;
+        }
+      });
+      return total;
+    } else {
+      const forecast = forecasts?.find(f => f.month === month);
+      return forecast ? parseFloat(forecast.onsite_revenue) || 0 : 0;
+    }
+  };
+
+  // Calculate Irrigation metrics for a given maintenance and onsite revenue
+  const calculateIrrigationMetrics = (maintenanceRevenue, onsiteRevenue) => {
+    const combinedRevenue = maintenanceRevenue + onsiteRevenue;
+    const irrigationRevenue = combinedRevenue * IRRIGATION_REVENUE_PERCENT;
     const laborRevenue = irrigationRevenue * LABOR_REVENUE_PERCENT;
     const nonLaborRevenue = irrigationRevenue - laborRevenue;
     const billableHours = laborRevenue / BILLING_RATE;
@@ -122,6 +142,8 @@ export default function IrrigationForecastPage() {
     
     return {
       maintenanceRevenue,
+      onsiteRevenue,
+      combinedRevenue,
       irrigationRevenue,
       laborRevenue,
       nonLaborRevenue,
@@ -136,15 +158,18 @@ export default function IrrigationForecastPage() {
   // Calculate monthly data
   const monthlyData = months.map(month => {
     const maintenanceRevenue = getMaintenanceRevenue(month);
+    const onsiteRevenue = getOnsiteRevenue(month);
     return {
       month,
-      ...calculateIrrigationMetrics(maintenanceRevenue)
+      ...calculateIrrigationMetrics(maintenanceRevenue, onsiteRevenue)
     };
   });
 
   // Calculate totals
   const totals = monthlyData.reduce((acc, d) => ({
     maintenanceRevenue: acc.maintenanceRevenue + d.maintenanceRevenue,
+    onsiteRevenue: acc.onsiteRevenue + d.onsiteRevenue,
+    combinedRevenue: acc.combinedRevenue + d.combinedRevenue,
     irrigationRevenue: acc.irrigationRevenue + d.irrigationRevenue,
     laborRevenue: acc.laborRevenue + d.laborRevenue,
     nonLaborRevenue: acc.nonLaborRevenue + d.nonLaborRevenue,
@@ -153,6 +178,8 @@ export default function IrrigationForecastPage() {
     laborCost: acc.laborCost + d.laborCost
   }), {
     maintenanceRevenue: 0,
+    onsiteRevenue: 0,
+    combinedRevenue: 0,
     irrigationRevenue: 0,
     laborRevenue: 0,
     nonLaborRevenue: 0,
@@ -190,10 +217,16 @@ export default function IrrigationForecastPage() {
       rows.push(['Metric', ...months, 'Total']);
       
       // Maintenance Revenue (source)
-      rows.push(['Maintenance Revenue (Source)', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      rows.push(['Maintenance Revenue', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      
+      // Onsite Revenue (source)
+      rows.push(['Onsite Revenue', ...monthlyData.map(d => d.onsiteRevenue), totals.onsiteRevenue]);
+      
+      // Combined Revenue (source)
+      rows.push(['Combined Revenue (Maint + Onsite)', ...monthlyData.map(d => d.combinedRevenue), totals.combinedRevenue]);
       
       // Irrigation Revenue Target
-      rows.push(['Irrigation Revenue (25%)', ...monthlyData.map(d => d.irrigationRevenue), totals.irrigationRevenue]);
+      rows.push(['Irrigation Revenue (25% of Combined)', ...monthlyData.map(d => d.irrigationRevenue), totals.irrigationRevenue]);
       
       // Labor Revenue
       rows.push(['Labor Revenue (85%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
@@ -373,7 +406,7 @@ export default function IrrigationForecastPage() {
           <div className="flex flex-wrap gap-4 text-sm bg-blue-50 rounded-lg p-4 border border-blue-200">
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Irrigation Target:</span>
-              <span className="text-blue-700 font-semibold">25% of Maint Rev</span>
+              <span className="text-blue-700 font-semibold">25% of (Maint + Onsite)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Labor Split:</span>
@@ -433,10 +466,30 @@ export default function IrrigationForecastPage() {
                 </td>
               </tr>
 
+              {/* Onsite Revenue (Source) Row */}
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <td className="px-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10">
+                  <div className="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Onsite Revenue
+                  </div>
+                </td>
+                {monthlyData.map(d => (
+                  <td key={d.month} className="px-2 py-2 text-center text-gray-500">
+                    {d.onsiteRevenue > 0 ? formatCurrency(d.onsiteRevenue) : '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-gray-500 bg-gray-100">
+                  {formatCurrency(totals.onsiteRevenue)}
+                </td>
+              </tr>
+
               {/* Irrigation Revenue Target Row */}
               <tr className="bg-blue-50 border-b border-blue-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-blue-50 z-10">
-                  Irrigation Revenue (25%)
+                  Irrigation Revenue (25% of Maint + Onsite)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-2 text-center text-blue-700 font-medium">
@@ -579,19 +632,19 @@ export default function IrrigationForecastPage() {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-blue-100 text-sm font-medium mb-1">Annual Irrigation Revenue</div>
+                <div className="text-blue-100 text-sm font-medium mb-1">Annual Irrigation Revenue Target</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.irrigationRevenue)}</div>
-                <div className="text-blue-200 text-xs mt-1">25% of Maintenance</div>
+                <div className="text-blue-200 text-xs mt-1">25% of (Maint + Onsite)</div>
               </div>
               <div className="bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-sky-100 text-sm font-medium mb-1">Annual Labor Revenue</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborRevenue)}</div>
                 <div className="text-sky-200 text-xs mt-1">85% of Irrigation</div>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-orange-100 text-sm font-medium mb-1">Annual Labor Cost</div>
+              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-red-100 text-sm font-medium mb-1">Annual Labor Cost</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborCost)}</div>
-                <div className="text-orange-200 text-xs mt-1">@ ${HOURLY_COST}/hr (total hrs)</div>
+                <div className="text-red-200 text-xs mt-1">@ ${HOURLY_COST}/hr (total hrs)</div>
               </div>
               <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-teal-100 text-sm font-medium mb-1">Average FTEs/Month</div>
@@ -606,7 +659,7 @@ export default function IrrigationForecastPage() {
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
           <div className="text-sm text-gray-600 space-y-1">
-            <div><span className="font-medium">Irrigation Revenue</span> = Maintenance Revenue × 25%</div>
+            <div><span className="font-medium">Irrigation Revenue</span> = (Maintenance + Onsite) Revenue × 25%</div>
             <div><span className="font-medium">Labor Revenue</span> = Irrigation Revenue × 85%</div>
             <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>
             <div><span className="font-medium">Total Hours</span> = Billable Hours ÷ 75% (accounts for non-billable time)</div>

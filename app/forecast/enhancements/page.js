@@ -18,7 +18,7 @@ export default function EnhancementsForecastPage() {
   );
   
   // Constants for Enhancements department
-  const ENHANCEMENT_REVENUE_PERCENT = 0.40; // 40% of Maintenance Revenue
+  const ENHANCEMENT_REVENUE_PERCENT = 0.40; // 40% of (Maintenance + Onsite) Revenue
   const LABOR_REVENUE_PERCENT = 0.70; // 70% of Enhancement Revenue goes to labor
   const BILLING_RATE = 90; // $90/hr billing rate
   const HOURLY_COST = 29; // $29/hr fully burdened cost
@@ -107,9 +107,29 @@ export default function EnhancementsForecastPage() {
     }
   };
 
-  // Calculate Enhancement metrics for a given maintenance revenue
-  const calculateEnhancementMetrics = (maintenanceRevenue) => {
-    const enhancementRevenue = maintenanceRevenue * ENHANCEMENT_REVENUE_PERCENT;
+  // Get onsite revenue data
+  const getOnsiteRevenue = (month) => {
+    if (isPhoenixView) {
+      // Combine all Phoenix branches
+      let total = 0;
+      phoenixBranches.forEach(branch => {
+        const branchForecasts = allBranchForecasts[branch.id] || [];
+        const forecast = branchForecasts.find(f => f.month === month);
+        if (forecast) {
+          total += parseFloat(forecast.onsite_revenue) || 0;
+        }
+      });
+      return total;
+    } else {
+      const forecast = forecasts?.find(f => f.month === month);
+      return forecast ? parseFloat(forecast.onsite_revenue) || 0 : 0;
+    }
+  };
+
+  // Calculate Enhancement metrics for a given maintenance and onsite revenue
+  const calculateEnhancementMetrics = (maintenanceRevenue, onsiteRevenue) => {
+    const combinedRevenue = maintenanceRevenue + onsiteRevenue;
+    const enhancementRevenue = combinedRevenue * ENHANCEMENT_REVENUE_PERCENT;
     const laborRevenue = enhancementRevenue * LABOR_REVENUE_PERCENT;
     const nonLaborRevenue = enhancementRevenue - laborRevenue;
     const billableHours = laborRevenue / BILLING_RATE;
@@ -119,6 +139,8 @@ export default function EnhancementsForecastPage() {
     
     return {
       maintenanceRevenue,
+      onsiteRevenue,
+      combinedRevenue,
       enhancementRevenue,
       laborRevenue,
       nonLaborRevenue,
@@ -132,15 +154,18 @@ export default function EnhancementsForecastPage() {
   // Calculate monthly data
   const monthlyData = months.map(month => {
     const maintenanceRevenue = getMaintenanceRevenue(month);
+    const onsiteRevenue = getOnsiteRevenue(month);
     return {
       month,
-      ...calculateEnhancementMetrics(maintenanceRevenue)
+      ...calculateEnhancementMetrics(maintenanceRevenue, onsiteRevenue)
     };
   });
 
   // Calculate totals
   const totals = monthlyData.reduce((acc, d) => ({
     maintenanceRevenue: acc.maintenanceRevenue + d.maintenanceRevenue,
+    onsiteRevenue: acc.onsiteRevenue + d.onsiteRevenue,
+    combinedRevenue: acc.combinedRevenue + d.combinedRevenue,
     enhancementRevenue: acc.enhancementRevenue + d.enhancementRevenue,
     laborRevenue: acc.laborRevenue + d.laborRevenue,
     nonLaborRevenue: acc.nonLaborRevenue + d.nonLaborRevenue,
@@ -148,6 +173,8 @@ export default function EnhancementsForecastPage() {
     laborCost: acc.laborCost + d.laborCost
   }), {
     maintenanceRevenue: 0,
+    onsiteRevenue: 0,
+    combinedRevenue: 0,
     enhancementRevenue: 0,
     laborRevenue: 0,
     nonLaborRevenue: 0,
@@ -184,10 +211,16 @@ export default function EnhancementsForecastPage() {
       rows.push(['Metric', ...months, 'Total']);
       
       // Maintenance Revenue (source)
-      rows.push(['Maintenance Revenue (Source)', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      rows.push(['Maintenance Revenue', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
+      
+      // Onsite Revenue (source)
+      rows.push(['Onsite Revenue', ...monthlyData.map(d => d.onsiteRevenue), totals.onsiteRevenue]);
+      
+      // Combined Revenue (source)
+      rows.push(['Combined Revenue (Maint + Onsite)', ...monthlyData.map(d => d.combinedRevenue), totals.combinedRevenue]);
       
       // Enhancement Revenue Target
-      rows.push(['Enhancement Revenue (40%)', ...monthlyData.map(d => d.enhancementRevenue), totals.enhancementRevenue]);
+      rows.push(['Enhancement Revenue (40% of Combined)', ...monthlyData.map(d => d.enhancementRevenue), totals.enhancementRevenue]);
       
       // Labor Revenue
       rows.push(['Labor Revenue (70%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
@@ -364,7 +397,7 @@ export default function EnhancementsForecastPage() {
           <div className="flex flex-wrap gap-4 text-sm bg-purple-50 rounded-lg p-4 border border-purple-200">
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Enhancement Target:</span>
-              <span className="text-purple-700 font-semibold">40% of Maint Rev</span>
+              <span className="text-purple-700 font-semibold">40% of (Maint + Onsite)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Labor Split:</span>
@@ -420,10 +453,30 @@ export default function EnhancementsForecastPage() {
                 </td>
               </tr>
 
+              {/* Onsite Revenue (Source) Row */}
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <td className="px-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10">
+                  <div className="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Onsite Revenue
+                  </div>
+                </td>
+                {monthlyData.map(d => (
+                  <td key={d.month} className="px-2 py-2 text-center text-gray-500">
+                    {d.onsiteRevenue > 0 ? formatCurrency(d.onsiteRevenue) : '—'}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-semibold text-gray-500 bg-gray-100">
+                  {formatCurrency(totals.onsiteRevenue)}
+                </td>
+              </tr>
+
               {/* Enhancement Revenue Target Row */}
               <tr className="bg-purple-50 border-b border-purple-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">
-                  Enhancement Revenue (40%)
+                  Enhancement Revenue (40% of Maint + Onsite)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-2 text-center text-purple-700 font-medium">
@@ -551,19 +604,19 @@ export default function EnhancementsForecastPage() {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-purple-100 text-sm font-medium mb-1">Annual Enhancement Revenue</div>
+                <div className="text-purple-100 text-sm font-medium mb-1">Annual Enhancement Revenue Target</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.enhancementRevenue)}</div>
-                <div className="text-purple-200 text-xs mt-1">40% of Maintenance</div>
+                <div className="text-purple-200 text-xs mt-1">40% of (Maint + Onsite)</div>
               </div>
               <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-violet-100 text-sm font-medium mb-1">Annual Labor Revenue</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborRevenue)}</div>
                 <div className="text-violet-200 text-xs mt-1">70% of Enhancement</div>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-orange-100 text-sm font-medium mb-1">Annual Labor Cost</div>
+              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-red-100 text-sm font-medium mb-1">Annual Labor Cost</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborCost)}</div>
-                <div className="text-orange-200 text-xs mt-1">@ ${HOURLY_COST}/hr</div>
+                <div className="text-red-200 text-xs mt-1">@ ${HOURLY_COST}/hr</div>
               </div>
               <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-teal-100 text-sm font-medium mb-1">Average FTEs/Month</div>
@@ -578,7 +631,7 @@ export default function EnhancementsForecastPage() {
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
           <div className="text-sm text-gray-600 space-y-1">
-            <div><span className="font-medium">Enhancement Revenue</span> = Maintenance Revenue × 40%</div>
+            <div><span className="font-medium">Enhancement Revenue</span> = (Maintenance + Onsite) Revenue × 40%</div>
             <div><span className="font-medium">Labor Revenue</span> = Enhancement Revenue × 70%</div>
             <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>
             <div><span className="font-medium">Labor Cost</span> = Billable Hours × ${HOURLY_COST}/hr</div>

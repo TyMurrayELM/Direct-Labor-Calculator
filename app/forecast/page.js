@@ -76,6 +76,15 @@ export default function ForecastPage() {
   const [actualHours, setActualHours] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
   );
+  const [onsiteRevenue, setOnsiteRevenue] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
+  );
+  const [onsiteActualLaborCost, setOnsiteActualLaborCost] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
+  );
+  const [onsiteFtes, setOnsiteFtes] = useState(
+    months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
+  );
   const [isNormalized, setIsNormalized] = useState(true);
   
   // Fetch data
@@ -123,6 +132,9 @@ export default function ForecastPage() {
       const laborCostData = {};
       const weeksData = {};
       const hoursData = {};
+      const onsiteRevenueData = {};
+      const onsiteActualLaborCostData = {};
+      const onsiteFtesData = {};
       
       months.forEach(month => {
         const forecast = forecasts.find(f => f.month === month);
@@ -137,12 +149,21 @@ export default function ForecastPage() {
             String(forecast.weeks_in_month) : '4.33';
           hoursData[month] = forecast.actual_hours ? 
             Number(forecast.actual_hours).toLocaleString('en-US') : '';
+          onsiteRevenueData[month] = forecast.onsite_revenue ? 
+            Number(forecast.onsite_revenue).toLocaleString('en-US') : '';
+          onsiteActualLaborCostData[month] = forecast.onsite_actual_labor_cost ? 
+            Number(forecast.onsite_actual_labor_cost).toLocaleString('en-US') : '';
+          onsiteFtesData[month] = forecast.onsite_ftes ? 
+            String(forecast.onsite_ftes) : '';
         } else {
           revenueData[month] = '';
           ftesData[month] = '';
           laborCostData[month] = '';
           weeksData[month] = '4.33';
           hoursData[month] = '';
+          onsiteRevenueData[month] = '';
+          onsiteActualLaborCostData[month] = '';
+          onsiteFtesData[month] = '';
         }
       });
       
@@ -151,6 +172,9 @@ export default function ForecastPage() {
       setActualLaborCost(laborCostData);
       setWeeksInMonth(weeksData);
       setActualHours(hoursData);
+      setOnsiteRevenue(onsiteRevenueData);
+      setOnsiteActualLaborCost(onsiteActualLaborCostData);
+      setOnsiteFtes(onsiteFtesData);
     } else {
       // Clear form if no forecasts
       setMonthlyRevenue(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
@@ -158,6 +182,9 @@ export default function ForecastPage() {
       setActualLaborCost(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
       setWeeksInMonth(months.reduce((acc, month) => ({ ...acc, [month]: '4.33' }), {}));
       setActualHours(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
+      setOnsiteRevenue(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
+      setOnsiteActualLaborCost(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
+      setOnsiteFtes(months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}));
     }
   }, [forecasts]);
 
@@ -188,6 +215,23 @@ export default function ForecastPage() {
     const numericValue = value.replace(/[^0-9.]/g, '');
     const formatted = numericValue ? Number(numericValue).toLocaleString('en-US') : '';
     setActualHours(prev => ({ ...prev, [month]: formatted }));
+  };
+
+  const handleOnsiteRevenueChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    const formatted = numericValue ? Number(numericValue).toLocaleString('en-US') : '';
+    setOnsiteRevenue(prev => ({ ...prev, [month]: formatted }));
+  };
+
+  const handleOnsiteActualLaborCostChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    const formatted = numericValue ? Number(numericValue).toLocaleString('en-US') : '';
+    setOnsiteActualLaborCost(prev => ({ ...prev, [month]: formatted }));
+  };
+
+  const handleOnsiteFtesChange = (month, value) => {
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    setOnsiteFtes(prev => ({ ...prev, [month]: numericValue }));
   };
 
   const parseRevenue = (value) => {
@@ -229,6 +273,9 @@ export default function ForecastPage() {
     let monthActualHours = 0;
     let monthActualFtes = 0;
     let monthWeeks = 4.33;
+    let monthOnsiteRevenue = 0;
+    let monthOnsiteActualLaborCost = 0;
+    let monthOnsiteFtes = 0;
     
     branches.filter(isPhoenixBranch).forEach(branch => {
       const branchForecasts = allBranchForecasts[branch.id] || [];
@@ -238,6 +285,9 @@ export default function ForecastPage() {
         monthLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
         monthActualHours += parseFloat(forecast.actual_hours) || 0;
         monthActualFtes += parseFloat(forecast.actual_ftes) || 0;
+        monthOnsiteRevenue += parseFloat(forecast.onsite_revenue) || 0;
+        monthOnsiteActualLaborCost += parseFloat(forecast.onsite_actual_labor_cost) || 0;
+        monthOnsiteFtes += parseFloat(forecast.onsite_ftes) || 0;
         if (forecast.weeks_in_month) {
           monthWeeks = parseFloat(forecast.weeks_in_month);
         }
@@ -249,7 +299,10 @@ export default function ForecastPage() {
       laborCost: monthLaborCost,
       actualHours: monthActualHours,
       actualFtes: monthActualFtes,
-      weeks: monthWeeks
+      weeks: monthWeeks,
+      onsiteRevenue: monthOnsiteRevenue,
+      onsiteActualLaborCost: monthOnsiteActualLaborCost,
+      onsiteFtes: monthOnsiteFtes
     };
     return acc;
   }, {}) : null;
@@ -261,6 +314,9 @@ export default function ForecastPage() {
     let monthActualHours = 0;
     let monthActualFtes = 0;
     let monthWeeks = 4.33;
+    let monthOnsiteRevenue = 0;
+    let monthOnsiteActualLaborCost = 0;
+    let monthOnsiteFtes = 0;
     
     branches.forEach(branch => {
       const branchForecasts = allBranchForecasts[branch.id] || [];
@@ -270,6 +326,9 @@ export default function ForecastPage() {
         monthLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
         monthActualHours += parseFloat(forecast.actual_hours) || 0;
         monthActualFtes += parseFloat(forecast.actual_ftes) || 0;
+        monthOnsiteRevenue += parseFloat(forecast.onsite_revenue) || 0;
+        monthOnsiteActualLaborCost += parseFloat(forecast.onsite_actual_labor_cost) || 0;
+        monthOnsiteFtes += parseFloat(forecast.onsite_ftes) || 0;
         // Use weeks from first branch that has it (they should all be the same)
         if (forecast.weeks_in_month) {
           monthWeeks = parseFloat(forecast.weeks_in_month);
@@ -282,7 +341,10 @@ export default function ForecastPage() {
       laborCost: monthLaborCost,
       actualHours: monthActualHours,
       actualFtes: monthActualFtes,
-      weeks: monthWeeks
+      weeks: monthWeeks,
+      onsiteRevenue: monthOnsiteRevenue,
+      onsiteActualLaborCost: monthOnsiteActualLaborCost,
+      onsiteFtes: monthOnsiteFtes
     };
     return acc;
   }, {}) : null;
@@ -340,7 +402,10 @@ export default function ForecastPage() {
           actualFtes: parseFloat(actualFtes[month]) || null,
           actualLaborCost: parseRevenue(actualLaborCost[month]) || null,
           weeksInMonth: parseFloat(weeksInMonth[month]) || 4.33,
-          actualHours: parseFloat(String(actualHours[month]).replace(/,/g, '')) || null
+          actualHours: parseFloat(String(actualHours[month]).replace(/,/g, '')) || null,
+          onsiteRevenue: parseRevenue(onsiteRevenue[month]) || null,
+          onsiteActualLaborCost: parseRevenue(onsiteActualLaborCost[month]) || null,
+          onsiteFtes: parseFloat(onsiteFtes[month]) || null
         };
       });
       
@@ -415,6 +480,10 @@ export default function ForecastPage() {
           dlPercentHC = (actualLaborCostCalc / revenue) * 100;
         }
         
+        // Onsite values
+        const onsiteRev = isCombinedView ? (combinedData[month]?.onsiteRevenue || 0) : parseRevenue(onsiteRevenue[month]);
+        const onsiteFtesVal = isCombinedView ? (combinedData[month]?.onsiteFtes || 0) : (parseFloat(onsiteFtes[month]) || 0);
+        
         return {
           month,
           weeks,
@@ -428,7 +497,9 @@ export default function ForecastPage() {
           actualFtesFromHours,
           actHC,
           dlPercentHC,
-          crews
+          crews,
+          onsiteRev,
+          onsiteFtesVal
         };
       });
       
@@ -447,6 +518,10 @@ export default function ForecastPage() {
       const totalActHours = monthlyData.reduce((sum, d) => sum + d.actHours, 0);
       const avgActHC = monthlyData.filter(d => d.actHC > 0).length > 0 
         ? monthlyData.reduce((sum, d) => sum + d.actHC, 0) / monthlyData.filter(d => d.actHC > 0).length 
+        : '';
+      const totalOnsiteRevenue = monthlyData.reduce((sum, d) => sum + d.onsiteRev, 0);
+      const avgOnsiteFtes = monthlyData.filter(d => d.onsiteFtesVal > 0).length > 0
+        ? monthlyData.reduce((sum, d) => sum + d.onsiteFtesVal, 0) / monthlyData.filter(d => d.onsiteFtesVal > 0).length
         : '';
       
       // Build rows (each row is a metric, columns are months + total)
@@ -497,6 +572,12 @@ export default function ForecastPage() {
       // Maint Crews row
       rows.push(['Maint Crews (4m)', ...monthlyData.map(d => d.crews), avgFtes > 0 ? Math.ceil(avgFtes / 4) : '']);
       
+      // Onsite Revenue row
+      rows.push(['Onsite Revenue', ...monthlyData.map(d => d.onsiteRev || ''), totalOnsiteRevenue || '']);
+      
+      // Onsite FTEs row
+      rows.push(['Onsite FTEs', ...monthlyData.map(d => d.onsiteFtesVal || ''), avgOnsiteFtes ? avgOnsiteFtes.toFixed(1) + ' (avg)' : '']);
+      
       // Build CSV content
       const csvContent = rows.map(row => row.map(escapeCSV).join(',')).join('\n');
       
@@ -533,29 +614,37 @@ export default function ForecastPage() {
   const companyTotals = branches.reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+    const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
     const branchHourlyRate = getHourlyRateByBranch(branch);
     const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
+    const branchOnsiteLaborBudget = branchOnsiteRevenue * 0.55;
     const branchLaborHours = branchLaborBudget / branchHourlyRate;
     return {
       revenue: acc.revenue + branchRevenue,
+      onsiteRevenue: acc.onsiteRevenue + branchOnsiteRevenue,
       laborBudget: acc.laborBudget + branchLaborBudget,
+      onsiteLaborBudget: acc.onsiteLaborBudget + branchOnsiteLaborBudget,
       laborHours: acc.laborHours + branchLaborHours
     };
-  }, { revenue: 0, laborBudget: 0, laborHours: 0 });
+  }, { revenue: 0, onsiteRevenue: 0, laborBudget: 0, onsiteLaborBudget: 0, laborHours: 0 });
 
   // Calculate Phoenix-only totals (combined Phoenix branches)
   const phoenixTotals = branches.filter(isPhoenixBranch).reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+    const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
     const branchHourlyRate = getHourlyRateByBranch(branch);
     const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
+    const branchOnsiteLaborBudget = branchOnsiteRevenue * 0.55;
     const branchLaborHours = branchLaborBudget / branchHourlyRate;
     return {
       revenue: acc.revenue + branchRevenue,
+      onsiteRevenue: acc.onsiteRevenue + branchOnsiteRevenue,
       laborBudget: acc.laborBudget + branchLaborBudget,
+      onsiteLaborBudget: acc.onsiteLaborBudget + branchOnsiteLaborBudget,
       laborHours: acc.laborHours + branchLaborHours
     };
-  }, { revenue: 0, laborBudget: 0, laborHours: 0 });
+  }, { revenue: 0, onsiteRevenue: 0, laborBudget: 0, onsiteLaborBudget: 0, laborHours: 0 });
 
   // Use appropriate totals based on view
   const totals = isEncoreView ? companyTotals : isPhoenixView ? phoenixTotals : branchTotals;
@@ -834,6 +923,169 @@ export default function ForecastPage() {
             <span className="text-xs text-gray-500">(4.33 weeks)</span>
           </div>
         </div>
+
+        {/* Summary Cards */}
+        {totals.revenue > 0 && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-white text-sm font-medium mb-1">Annual Revenue</div>
+                {(() => {
+                  const onsiteRev = isCombinedView 
+                    ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0)
+                    : months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0);
+                  const totalRev = totals.revenue + onsiteRev;
+                  
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <div>
+                          <div className="text-lg font-bold text-white">{formatCurrency(totals.revenue)}</div>
+                          <div className="text-white/70 text-xs">Maintenance</div>
+                        </div>
+                        <div className="text-white/50 text-sm">+</div>
+                        <div>
+                          <div className="text-lg font-bold text-white">{formatCurrency(onsiteRev)}</div>
+                          <div className="text-white/70 text-xs">Onsite</div>
+                        </div>
+                      </div>
+                      <div className="text-white text-sm font-semibold mt-2 pt-2 border-t border-white/30">
+                        Total: {formatCurrency(totalRev)}
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="text-white/70 text-xs mt-1">{selectedBranch.name}</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-white text-sm font-medium mb-1">Annual Labor Cost at Target</div>
+                <div className="flex items-baseline gap-2">
+                  <div>
+                    <div className="text-lg font-bold text-white">{formatCurrency(totals.laborBudget)}</div>
+                    <div className="text-white/70 text-xs">Maintenance</div>
+                  </div>
+                  <div className="text-white/50 text-sm">+</div>
+                  <div>
+                    <div className="text-lg font-bold text-white">
+                      {formatCurrency(
+                        (isCombinedView 
+                          ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0)
+                          : months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0)
+                        ) * 0.55
+                      )}
+                    </div>
+                    <div className="text-white/70 text-xs">Onsite</div>
+                  </div>
+                </div>
+                <div className="text-white text-sm font-semibold mt-2 pt-2 border-t border-white/30">
+                  Total: {formatCurrency(
+                    totals.laborBudget + 
+                    (isCombinedView 
+                      ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0)
+                      : months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0)
+                    ) * 0.55
+                  )}
+                </div>
+                <div className="text-white/70 text-xs mt-1">{selectedBranch.name}</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-white text-sm font-medium mb-1">YTD Actual DL %</div>
+                {(() => {
+                  const now = new Date();
+                  const currentMonthIndex = now.getMonth();
+                  const lastMonthIndex = currentMonthIndex === 0 ? 0 : currentMonthIndex - 1;
+                  const ytdMonths = months.slice(0, lastMonthIndex + 1);
+                  
+                  let maintActualCost, maintRevenue, onsiteActualCost, onsiteRev;
+                  
+                  if (isCombinedView) {
+                    maintActualCost = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.laborCost || 0), 0);
+                    maintRevenue = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.revenue || 0), 0);
+                    onsiteActualCost = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.onsiteActualLaborCost || 0), 0);
+                    onsiteRev = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.onsiteRevenue || 0), 0);
+                  } else {
+                    maintActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
+                    maintRevenue = ytdMonths.reduce((sum, month) => sum + parseRevenue(monthlyRevenue[month]), 0);
+                    onsiteActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(onsiteActualLaborCost[month]), 0);
+                    onsiteRev = ytdMonths.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0);
+                  }
+                  
+                  const maintDL = maintRevenue > 0 ? (maintActualCost / maintRevenue) * 100 : null;
+                  const onsiteDL = onsiteRev > 0 ? (onsiteActualCost / onsiteRev) * 100 : null;
+                  const totalRevenue = maintRevenue + onsiteRev;
+                  const totalCost = maintActualCost + onsiteActualCost;
+                  const combinedDL = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : null;
+                  
+                  const maintLaborTarget = maintRevenue * 0.40;
+                  const onsiteLaborTarget = onsiteRev * 0.55;
+                  const combinedDLTarget = totalRevenue > 0 ? ((maintLaborTarget + onsiteLaborTarget) / totalRevenue) * 100 : null;
+                  
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <div>
+                          <div className="text-lg font-bold text-white">
+                            {maintDL !== null ? formatNumber(maintDL, 1) + '%' : <span className="text-white">—</span>}
+                          </div>
+                          <div className="text-white/70 text-xs">Maintenance</div>
+                        </div>
+                        <div className="text-white/50 text-sm">|</div>
+                        <div>
+                          <div className="text-lg font-bold text-white">
+                            {onsiteDL !== null ? formatNumber(onsiteDL, 1) + '%' : <span className="text-white">—</span>}
+                          </div>
+                          <div className="text-white/70 text-xs">Onsite</div>
+                        </div>
+                      </div>
+                      <div className="text-white text-sm font-semibold mt-2 pt-2 border-t border-white/30">
+                        Combined: {combinedDL !== null ? formatNumber(combinedDL, 1) + '%' : <span className="text-white">—</span>}
+                        {combinedDLTarget !== null && (
+                          <span className="text-white/70 font-normal"> / {formatNumber(combinedDLTarget, 1)}% target</span>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="text-white/70 text-xs mt-1">{selectedBranch.name} (thru {months[Math.max(0, new Date().getMonth() === 0 ? 0 : new Date().getMonth() - 1)]})</div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
+                <div className="text-white text-sm font-medium mb-1">Average FTEs/Month</div>
+                {(() => {
+                  const avgOnsiteFtes = isCombinedView
+                    ? Math.round(
+                        months.reduce((sum, m) => sum + (combinedData[m]?.onsiteFtes || 0), 0) / 
+                        (months.filter(m => (combinedData[m]?.onsiteFtes || 0) > 0).length || 1)
+                      )
+                    : Math.round(
+                        months.reduce((sum, m) => sum + (parseFloat(onsiteFtes[m]) || 0), 0) / 
+                        (months.filter(m => parseFloat(onsiteFtes[m]) > 0).length || 1)
+                      );
+                  const totalFtes = avgFtes + avgOnsiteFtes;
+                  
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <div>
+                          <div className="text-lg font-bold text-white">{avgFtes}</div>
+                          <div className="text-white/70 text-xs">Maintenance</div>
+                        </div>
+                        <div className="text-white/50 text-sm">+</div>
+                        <div>
+                          <div className="text-lg font-bold text-white">{avgOnsiteFtes}</div>
+                          <div className="text-white/70 text-xs">Onsite</div>
+                        </div>
+                      </div>
+                      <div className="text-white text-sm font-semibold mt-2 pt-2 border-t border-white/30">
+                        Total: {totalFtes}
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="text-white/70 text-xs mt-1">{selectedBranch.name}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Table */}
         <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
@@ -1357,66 +1609,193 @@ export default function ForecastPage() {
                   })()}
                 </td>
               </tr>
+
+              {/* Onsite Revenue Input Row */}
+              <tr className="bg-violet-50/60 border-b border-violet-100 hover:bg-violet-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-violet-50/60 z-10">
+                  Onsite Revenue
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1.5">
+                    {isCombinedView ? (
+                      <div className="text-center text-violet-700 font-semibold tabular-nums">
+                        {formatCurrency(combinedData[month]?.onsiteRevenue || 0)}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input
+                          type="text"
+                          value={onsiteRevenue[month]}
+                          onChange={(e) => handleOnsiteRevenueChange(month, e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-5 pr-1 py-1.5 border border-slate-200 rounded text-right text-sm font-mono focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none bg-white transition-all duration-150 hover:border-violet-300"
+                        />
+                      </div>
+                    )}
+                  </td>
+                ))}
+                <td className="px-3 py-2.5 text-center bg-violet-100/80">
+                  <span className="font-bold text-violet-800 text-base tabular-nums">
+                    {isCombinedView 
+                      ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0))
+                      : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0))
+                    }
+                  </span>
+                </td>
+              </tr>
+
+              {/* Onsite Labor Target Row (45% of Onsite Revenue) */}
+              <tr className="bg-violet-50/40 border-b border-violet-100/50 hover:bg-violet-50/50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-violet-50/40 z-10">
+                  Onsite Labor Target (55%)
+                </td>
+                {months.map(month => {
+                  const onsiteRev = isCombinedView 
+                    ? (combinedData[month]?.onsiteRevenue || 0) 
+                    : parseRevenue(onsiteRevenue[month]);
+                  const onsiteLaborTarget = onsiteRev * 0.55;
+                  return (
+                    <td key={month} className="px-2 py-2.5 text-center text-violet-600 tabular-nums">
+                      {onsiteRev > 0 ? formatCurrency(onsiteLaborTarget) : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-2.5 text-center bg-violet-100/60">
+                  <span className="font-bold text-violet-700 text-base tabular-nums">
+                    {formatCurrency(
+                      (isCombinedView 
+                        ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0)
+                        : months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0)
+                      ) * 0.55
+                    )}
+                  </span>
+                </td>
+              </tr>
+
+              {/* Onsite Actual Labor Cost Input Row */}
+              <tr className="bg-violet-50/50 border-b border-violet-100 hover:bg-violet-50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-violet-50/50 z-10">
+                  Onsite Actual Labor Cost
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1.5">
+                    {isCombinedView ? (
+                      <div className="text-center text-violet-700 font-semibold tabular-nums">
+                        {formatCurrency(combinedData[month]?.onsiteActualLaborCost || 0)}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input
+                          type="text"
+                          value={onsiteActualLaborCost[month]}
+                          onChange={(e) => handleOnsiteActualLaborCostChange(month, e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-5 pr-1 py-1.5 border border-slate-200 rounded text-right text-sm font-mono focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none bg-white transition-all duration-150 hover:border-violet-300"
+                        />
+                      </div>
+                    )}
+                  </td>
+                ))}
+                <td className="px-3 py-2.5 text-center bg-violet-100/80">
+                  <span className="font-bold text-violet-800 text-base tabular-nums">
+                    {isCombinedView
+                      ? formatCurrency(months.reduce((sum, m) => sum + (combinedData[m]?.onsiteActualLaborCost || 0), 0))
+                      : formatCurrency(months.reduce((sum, month) => sum + parseRevenue(onsiteActualLaborCost[month]), 0))
+                    }
+                  </span>
+                </td>
+              </tr>
+
+              {/* Onsite Actual DL % Row */}
+              <tr className="bg-violet-50/30 border-b border-violet-100/50">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-violet-50/30 z-10">
+                  Onsite Actual DL %
+                </td>
+                {months.map(month => {
+                  const onsiteRev = isCombinedView 
+                    ? (combinedData[month]?.onsiteRevenue || 0) 
+                    : parseRevenue(onsiteRevenue[month]);
+                  const onsiteCost = isCombinedView 
+                    ? (combinedData[month]?.onsiteActualLaborCost || 0) 
+                    : parseRevenue(onsiteActualLaborCost[month]);
+                  const onsiteDL = onsiteRev > 0 ? (onsiteCost / onsiteRev) * 100 : null;
+                  return (
+                    <td key={month} className="px-2 py-2.5 text-center tabular-nums">
+                      {onsiteDL !== null ? (
+                        <span className={`font-semibold ${onsiteDL > 55 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatNumber(onsiteDL, 1)}%
+                        </span>
+                      ) : '—'}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-2.5 text-center bg-violet-100/60">
+                  {(() => {
+                    const totalOnsiteRev = isCombinedView
+                      ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteRevenue || 0), 0)
+                      : months.reduce((sum, month) => sum + parseRevenue(onsiteRevenue[month]), 0);
+                    const totalOnsiteCost = isCombinedView
+                      ? months.reduce((sum, m) => sum + (combinedData[m]?.onsiteActualLaborCost || 0), 0)
+                      : months.reduce((sum, month) => sum + parseRevenue(onsiteActualLaborCost[month]), 0);
+                    const avgDL = totalOnsiteRev > 0 ? (totalOnsiteCost / totalOnsiteRev) * 100 : null;
+                    return avgDL !== null ? (
+                      <span className={`font-bold text-base ${avgDL > 55 ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatNumber(avgDL, 1)}%
+                      </span>
+                    ) : '—';
+                  })()}
+                </td>
+              </tr>
+
+              {/* Onsite FTEs Input Row */}
+              <tr className="bg-violet-50/30 border-b border-violet-100/50 hover:bg-violet-50/50 transition-colors duration-150">
+                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-violet-50/30 z-10">
+                  Onsite FTEs
+                </td>
+                {months.map(month => (
+                  <td key={month} className="px-1 py-1.5">
+                    {isCombinedView ? (
+                      <div className="text-center text-violet-700 font-semibold tabular-nums">
+                        {combinedData[month]?.onsiteFtes || <span className="text-slate-300">—</span>}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={onsiteFtes[month]}
+                        onChange={(e) => handleOnsiteFtesChange(month, e.target.value)}
+                        placeholder="0"
+                        className="w-full px-1 py-1.5 border border-slate-200 rounded text-center text-sm font-mono focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none bg-white transition-all duration-150 hover:border-violet-300"
+                      />
+                    )}
+                  </td>
+                ))}
+                <td className="px-3 py-2.5 text-center bg-violet-100/80">
+                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <span className="font-bold text-violet-800 text-base tabular-nums">
+                    {isCombinedView
+                      ? formatNumber(
+                          months.reduce((sum, m) => sum + (combinedData[m]?.onsiteFtes || 0), 0) / 
+                          (months.filter(m => (combinedData[m]?.onsiteFtes || 0) > 0).length || 1),
+                          1
+                        )
+                      : formatNumber(
+                          months.reduce((sum, m) => sum + (parseFloat(onsiteFtes[m]) || 0), 0) / 
+                          (months.filter(m => parseFloat(onsiteFtes[m]) > 0).length || 1),
+                          1
+                        )
+                    }
+                  </span>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Summary Cards */}
-        {totals.revenue > 0 && (
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-green-100 text-sm font-medium mb-1">Annual Revenue</div>
-                <div className="text-2xl font-bold">{formatCurrency(totals.revenue)}</div>
-                <div className="text-green-200 text-xs mt-1">{selectedBranch.name}</div>
-              </div>
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-blue-100 text-sm font-medium mb-1">Annual Labor Cost at Target</div>
-                <div className="text-2xl font-bold">{formatCurrency(totals.laborBudget)}</div>
-                <div className="text-blue-200 text-xs mt-1">{selectedBranch.name}</div>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-purple-100 text-sm font-medium mb-1">YTD Actual DL %</div>
-                <div className="text-2xl font-bold">
-                  {(() => {
-                    // Get the last completed month (prior month)
-                    const now = new Date();
-                    const lastCompletedMonthIndex = now.getMonth() - 1; // 0-indexed, -1 for prior month
-                    
-                    // If we're in January, there's no prior month this year
-                    if (lastCompletedMonthIndex < 0) return '—';
-                    
-                    // Only sum through the last completed month
-                    const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
-                    
-                    let totalActualCost, totalRevenue;
-                    
-                    if (isCombinedView) {
-                      // Use encoreData for Encore view
-                      totalActualCost = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.laborCost || 0), 0);
-                      totalRevenue = ytdMonths.reduce((sum, month) => sum + (combinedData[month]?.revenue || 0), 0);
-                    } else {
-                      // Use local state for single branch
-                      totalActualCost = ytdMonths.reduce((sum, month) => sum + parseRevenue(actualLaborCost[month]), 0);
-                      totalRevenue = ytdMonths.reduce((sum, month) => sum + parseRevenue(monthlyRevenue[month]), 0);
-                    }
-                    
-                    if (totalRevenue === 0 || totalActualCost === 0) return '—';
-                    return formatNumber((totalActualCost / totalRevenue) * 100, 1) + '%';
-                  })()}
-                </div>
-                <div className="text-purple-200 text-xs mt-1">{selectedBranch.name} (thru {months[Math.max(0, new Date().getMonth() - 1)]})</div>
-              </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-orange-100 text-sm font-medium mb-1">Average FTEs/Month</div>
-                <div className="text-2xl font-bold">{avgFtes}</div>
-                <div className="text-orange-200 text-xs mt-1">{selectedBranch.name}</div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Branch Comparison */}
+        {/* Branch Comparison - Only show for Phoenix and Encore views */}
+        {isCombinedView && (
         <div className="p-6 border-t border-gray-200">
           <h3 className="font-semibold text-gray-800 mb-4">Branch Comparison ({selectedYear})</h3>
           <div className="overflow-x-auto">
@@ -1429,63 +1808,88 @@ export default function ForecastPage() {
                   <th className="text-right py-2 px-3 font-medium text-gray-600">YTD Actual DL %</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Actual HC</th>
                   <th className="text-right py-2 px-3 font-medium text-gray-600">Target FTEs</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">% of Company</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-600">% of {isPhoenixView ? 'Phoenix' : 'Company'}</th>
                 </tr>
               </thead>
               <tbody>
-                {branches.map(branch => {
+                {(isPhoenixView ? branches.filter(isPhoenixBranch) : branches).map(branch => {
                   const branchForecasts = allBranchForecasts[branch.id] || [];
                   const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
+                  const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
+                  const branchTotalRevenue = branchRevenue + branchOnsiteRevenue;
                   const branchHourlyRate = getHourlyRateByBranch(branch);
-                  const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
-                  const branchLaborHours = branchLaborBudget / branchHourlyRate;
+                  const branchMaintenanceLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
+                  const branchOnsiteLaborBudget = branchOnsiteRevenue * 0.55;
+                  const branchTotalLaborBudget = branchMaintenanceLaborBudget + branchOnsiteLaborBudget;
+                  const branchLaborHours = branchMaintenanceLaborBudget / branchHourlyRate;
                   const branchAvgFtes = Math.floor(branchLaborHours / HOURS_PER_MONTH / 12);
-                  const percentOfCompany = companyTotals.revenue > 0 
-                    ? (branchRevenue / companyTotals.revenue) * 100 
+                  // Use appropriate totals for percentage calculation
+                  const viewTotals = isPhoenixView ? phoenixTotals : companyTotals;
+                  const viewTotalRevenue = viewTotals.revenue + viewTotals.onsiteRevenue;
+                  const percentOfTotal = viewTotalRevenue > 0 
+                    ? (branchTotalRevenue / viewTotalRevenue) * 100 
                     : 0;
                   
-                  // Calculate YTD Actual DL % through prior month
+                  // Calculate YTD Actual DL % (Combined: Maintenance + Onsite)
+                  // In January, use current month; otherwise use through prior month
                   const now = new Date();
-                  const lastCompletedMonthIndex = now.getMonth() - 1;
-                  let ytdActualDL = null;
+                  const currentMonthIndex = now.getMonth();
+                  const lastMonthIndex = currentMonthIndex === 0 ? 0 : currentMonthIndex - 1;
+                  let ytdCombinedDL = null;
                   let lastMonthActualHC = null;
                   let lastMonthTargetFTEs = null;
                   
-                  if (lastCompletedMonthIndex >= 0) {
-                    const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
-                    const lastMonth = months[lastCompletedMonthIndex];
-                    const lastMonthForecast = branchForecasts.find(f => f.month === lastMonth);
+                  const ytdMonths = months.slice(0, lastMonthIndex + 1);
+                  const lastMonth = months[lastMonthIndex];
+                  const lastMonthForecast = branchForecasts.find(f => f.month === lastMonth);
+                  
+                  // Get Actual HC from last complete month
+                  if (lastMonthForecast) {
+                    lastMonthActualHC = parseFloat(lastMonthForecast.actual_ftes) || null;
                     
-                    // Get Actual HC from last complete month
-                    if (lastMonthForecast) {
-                      lastMonthActualHC = parseFloat(lastMonthForecast.actual_ftes) || null;
-                      
-                      // Calculate Target FTEs for last month (FTEs Required)
-                      const lastMonthRevenue = parseFloat(lastMonthForecast.forecast_revenue) || 0;
-                      if (lastMonthRevenue > 0) {
-                        const laborBudget = lastMonthRevenue * (1 - GROSS_MARGIN_TARGET);
-                        const laborHours = laborBudget / branchHourlyRate;
-                        lastMonthTargetFTEs = Math.floor(laborHours / HOURS_PER_MONTH);
-                      }
+                    // Calculate Target FTEs for last month (FTEs Required)
+                    const lastMonthRevenue = parseFloat(lastMonthForecast.forecast_revenue) || 0;
+                    if (lastMonthRevenue > 0) {
+                      const laborBudget = lastMonthRevenue * (1 - GROSS_MARGIN_TARGET);
+                      const laborHours = laborBudget / branchHourlyRate;
+                      lastMonthTargetFTEs = Math.floor(laborHours / HOURS_PER_MONTH);
                     }
-                    
-                    const ytdRevenue = ytdMonths.reduce((sum, month) => {
-                      const forecast = branchForecasts.find(f => f.month === month);
-                      return sum + (forecast ? parseFloat(forecast.forecast_revenue) || 0 : 0);
-                    }, 0);
-                    const ytdLaborCost = ytdMonths.reduce((sum, month) => {
-                      const forecast = branchForecasts.find(f => f.month === month);
-                      return sum + (forecast ? parseFloat(forecast.actual_labor_cost) || 0 : 0);
-                    }, 0);
-                    if (ytdRevenue > 0 && ytdLaborCost > 0) {
-                      ytdActualDL = (ytdLaborCost / ytdRevenue) * 100;
-                    }
+                  }
+                  
+                  // Combined YTD calculation (Maintenance + Onsite)
+                  const ytdMaintRevenue = ytdMonths.reduce((sum, month) => {
+                    const forecast = branchForecasts.find(f => f.month === month);
+                    return sum + (forecast ? parseFloat(forecast.forecast_revenue) || 0 : 0);
+                  }, 0);
+                  const ytdMaintLaborCost = ytdMonths.reduce((sum, month) => {
+                    const forecast = branchForecasts.find(f => f.month === month);
+                    return sum + (forecast ? parseFloat(forecast.actual_labor_cost) || 0 : 0);
+                  }, 0);
+                  const ytdOnsiteRevenue = ytdMonths.reduce((sum, month) => {
+                    const forecast = branchForecasts.find(f => f.month === month);
+                    return sum + (forecast ? parseFloat(forecast.onsite_revenue) || 0 : 0);
+                  }, 0);
+                  const ytdOnsiteLaborCost = ytdMonths.reduce((sum, month) => {
+                    const forecast = branchForecasts.find(f => f.month === month);
+                    return sum + (forecast ? parseFloat(forecast.onsite_actual_labor_cost) || 0 : 0);
+                  }, 0);
+                  
+                  const totalYtdRevenue = ytdMaintRevenue + ytdOnsiteRevenue;
+                  const totalYtdLaborCost = ytdMaintLaborCost + ytdOnsiteLaborCost;
+                  
+                  // Calculate combined DL target: (Maint @ 40% + Onsite @ 55%) / Total Revenue
+                  let ytdCombinedDLTarget = null;
+                  if (totalYtdRevenue > 0) {
+                    ytdCombinedDL = (totalYtdLaborCost / totalYtdRevenue) * 100;
+                    const maintLaborTarget = ytdMaintRevenue * 0.40;
+                    const onsiteLaborTarget = ytdOnsiteRevenue * 0.55;
+                    ytdCombinedDLTarget = ((maintLaborTarget + onsiteLaborTarget) / totalYtdRevenue) * 100;
                   }
                   
                   return (
                     <tr 
                       key={branch.id} 
-                      className={`border-b border-gray-100 ${selectedBranchId === branch.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                      className="border-b border-gray-100 hover:bg-gray-50"
                     >
                       <td className="py-2 px-3 font-medium">
                         <span 
@@ -1493,16 +1897,14 @@ export default function ForecastPage() {
                           style={{ backgroundColor: branch.color || '#4F46E5' }}
                         ></span>
                         {branch.name}
-                        {selectedBranchId === branch.id && (
-                          <span className="ml-2 text-xs text-blue-600">(editing)</span>
-                        )}
                       </td>
-                      <td className="py-2 px-3 text-right">{formatCurrency(branchRevenue)}</td>
-                      <td className="py-2 px-3 text-right">{formatCurrency(branchLaborBudget)}</td>
+                      <td className="py-2 px-3 text-right">{formatCurrency(branchTotalRevenue)}</td>
+                      <td className="py-2 px-3 text-right">{formatCurrency(branchTotalLaborBudget)}</td>
                       <td className="py-2 px-3 text-right">
-                        {ytdActualDL !== null ? (
-                          <span className={`font-medium ${ytdActualDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
-                            {formatNumber(ytdActualDL, 1)}%
+                        {ytdCombinedDL !== null ? (
+                          <span className={`font-medium ${ytdCombinedDL > ytdCombinedDLTarget ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatNumber(ytdCombinedDL, 1)}%
+                            <span className="text-gray-400 font-normal text-xs"> / {formatNumber(ytdCombinedDLTarget, 1)}%</span>
                           </span>
                         ) : '—'}
                       </td>
@@ -1514,47 +1916,62 @@ export default function ForecastPage() {
                             <div 
                               className="h-2 rounded-full" 
                               style={{ 
-                                width: `${Math.min(percentOfCompany, 100)}%`,
+                                width: `${Math.min(percentOfTotal, 100)}%`,
                                 backgroundColor: branch.color || '#4F46E5'
                               }}
                             />
                           </div>
-                          <span className="w-12 text-right">{formatNumber(percentOfCompany, 1)}%</span>
+                          <span className="w-12 text-right">{formatNumber(percentOfTotal, 1)}%</span>
                         </div>
                       </td>
                     </tr>
                   );
                 })}
                 <tr className="bg-gray-100 font-semibold">
-                  <td className="py-2 px-3">Company Total</td>
-                  <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.revenue)}</td>
-                  <td className="py-2 px-3 text-right">{formatCurrency(companyTotals.laborBudget)}</td>
+                  <td className="py-2 px-3">{isPhoenixView ? 'Phoenix Total' : 'Company Total'}</td>
+                  <td className="py-2 px-3 text-right">{formatCurrency((isPhoenixView ? phoenixTotals : companyTotals).revenue + (isPhoenixView ? phoenixTotals : companyTotals).onsiteRevenue)}</td>
+                  <td className="py-2 px-3 text-right">{formatCurrency((isPhoenixView ? phoenixTotals : companyTotals).laborBudget + (isPhoenixView ? phoenixTotals : companyTotals).onsiteLaborBudget)}</td>
                   <td className="py-2 px-3 text-right">
                     {(() => {
                       const now = new Date();
-                      const lastCompletedMonthIndex = now.getMonth() - 1;
-                      if (lastCompletedMonthIndex < 0) return '—';
+                      const currentMonthIndex = now.getMonth();
+                      const lastMonthIndex = currentMonthIndex === 0 ? 0 : currentMonthIndex - 1;
                       
-                      const ytdMonths = months.slice(0, lastCompletedMonthIndex + 1);
-                      let totalYtdRevenue = 0;
-                      let totalYtdLaborCost = 0;
+                      const ytdMonths = months.slice(0, lastMonthIndex + 1);
+                      let totalYtdMaintRevenue = 0;
+                      let totalYtdMaintLaborCost = 0;
+                      let totalYtdOnsiteRevenue = 0;
+                      let totalYtdOnsiteLaborCost = 0;
                       
-                      branches.forEach(branch => {
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         ytdMonths.forEach(month => {
                           const forecast = branchForecasts.find(f => f.month === month);
                           if (forecast) {
-                            totalYtdRevenue += parseFloat(forecast.forecast_revenue) || 0;
-                            totalYtdLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
+                            totalYtdMaintRevenue += parseFloat(forecast.forecast_revenue) || 0;
+                            totalYtdMaintLaborCost += parseFloat(forecast.actual_labor_cost) || 0;
+                            totalYtdOnsiteRevenue += parseFloat(forecast.onsite_revenue) || 0;
+                            totalYtdOnsiteLaborCost += parseFloat(forecast.onsite_actual_labor_cost) || 0;
                           }
                         });
                       });
                       
-                      if (totalYtdRevenue === 0 || totalYtdLaborCost === 0) return '—';
-                      const companyYtdDL = (totalYtdLaborCost / totalYtdRevenue) * 100;
+                      const totalYtdRevenue = totalYtdMaintRevenue + totalYtdOnsiteRevenue;
+                      const totalYtdLaborCost = totalYtdMaintLaborCost + totalYtdOnsiteLaborCost;
+                      
+                      if (totalYtdRevenue === 0) return '—';
+                      const totalYtdDL = (totalYtdLaborCost / totalYtdRevenue) * 100;
+                      
+                      // Calculate combined DL target
+                      const maintLaborTarget = totalYtdMaintRevenue * 0.40;
+                      const onsiteLaborTarget = totalYtdOnsiteRevenue * 0.55;
+                      const totalYtdDLTarget = ((maintLaborTarget + onsiteLaborTarget) / totalYtdRevenue) * 100;
+                      
                       return (
-                        <span className={`${companyYtdDL > 40 ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatNumber(companyYtdDL, 1)}%
+                        <span className={`${totalYtdDL > totalYtdDLTarget ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatNumber(totalYtdDL, 1)}%
+                          <span className="text-gray-500 font-normal text-xs"> / {formatNumber(totalYtdDLTarget, 1)}%</span>
                         </span>
                       );
                     })()}
@@ -1562,13 +1979,14 @@ export default function ForecastPage() {
                   <td className="py-2 px-3 text-right">
                     {(() => {
                       const now = new Date();
-                      const lastCompletedMonthIndex = now.getMonth() - 1;
-                      if (lastCompletedMonthIndex < 0) return '—';
+                      const currentMonthIndex = now.getMonth();
+                      const lastMonthIndex = currentMonthIndex === 0 ? 0 : currentMonthIndex - 1;
                       
-                      const lastMonth = months[lastCompletedMonthIndex];
+                      const lastMonth = months[lastMonthIndex];
                       let totalActualHC = 0;
                       
-                      branches.forEach(branch => {
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         const forecast = branchForecasts.find(f => f.month === lastMonth);
                         if (forecast) {
@@ -1582,13 +2000,14 @@ export default function ForecastPage() {
                   <td className="py-2 px-3 text-right">
                     {(() => {
                       const now = new Date();
-                      const lastCompletedMonthIndex = now.getMonth() - 1;
-                      if (lastCompletedMonthIndex < 0) return '—';
+                      const currentMonthIndex = now.getMonth();
+                      const lastMonthIndex = currentMonthIndex === 0 ? 0 : currentMonthIndex - 1;
                       
-                      const lastMonth = months[lastCompletedMonthIndex];
+                      const lastMonth = months[lastMonthIndex];
                       let totalTargetFTEs = 0;
                       
-                      branches.forEach(branch => {
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         const branchHourlyRate = getHourlyRateByBranch(branch);
                         const forecast = branchForecasts.find(f => f.month === lastMonth);
@@ -1611,6 +2030,7 @@ export default function ForecastPage() {
             </table>
           </div>
         </div>
+        )}
 
         {/* Formula Reference */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">

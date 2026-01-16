@@ -7,9 +7,9 @@ export async function middleware(req) {
     return NextResponse.next();
   }
 
-  // Allow bots/crawlers to access pages for Open Graph metadata
+  // Allow Slackbot and Googlebot to access pages for Open Graph metadata
   const userAgent = req.headers.get('user-agent') || '';
-  const isBot = /Slackbot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Googlebot|bingbot|Discordbot/i.test(userAgent);
+  const isBot = /Slackbot|Googlebot/i.test(userAgent);
   
   if (isBot) {
     return NextResponse.next();

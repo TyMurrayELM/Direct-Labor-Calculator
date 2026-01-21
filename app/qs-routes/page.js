@@ -109,6 +109,9 @@ export default function QSRoutesPage() {
   const [parsedRoutes, setParsedRoutes] = useState([]);
   const [selectedDay, setSelectedDay] = useState('all');
   
+  // Property schedule lookup map - maps property name to scheduled day(s)
+  const [propertyScheduleMap, setPropertyScheduleMap] = useState({});
+  
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   useEffect(() => {
@@ -134,6 +137,117 @@ export default function QSRoutesPage() {
       setSelectedBranchId(branches[0].id);
     }
   }, [branches, selectedBranchId]);
+
+  // Fetch property schedule data when branch changes
+  useEffect(() => {
+    const fetchPropertySchedules = async () => {
+      if (!selectedBranchId) return;
+      
+      try {
+        // Fetch all properties for this branch
+        const { data: propertiesData, error: propertiesError } = await supabase
+          .from('properties')
+          .select('id, name, service_day, crew_id, complex_id')
+          .eq('branch_id', selectedBranchId);
+
+        if (propertiesError) throw propertiesError;
+
+        // Fetch all complexes for this branch
+        const { data: complexesData, error: complexesError } = await supabase
+          .from('complexes')
+          .select('id, name')
+          .eq('branch_id', selectedBranchId);
+        
+        if (complexesError) {
+          console.warn('Error fetching complexes:', complexesError);
+        }
+        
+        // Build complex map: id -> name
+        const complexMap = {};
+        if (complexesData) {
+          complexesData.forEach(complex => {
+            complexMap[complex.id] = complex.name;
+          });
+        }
+
+        // Get unique crew IDs that have properties
+        const crewIds = [...new Set(propertiesData?.filter(p => p.crew_id).map(p => p.crew_id) || [])];
+        
+        // Fetch crew info separately
+        let crewMap = {};
+        if (crewIds.length > 0) {
+          const { data: crewsData, error: crewsError } = await supabase
+            .from('crews')
+            .select('id, name, is_onsite')
+            .in('id', crewIds);
+          
+          if (crewsError) {
+            console.warn('Error fetching crews:', crewsError);
+          } else if (crewsData) {
+            crewsData.forEach(crew => {
+              crewMap[crew.id] = crew;
+            });
+          }
+        }
+
+        // Build a map of property/complex name (lowercase) -> schedule info
+        const scheduleMap = {};
+        
+        // Helper function to add to schedule map
+        const addToScheduleMap = (name, scheduleDisplay) => {
+          if (!name || !scheduleDisplay) return;
+          const nameLower = name.toLowerCase().trim();
+          
+          if (scheduleMap[nameLower]) {
+            // Don't duplicate if same value
+            if (!scheduleMap[nameLower].includes(scheduleDisplay)) {
+              scheduleMap[nameLower] += `, ${scheduleDisplay}`;
+            }
+          } else {
+            scheduleMap[nameLower] = scheduleDisplay;
+          }
+        };
+        
+        if (propertiesData) {
+          propertiesData.forEach(property => {
+            // Get crew info if available
+            const crew = property.crew_id ? crewMap[property.crew_id] : null;
+            
+            // Determine what to display
+            let scheduleDisplay = '';
+            
+            if (crew?.is_onsite) {
+              scheduleDisplay = 'Onsite';
+            } else if (property.service_day) {
+              // Get short day name (Mon, Tue, etc.)
+              const shortDay = property.service_day.substring(0, 3);
+              scheduleDisplay = shortDay;
+            }
+            
+            // Add property name to map
+            if (property.name) {
+              addToScheduleMap(property.name, scheduleDisplay);
+            }
+            
+            // Also add complex name to map if property belongs to a complex
+            // This way QS routes that use complex names will match
+            if (property.complex_id && complexMap[property.complex_id]) {
+              const complexName = complexMap[property.complex_id];
+              addToScheduleMap(complexName, scheduleDisplay);
+              // Also try with " - Complex" suffix as that's how exports name them
+              addToScheduleMap(`${complexName} - Complex`, scheduleDisplay);
+            }
+          });
+        }
+        
+        setPropertyScheduleMap(scheduleMap);
+      } catch (err) {
+        console.error('Error fetching property schedules:', err);
+      }
+    };
+
+    fetchPropertySchedules();
+  }, [selectedBranchId, supabase]);
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -421,6 +535,13 @@ export default function QSRoutesPage() {
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);
     return `${hours}h ${mins}m`;
+  };
+
+  // Helper function to get scheduled day for a property
+  const getScheduledDay = (propertyName) => {
+    if (!propertyName) return '';
+    const nameLower = propertyName.toLowerCase().trim();
+    return propertyScheduleMap[nameLower] || '';
   };
 
   // Export routes to CSV
@@ -834,8 +955,9 @@ export default function QSRoutesPage() {
                       <th className="px-1.5 py-0.5 text-left font-bold text-xs" style={{width: '70px'}}>Route</th>
                       <th className="px-1.5 py-0.5 text-left font-medium text-xs" style={{width: '90px'}}>Day</th>
                       <th className="px-1.5 py-0.5 text-center font-medium text-xs" style={{width: '30px'}}>#</th>
+                      <th className="px-1.5 py-0.5 text-center font-medium text-xs" style={{width: '55px'}}>Sched</th>
                       <th className="px-1.5 py-0.5 text-left font-medium text-xs" style={{width: '20%'}}>Property</th>
-                      <th className="px-1.5 py-0.5 text-left font-medium text-xs" style={{width: '22%'}}>Address</th>
+                      <th className="px-1.5 py-0.5 text-left font-medium text-xs" style={{width: '20%'}}>Address</th>
                       <th className="px-1.5 py-0.5 text-center font-medium text-xs" style={{width: '70px'}}>Service Time</th>
                       <th className="px-1.5 py-0.5 text-center font-medium text-xs" style={{width: '80px'}}>Route Time</th>
                       <th className="px-1.5 py-0.5 text-center font-medium text-xs" style={{width: '60px'}}>Miles</th>
@@ -850,6 +972,7 @@ export default function QSRoutesPage() {
                         <React.Fragment key={route.id}>
                           {route.stops.map((stop, index) => {
                             const isFirstInRoute = index === 0;
+                            const scheduledDay = getScheduledDay(stop.name);
                             
                             return (
                               <tr 
@@ -875,6 +998,15 @@ export default function QSRoutesPage() {
                                   ) : null}
                                 </td>
                                 <td className="px-1.5 py-0.5 text-center text-gray-500 text-xs">{index + 1}</td>
+                                <td className={`px-1.5 py-0.5 text-center text-xs font-medium ${
+                                  scheduledDay === 'Onsite' 
+                                    ? 'text-purple-700 bg-purple-50' 
+                                    : scheduledDay 
+                                      ? 'text-green-700 bg-green-50' 
+                                      : 'text-gray-400'
+                                }`}>
+                                  {scheduledDay || '—'}
+                                </td>
                                 <td className="px-1.5 py-0.5 text-xs truncate max-w-0" title={stop.name}>
                                   <span className="text-gray-900">{stop.name}</span>
                                 </td>
@@ -910,6 +1042,7 @@ export default function QSRoutesPage() {
                               </button>
                             </td>
                             <td className="px-1.5 py-0.5"></td>
+                            <td className="px-1.5 py-0.5"></td>
                             <td className="px-1.5 py-0.5 text-right text-gray-700 text-xs">Route {route.routeNumber} Total:</td>
                             <td className="px-1.5 py-0.5"></td>
                             <td className="px-1.5 py-0.5 text-center text-gray-900 text-xs">{formatMinutesToDuration(routeServiceMinutes)}</td>
@@ -924,6 +1057,7 @@ export default function QSRoutesPage() {
                     {/* Grand Total Row */}
                     {filteredRoutes.length > 1 && (
                       <tr className="bg-teal-100 font-bold">
+                        <td className="px-1.5 py-1"></td>
                         <td className="px-1.5 py-1"></td>
                         <td className="px-1.5 py-1"></td>
                         <td className="px-1.5 py-1"></td>

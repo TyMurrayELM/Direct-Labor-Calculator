@@ -561,6 +561,30 @@ const DirectLaborCalculator = () => {
 
       const rows = [];
 
+      // Branch addresses lookup
+      const branchAddresses = {
+        'Las Vegas': '6290 S Pecos Rd, Las Vegas, Nevada, 89120',
+        'Phx - North': '23325 N 23rd Avenue, Phoenix, AZ 85027',
+        'Phx - SouthEast': '1715 N Arizona Ave, Chandler, AZ 85225',
+        'Phx - SouthWest': '2600 S. 20th Ave, Phoenix, AZ 85009'
+      };
+
+      // Add branch location as first row (for route optimization import)
+      const branchName = selectedBranch?.name || '';
+      const branchAddress = branchAddresses[branchName] || '';
+      if (branchAddress) {
+        rows.push([
+          'Branch Location',
+          branchAddress,
+          0,
+          0,
+          0,
+          '',
+          '',
+          `Start/End location for ${branchName}`
+        ]);
+      }
+
       // Process complex groups - sum hours, use complex name/address
       Object.entries(complexGroups).forEach(([complexId, properties]) => {
         const complex = complexMap[complexId];
@@ -631,8 +655,16 @@ const DirectLaborCalculator = () => {
         ]);
       });
 
-      // Sort rows alphabetically by name
+      // Separate branch row (first row) from property rows for sorting
+      const branchRow = rows.length > 0 && rows[0][0] === 'Branch Location' ? rows.shift() : null;
+      
+      // Sort property rows alphabetically by name
       rows.sort((a, b) => a[0].localeCompare(b[0]));
+      
+      // Put branch row back at the beginning
+      if (branchRow) {
+        rows.unshift(branchRow);
+      }
 
       const escapeCSV = (value) => {
         if (value === null || value === undefined) return '';

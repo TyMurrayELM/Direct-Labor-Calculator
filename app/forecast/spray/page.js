@@ -227,6 +227,10 @@ export default function SprayForecastPage() {
         ? 'Phoenix (Combined)'
         : selectedBranch.name || 'Unknown';
 
+      const currentMonthIndex = new Date().getMonth();
+      const currentMonth = months[currentMonthIndex];
+      const currentMonthData = monthlyData[currentMonthIndex];
+
       const res = await fetch('/api/slack/spray-forecast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,8 +238,9 @@ export default function SprayForecastPage() {
           branchName,
           year: selectedYear,
           sprayRevenue: totals.sprayRevenue,
-          avgFtes,
-          avgCrews,
+          month: currentMonth,
+          monthFtes: currentMonthData.ftes,
+          monthCrews: currentMonthData.crews,
         }),
       });
 

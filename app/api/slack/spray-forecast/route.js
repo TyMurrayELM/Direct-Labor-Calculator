@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
-const SLACK_CHANNEL = 'C046RPZGEHE';
+const SLACK_CHANNELS = {
+  lv: 'C06JBNL7UKX',
+  default: 'C06U9K3EKT7',
+};
 
 export async function POST(request) {
   try {
@@ -17,8 +20,9 @@ export async function POST(request) {
       branchName,
       year,
       sprayRevenue,
-      avgFtes,
-      avgCrews,
+      month,
+      monthFtes,
+      monthCrews,
     } = body;
 
     const fmt = (v) =>
@@ -28,6 +32,10 @@ export async function POST(request) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(v);
+
+    const channel = branchName.includes('Las Vegas')
+      ? SLACK_CHANNELS.lv
+      : SLACK_CHANNELS.default;
 
     const emojiPrefix = branchName.includes('Phoenix') ? ':az: '
       : branchName.includes('Las Vegas') ? ':fab_lv: '
@@ -54,7 +62,7 @@ export async function POST(request) {
         type: 'section',
         fields: [
           { type: 'mrkdwn', text: `*Revenue Target:*\n${fmt(sprayRevenue)}` },
-          { type: 'mrkdwn', text: `*Avg FTEs / Month:*\n${Number(avgFtes).toFixed(1)}` },
+          { type: 'mrkdwn', text: `*${month} FTEs Required:*\n${Number(monthFtes).toFixed(1)}` },
         ],
       },
       {
@@ -62,7 +70,7 @@ export async function POST(request) {
         elements: [
           {
             type: 'mrkdwn',
-            text: `${Math.ceil(avgCrews)} crew(s) needed  •  12% of (Maint + Onsite)`,
+            text: `${Math.ceil(monthCrews)} crew(s) needed in ${month}  •  12% of (Maint + Onsite)`,
           },
         ],
       },
@@ -75,8 +83,8 @@ export async function POST(request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        channel: SLACK_CHANNEL,
-        text: `Spray Forecast — ${branchName} ${year}: Revenue ${fmt(sprayRevenue)}, ${Number(avgFtes).toFixed(1)} FTEs`,
+        channel,
+        text: `Spray Forecast — ${branchName} ${year}: Revenue ${fmt(sprayRevenue)}, ${month} ${Number(monthFtes).toFixed(1)} FTEs`,
         blocks,
       }),
     });

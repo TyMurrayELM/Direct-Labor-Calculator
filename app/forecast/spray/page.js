@@ -19,7 +19,7 @@ export default function SprayForecastPage() {
 
   // Constants for Spray department
   const SPRAY_REVENUE_PERCENT = 0.12; // 12% of (Maintenance + Onsite) Revenue
-  const LABOR_REVENUE_PERCENT = 0.85; // 85% of Spray Revenue goes to labor
+  const LABOR_REVENUE_PERCENT = 0.90; // 90% of Spray Revenue goes to labor
   const BILLING_RATE = 150; // $150/hr billing rate
   const HOURLY_COST = 40; // $40/hr fully burdened cost
   const HOURS_PER_MONTH = 173.33; // ~40 hrs/week * 4.333 weeks
@@ -213,6 +213,49 @@ export default function SprayForecastPage() {
   // Year options
   const yearOptions = [2025, 2026, 2027];
 
+  // Send to Slack
+  const [slackSending, setSlackSending] = useState(false);
+
+  const sendToSlack = async () => {
+    try {
+      setSlackSending(true);
+      setSaveMessage({ type: 'success', text: 'Sending to Slack...' });
+
+      const branchName = isEncoreView
+        ? 'Encore (All Branches)'
+        : isPhoenixView
+        ? 'Phoenix (Combined)'
+        : selectedBranch.name || 'Unknown';
+
+      const res = await fetch('/api/slack/spray-forecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchName,
+          year: selectedYear,
+          sprayRevenue: totals.sprayRevenue,
+          avgFtes,
+          avgCrews,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to send');
+      }
+
+      setSaveMessage({ type: 'success', text: 'Sent to Slack!' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      console.error('Slack error:', err);
+      setSaveMessage({ type: 'error', text: err.message || 'Error sending to Slack' });
+      setTimeout(() => setSaveMessage(null), 4000);
+    } finally {
+      setSlackSending(false);
+    }
+  };
+
   // CSV Export Function - Horizontal layout matching the UI
   const exportToCSV = () => {
     try {
@@ -248,10 +291,10 @@ export default function SprayForecastPage() {
       rows.push(['Spray Revenue (12% of Combined)', ...monthlyData.map(d => d.sprayRevenue), totals.sprayRevenue]);
 
       // Labor Revenue
-      rows.push(['Labor Revenue (85%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
+      rows.push(['Labor Revenue (90%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
 
-      // Non-Labor Revenue
-      rows.push(['Non-Labor Revenue (15%)', ...monthlyData.map(d => d.nonLaborRevenue), totals.nonLaborRevenue]);
+      // Material Cost
+      rows.push(['Material Cost (10%)', ...monthlyData.map(d => d.nonLaborRevenue), totals.nonLaborRevenue]);
 
       // Billable Hours
       rows.push(['Billable Hours (@$150/hr)', ...monthlyData.map(d => Math.round(d.billableHours)), Math.round(totals.billableHours)]);
@@ -347,14 +390,14 @@ export default function SprayForecastPage() {
           </div>
 
           {/* Branch & Year Selector */}
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Branch:</label>
-              <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-gray-700">Branch:</label>
+              <div className="flex flex-wrap gap-1">
                 {/* Encore (All Branches) Button */}
                 <button
                   onClick={() => setSelectedBranchId('encore')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-sm font-medium transition-all ${
                     selectedBranchId === 'encore'
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -365,7 +408,7 @@ export default function SprayForecastPage() {
                 {/* Phoenix Combined Button */}
                 <button
                   onClick={() => setSelectedBranchId('phoenix')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-sm font-medium transition-all ${
                     selectedBranchId === 'phoenix'
                       ? 'bg-orange-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -378,7 +421,7 @@ export default function SprayForecastPage() {
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-2.5 py-1 rounded-md text-sm font-medium transition-all ${
                       selectedBranchId === branch.id
                         ? 'text-white shadow-md'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -393,12 +436,12 @@ export default function SprayForecastPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Year:</label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-gray-700">Year:</label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
               >
                 {yearOptions.map(year => (
                   <option key={year} value={year}>{year}</option>
@@ -409,12 +452,24 @@ export default function SprayForecastPage() {
             {/* Export CSV Button */}
             <button
               onClick={exportToCSV}
-              className="px-4 py-2 bg-white text-red-700 border border-red-600 rounded-lg hover:bg-red-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
+              className="px-2.5 py-1 bg-white text-red-700 border border-red-600 rounded-md hover:bg-red-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
               <span>Export CSV</span>
+            </button>
+
+            {/* Send to Slack Button */}
+            <button
+              onClick={sendToSlack}
+              disabled={slackSending || totals.sprayRevenue === 0}
+              className="px-2.5 py-1 bg-white text-purple-700 border border-purple-600 rounded-md hover:bg-purple-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+              </svg>
+              <span>{slackSending ? 'Sending...' : 'FTEs to Slack'}</span>
             </button>
           </div>
 
@@ -437,7 +492,7 @@ export default function SprayForecastPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Labor Split:</span>
-              <span className="text-red-700 font-semibold">85% Labor / 15% Non-Labor</span>
+              <span className="text-red-700 font-semibold">90% Labor / 10% Material</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Billing Rate:</span>
@@ -527,7 +582,7 @@ export default function SprayForecastPage() {
               {/* Labor Revenue Row */}
               <tr className="bg-rose-50 border-b border-rose-200">
                 <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-rose-50 z-10">
-                  Labor Revenue (85%)
+                  Labor Revenue (90%)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-2 text-center text-rose-700">
@@ -542,7 +597,7 @@ export default function SprayForecastPage() {
               {/* Non-Labor Revenue Row */}
               <tr className="bg-rose-50/50 border-b border-rose-100">
                 <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-rose-50/50 z-10">
-                  Non-Labor Revenue (15%)
+                  Material Cost (10%)
                 </td>
                 {monthlyData.map(d => (
                   <td key={d.month} className="px-2 py-1.5 text-center text-xs text-gray-700">
@@ -647,7 +702,7 @@ export default function SprayForecastPage() {
               <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-rose-100 text-sm font-medium mb-1">Annual Labor Revenue</div>
                 <div className="text-2xl font-bold">{formatCurrency(totals.laborRevenue)}</div>
-                <div className="text-rose-200 text-xs mt-1">85% of Spray</div>
+                <div className="text-rose-200 text-xs mt-1">90% of Spray</div>
               </div>
               <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
                 <div className="text-red-100 text-sm font-medium mb-1">Annual Labor Cost</div>
@@ -668,7 +723,7 @@ export default function SprayForecastPage() {
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
           <div className="text-sm text-gray-700 space-y-1">
             <div><span className="font-medium">Spray Revenue</span> = (Maintenance + Onsite) Revenue × 12%</div>
-            <div><span className="font-medium">Labor Revenue</span> = Spray Revenue × 85%</div>
+            <div><span className="font-medium">Labor Revenue</span> = Spray Revenue × 90%</div>
             <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>
             <div><span className="font-medium">Labor Cost</span> = Billable Hours × ${HOURLY_COST}/hr</div>
             <div><span className="font-medium">FTEs</span> = Billable Hours ÷ {HOURS_PER_MONTH} hrs/month</div>

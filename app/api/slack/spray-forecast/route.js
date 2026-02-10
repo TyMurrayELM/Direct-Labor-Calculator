@@ -19,7 +19,7 @@ export async function POST(request) {
     const {
       branchName,
       year,
-      sprayRevenue,
+      laborRevenue,
       month,
       monthFtes,
       monthCrews,
@@ -61,7 +61,7 @@ export async function POST(request) {
       {
         type: 'section',
         fields: [
-          { type: 'mrkdwn', text: `*Revenue Target:*\n${fmt(sprayRevenue)}` },
+          { type: 'mrkdwn', text: `*${month} Labor Revenue:*\n${fmt(laborRevenue)}` },
           { type: 'mrkdwn', text: `*${month} FTEs Required:*\n${Number(monthFtes).toFixed(1)}` },
         ],
       },
@@ -84,7 +84,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         channel,
-        text: `Spray Forecast — ${branchName} ${year}: Revenue ${fmt(sprayRevenue)}, ${month} ${Number(monthFtes).toFixed(1)} FTEs`,
+        text: `Spray Forecast — ${branchName} ${year}: ${month} Labor Revenue ${fmt(laborRevenue)}, ${Number(monthFtes).toFixed(1)} FTEs`,
         blocks,
       }),
     });

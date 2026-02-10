@@ -237,7 +237,7 @@ export default function SprayForecastPage() {
         body: JSON.stringify({
           branchName,
           year: selectedYear,
-          sprayRevenue: totals.sprayRevenue,
+          laborRevenue: currentMonthData.laborRevenue,
           month: currentMonth,
           monthFtes: currentMonthData.ftes,
           monthCrews: currentMonthData.crews,

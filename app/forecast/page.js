@@ -705,7 +705,7 @@ export default function ForecastPage() {
             <div className="flex space-x-2">
               <Link 
                 href="/" 
-                className="px-2 py-1 bg-white text-gray-600 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-1.5"
+                className="px-2 py-1 bg-white text-gray-700 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-1.5"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -906,7 +906,7 @@ export default function ForecastPage() {
           
           {/* Normalized Toggle */}
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${!isNormalized ? 'text-gray-800' : 'text-gray-400'}`}>Real</span>
+            <span className={`text-sm font-medium ${!isNormalized ? 'text-gray-800' : 'text-gray-700'}`}>Real</span>
             <button
               onClick={() => setIsNormalized(!isNormalized)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -919,8 +919,8 @@ export default function ForecastPage() {
                 }`}
               />
             </button>
-            <span className={`text-sm font-medium ${isNormalized ? 'text-gray-800' : 'text-gray-400'}`}>Normalized</span>
-            <span className="text-xs text-gray-500">(4.33 weeks)</span>
+            <span className={`text-sm font-medium ${isNormalized ? 'text-gray-800' : 'text-gray-700'}`}>Normalized</span>
+            <span className="text-xs text-gray-700">(4.33 weeks)</span>
           </div>
         </div>
 
@@ -1093,13 +1093,13 @@ export default function ForecastPage() {
             <thead>
               {/* Pay Weeks Row - above header */}
               <tr className="bg-slate-50 text-sm">
-                <th className="px-3 py-2 text-left text-xs text-slate-500 font-medium tracking-wide uppercase sticky left-0 bg-slate-50 z-10">
+                <th className="px-3 py-2 text-left text-xs text-slate-700 font-medium tracking-wide uppercase sticky left-0 bg-slate-50 z-10">
                   Pay Weeks
                 </th>
                 {months.map(month => (
                   <th key={month} className="px-1 py-1.5 font-normal">
                     {isCombinedView ? (
-                      <div className="text-center text-xs text-slate-600 font-medium">
+                      <div className="text-center text-xs text-slate-700 font-medium">
                         {combinedData[month]?.weeks || 4.33}
                       </div>
                     ) : (
@@ -1113,7 +1113,7 @@ export default function ForecastPage() {
                     )}
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center text-xs text-slate-400 bg-slate-100 font-normal">
+                <th className="px-3 py-2 text-center text-xs text-slate-700 bg-slate-100 font-normal">
                   —
                 </th>
               </tr>
@@ -1141,7 +1141,7 @@ export default function ForecastPage() {
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-700 text-sm">$</span>
                         <input
                           type="text"
                           value={monthlyRevenue[month]}
@@ -1199,7 +1199,7 @@ export default function ForecastPage() {
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-700 text-sm">$</span>
                         <input
                           type="text"
                           value={actualLaborCost[month]}
@@ -1223,7 +1223,7 @@ export default function ForecastPage() {
 
               {/* Actual Labor Cost DL % Row */}
               <tr className="bg-sky-50/30 border-b border-sky-100/50 hover:bg-sky-50/50 transition-colors duration-150">
-                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-sky-50/30 z-10">
+                <td className="px-3 py-2 text-xs font-medium text-slate-700 sticky left-0 bg-sky-50/30 z-10">
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1239,7 +1239,7 @@ export default function ForecastPage() {
                         <span className={`text-xs font-bold tabular-nums ${dlPercent > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
                           {formatNumber(dlPercent, 1)}%
                         </span>
-                      ) : <span className="text-slate-300">—</span>}
+                      ) : <span className="text-slate-700">—</span>}
                     </td>
                   );
                 })}
@@ -1252,7 +1252,7 @@ export default function ForecastPage() {
                       const displayCost = isNormalized && weeks > 0 ? (cost / weeks) * 4.33 : cost;
                       return sum + displayCost;
                     }, 0);
-                    if (totalRev === 0 || totalCost === 0) return <span className="text-slate-300">—</span>;
+                    if (totalRev === 0 || totalCost === 0) return <span className="text-slate-700">—</span>;
                     const avgDL = (totalCost / totalRev) * 100;
                     return (
                       <span className={`text-sm font-bold tabular-nums ${avgDL > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -1284,12 +1284,12 @@ export default function ForecastPage() {
                         <span className="inline-flex items-center justify-center min-w-8 h-7 bg-amber-200/80 text-amber-900 font-bold px-2 rounded-md text-sm tabular-nums shadow-sm">
                           {displayFtes}
                         </span>
-                      ) : <span className="text-slate-300">—</span>}
+                      ) : <span className="text-slate-700">—</span>}
                     </td>
                   );
                 })}
                 <td className="px-3 py-2.5 text-center bg-amber-100/80">
-                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <div className="text-xs text-slate-700 mb-0.5">Avg</div>
                   <span className="inline-flex items-center justify-center min-w-10 h-7 bg-amber-300/80 text-amber-900 font-bold px-2 rounded-md text-base tabular-nums shadow-sm">
                     {(() => {
                       const totalHours = months.reduce((sum, month) => {
@@ -1307,7 +1307,7 @@ export default function ForecastPage() {
 
               {/* Labor Hours Est Row */}
               <tr className="bg-orange-50/50 border-b border-orange-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-orange-50/50 z-10">
+                <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-orange-50/50 z-10">
                   Labor Hours Est{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1320,12 +1320,12 @@ export default function ForecastPage() {
                     ? laborHours 
                     : (laborHours / 4.33) * weeks;
                   return (
-                    <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-600">
+                    <td key={month} className="px-2 py-1.5 text-center text-xs text-gray-700">
                       {revenue > 0 ? formatNumber(displayHours, 0) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-orange-100/50">
+                <td className="px-2 py-1.5 text-center text-xs text-gray-700 bg-orange-100/50">
                   {formatNumber(months.reduce((sum, month) => {
                     const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                     const laborBudget = revenue * (1 - GROSS_MARGIN_TARGET);
@@ -1338,18 +1338,18 @@ export default function ForecastPage() {
 
               {/* Target DL % Row */}
               <tr className="bg-amber-50/30 border-b border-amber-100/50 hover:bg-amber-50/50 transition-colors duration-150">
-                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-amber-50/30 z-10">
+                <td className="px-3 py-2 text-xs font-medium text-slate-700 sticky left-0 bg-amber-50/30 z-10">
                   Target DL %
                 </td>
                 {months.map(month => {
                   const revenue = isCombinedView ? (combinedData[month]?.revenue || 0) : parseRevenue(monthlyRevenue[month]);
                   return (
-                    <td key={month} className="px-2 py-2 text-center text-xs font-medium text-slate-500 tabular-nums">
-                      {revenue > 0 ? '40.0%' : <span className="text-slate-300">—</span>}
+                    <td key={month} className="px-2 py-2 text-center text-xs font-medium text-slate-700 tabular-nums">
+                      {revenue > 0 ? '40.0%' : <span className="text-slate-700">—</span>}
                     </td>
                   );
                 })}
-                <td className="px-3 py-2 text-center text-sm font-medium text-slate-500 bg-amber-100/50 tabular-nums">
+                <td className="px-3 py-2 text-center text-sm font-medium text-slate-700 bg-amber-100/50 tabular-nums">
                   40.0%
                 </td>
               </tr>
@@ -1388,7 +1388,7 @@ export default function ForecastPage() {
 
               {/* Actual FTEs Row (calculated from Actual Hours) */}
               <tr className="bg-rose-50/30 border-b border-rose-100/50 hover:bg-rose-50/50 transition-colors duration-150">
-                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-rose-50/30 z-10">
+                <td className="px-3 py-2 text-xs font-medium text-slate-700 sticky left-0 bg-rose-50/30 z-10">
                   Actual FTEs{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1397,7 +1397,7 @@ export default function ForecastPage() {
                   if (hours <= 0 || weeks <= 0) {
                     return (
                       <td key={month} className="px-2 py-2 text-center">
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-700">—</span>
                       </td>
                     );
                   }
@@ -1428,7 +1428,7 @@ export default function ForecastPage() {
                         monthsWithData++;
                       }
                     });
-                    if (monthsWithData === 0) return <span className="text-slate-300">—</span>;
+                    if (monthsWithData === 0) return <span className="text-slate-700">—</span>;
                     const avgFtes = totalFtes / monthsWithData;
                     const decimal = avgFtes % 1;
                     return decimal > 0.1 ? Math.ceil(avgFtes) : Math.floor(avgFtes);
@@ -1445,7 +1445,7 @@ export default function ForecastPage() {
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
                       <div className="text-center text-teal-700 font-semibold tabular-nums">
-                        {combinedData[month]?.actualFtes || <span className="text-slate-300">—</span>}
+                        {combinedData[month]?.actualFtes || <span className="text-slate-700">—</span>}
                       </div>
                     ) : (
                       <input
@@ -1459,7 +1459,7 @@ export default function ForecastPage() {
                   </td>
                 ))}
                 <td className="px-3 py-2.5 text-center bg-teal-100/80">
-                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <div className="text-xs text-slate-700 mb-0.5">Avg</div>
                   <span className="font-bold text-teal-800 text-base tabular-nums">
                     {isCombinedView
                       ? formatNumber(
@@ -1481,23 +1481,23 @@ export default function ForecastPage() {
               <tr className="bg-cyan-50/60 border-b border-cyan-100 hover:bg-cyan-50 transition-colors duration-150">
                 <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-cyan-50/60 z-10">
                   Scheduled HC
-                  <span className="text-xs text-slate-400 ml-1">(crews)</span>
+                  <span className="text-xs text-slate-700 ml-1">(crews)</span>
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-2 py-2.5 text-center text-cyan-700 font-semibold tabular-nums">
-                    {scheduledHC || <span className="text-slate-300">—</span>}
+                    {scheduledHC || <span className="text-slate-700">—</span>}
                   </td>
                 ))}
                 <td className="px-3 py-2.5 text-center bg-cyan-100/80">
                   <span className="font-bold text-cyan-800 text-base tabular-nums">
-                    {scheduledHC || <span className="text-slate-300">—</span>}
+                    {scheduledHC || <span className="text-slate-700">—</span>}
                   </span>
                 </td>
               </tr>
 
               {/* Actual DL % Row (based on HC) */}
               <tr className="bg-teal-50/30 border-b border-teal-100/50 hover:bg-teal-50/50 transition-colors duration-150">
-                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-teal-50/30 z-10">
+                <td className="px-3 py-2 text-xs font-medium text-slate-700 sticky left-0 bg-teal-50/30 z-10">
                   Actual DL %{isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}
                 </td>
                 {months.map(month => {
@@ -1506,7 +1506,7 @@ export default function ForecastPage() {
                   const weeks = isCombinedView ? (combinedData[month]?.weeks || 4.33) : (parseFloat(weeksInMonth[month]) || 4.33);
                   if (rev === 0 || ftes === 0) {
                     return (
-                      <td key={month} className="px-2 py-2 text-center"><span className="text-slate-300">—</span></td>
+                      <td key={month} className="px-2 py-2 text-center"><span className="text-slate-700">—</span></td>
                     );
                   }
                   const hoursMultiplier = isNormalized ? HOURS_PER_MONTH : (HOURS_PER_MONTH / 4.33) * weeks;
@@ -1534,7 +1534,7 @@ export default function ForecastPage() {
                       ? months.filter(m => (combinedData[m]?.revenue || 0) > 0).length
                       : months.filter(m => parseRevenue(monthlyRevenue[m]) > 0).length;
                     const avgRev = monthsWithRev > 0 ? totalRev / monthsWithRev : 0;
-                    if (avgRev === 0 || avgActualFtes === 0) return <span className="text-slate-300">—</span>;
+                    if (avgRev === 0 || avgActualFtes === 0) return <span className="text-slate-700">—</span>;
                     // For total, calculate weighted average of weeks
                     const avgWeeks = months.reduce((sum, m) => {
                       const weeks = isCombinedView ? (combinedData[m]?.weeks || 4.33) : (parseFloat(weeksInMonth[m]) || 4.33);
@@ -1553,9 +1553,9 @@ export default function ForecastPage() {
 
               {/* Maint Crews Row */}
               <tr className="bg-slate-100/60 border-b border-slate-200 hover:bg-slate-100 transition-colors duration-150">
-                <td className="px-3 py-2 text-xs font-medium text-slate-500 sticky left-0 bg-slate-100/60 z-10">
+                <td className="px-3 py-2 text-xs font-medium text-slate-700 sticky left-0 bg-slate-100/60 z-10">
                   <div className="flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v-4m-6 8h12a2 2 0 002-2V7a2 2 0 00-2-2h-3l-1-2H10L9 5H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     <span>Maint Crews (4m){isNormalized && <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full ml-1"></span>}</span>
@@ -1590,8 +1590,8 @@ export default function ForecastPage() {
                   const hasJump = crews !== null && priorCrews !== null && crews !== priorCrews;
                   
                   return (
-                    <td key={month} className={`px-2 py-2 text-center text-xs tabular-nums ${hasJump ? 'bg-amber-100 text-amber-800 font-bold' : 'text-slate-600 font-medium'}`}>
-                      {crews !== null ? crews : <span className="text-slate-300">—</span>}
+                    <td key={month} className={`px-2 py-2 text-center text-xs tabular-nums ${hasJump ? 'bg-amber-100 text-amber-800 font-bold' : 'text-slate-700 font-medium'}`}>
+                      {crews !== null ? crews : <span className="text-slate-700">—</span>}
                     </td>
                   );
                 })}
@@ -1605,7 +1605,7 @@ export default function ForecastPage() {
                       return sum + (isNormalized ? laborHours : (laborHours / 4.33) * weeks);
                     }, 0);
                     const avgFtes = Math.floor(totalHours / HOURS_PER_MONTH / 12);
-                    return avgFtes > 0 ? Math.ceil(avgFtes / 4) : <span className="text-slate-300">—</span>;
+                    return avgFtes > 0 ? Math.ceil(avgFtes / 4) : <span className="text-slate-700">—</span>;
                   })()}
                 </td>
               </tr>
@@ -1623,7 +1623,7 @@ export default function ForecastPage() {
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-700 text-sm">$</span>
                         <input
                           type="text"
                           value={onsiteRevenue[month]}
@@ -1686,7 +1686,7 @@ export default function ForecastPage() {
                       </div>
                     ) : (
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-700 text-sm">$</span>
                         <input
                           type="text"
                           value={onsiteActualLaborCost[month]}
@@ -1758,7 +1758,7 @@ export default function ForecastPage() {
                   <td key={month} className="px-1 py-1.5">
                     {isCombinedView ? (
                       <div className="text-center text-violet-700 font-semibold tabular-nums">
-                        {combinedData[month]?.onsiteFtes || <span className="text-slate-300">—</span>}
+                        {combinedData[month]?.onsiteFtes || <span className="text-slate-700">—</span>}
                       </div>
                     ) : (
                       <input
@@ -1772,7 +1772,7 @@ export default function ForecastPage() {
                   </td>
                 ))}
                 <td className="px-3 py-2.5 text-center bg-violet-100/80">
-                  <div className="text-xs text-slate-500 mb-0.5">Avg</div>
+                  <div className="text-xs text-slate-700 mb-0.5">Avg</div>
                   <span className="font-bold text-violet-800 text-base tabular-nums">
                     {isCombinedView
                       ? formatNumber(
@@ -1802,13 +1802,13 @@ export default function ForecastPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-600">Branch</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">Annual Revenue</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">Labor Budget</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">YTD Actual DL %</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">Actual HC</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">Target FTEs</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-600">% of {isPhoenixView ? 'Phoenix' : 'Company'}</th>
+                  <th className="text-left py-2 px-3 font-medium text-gray-700">Branch</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">Annual Revenue</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">Labor Budget</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">YTD Actual DL %</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">Actual HC</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">Target FTEs</th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">% of {isPhoenixView ? 'Phoenix' : 'Company'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1904,7 +1904,7 @@ export default function ForecastPage() {
                         {ytdCombinedDL !== null ? (
                           <span className={`font-medium ${ytdCombinedDL > ytdCombinedDLTarget ? 'text-red-600' : 'text-green-600'}`}>
                             {formatNumber(ytdCombinedDL, 1)}%
-                            <span className="text-gray-400 font-normal text-xs"> / {formatNumber(ytdCombinedDLTarget, 1)}%</span>
+                            <span className="text-gray-700 font-normal text-xs"> / {formatNumber(ytdCombinedDLTarget, 1)}%</span>
                           </span>
                         ) : '—'}
                       </td>
@@ -1971,7 +1971,7 @@ export default function ForecastPage() {
                       return (
                         <span className={`${totalYtdDL > totalYtdDLTarget ? 'text-red-600' : 'text-green-600'}`}>
                           {formatNumber(totalYtdDL, 1)}%
-                          <span className="text-gray-500 font-normal text-xs"> / {formatNumber(totalYtdDLTarget, 1)}%</span>
+                          <span className="text-gray-700 font-normal text-xs"> / {formatNumber(totalYtdDLTarget, 1)}%</span>
                         </span>
                       );
                     })()}
@@ -2035,7 +2035,7 @@ export default function ForecastPage() {
         {/* Formula Reference */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
-          <div className="text-sm text-gray-600 space-y-1">
+          <div className="text-sm text-gray-700 space-y-1">
             <div><span className="font-medium">Labor Budget</span> = Revenue × 40%</div>
             <div><span className="font-medium">Labor Hours</span> = Labor Budget ÷ ${hourlyRate}/hr (varies by branch)</div>
             <div><span className="font-medium">FTEs</span> = Labor Hours ÷ {HOURS_PER_MONTH} hrs/month</div>

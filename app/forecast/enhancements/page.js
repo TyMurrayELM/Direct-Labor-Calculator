@@ -294,7 +294,7 @@ export default function EnhancementsForecastPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Enhancement FTE Forecast</h1>
-                <p className="text-sm text-gray-500 mt-1">Based on Maintenance Revenue projections</p>
+                <p className="text-sm text-gray-700 mt-1">Based on Maintenance Revenue projections</p>
               </div>
             </div>
             
@@ -435,40 +435,40 @@ export default function EnhancementsForecastPage() {
             <tbody className="text-sm">
               {/* Maintenance Revenue (Source) Row */}
               <tr className="bg-gray-50 border-b border-gray-200">
-                <td className="px-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-gray-50 z-10">
                   <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                     Maintenance Revenue
                   </div>
                 </td>
                 {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-gray-500">
+                  <td key={d.month} className="px-2 py-2 text-center text-gray-700">
                     {d.maintenanceRevenue > 0 ? formatCurrency(d.maintenanceRevenue) : '—'}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-gray-500 bg-gray-100">
+                <td className="px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100">
                   {formatCurrency(totals.maintenanceRevenue)}
                 </td>
               </tr>
 
               {/* Onsite Revenue (Source) Row */}
               <tr className="bg-gray-50 border-b border-gray-200">
-                <td className="px-2 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10">
+                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-gray-50 z-10">
                   <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                     Onsite Revenue
                   </div>
                 </td>
                 {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-gray-500">
+                  <td key={d.month} className="px-2 py-2 text-center text-gray-700">
                     {d.onsiteRevenue > 0 ? formatCurrency(d.onsiteRevenue) : '—'}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-semibold text-gray-500 bg-gray-100">
+                <td className="px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100">
                   {formatCurrency(totals.onsiteRevenue)}
                 </td>
               </tr>
@@ -505,15 +505,15 @@ export default function EnhancementsForecastPage() {
 
               {/* Non-Labor Revenue Row */}
               <tr className="bg-violet-50/50 border-b border-violet-100">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-violet-50/50 z-10">
+                <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-violet-50/50 z-10">
                   Non-Labor Revenue (30%)
                 </td>
                 {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-1.5 text-center text-xs text-gray-500">
+                  <td key={d.month} className="px-2 py-1.5 text-center text-xs text-gray-700">
                     {d.nonLaborRevenue > 0 ? formatCurrency(d.nonLaborRevenue) : '—'}
                   </td>
                 ))}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-500 bg-violet-100/50">
+                <td className="px-2 py-1.5 text-center text-xs text-gray-700 bg-violet-100/50">
                   {formatCurrency(totals.nonLaborRevenue)}
                 </td>
               </tr>
@@ -563,7 +563,7 @@ export default function EnhancementsForecastPage() {
                   </td>
                 ))}
                 <td className="px-2 py-2 text-center bg-teal-100">
-                  <div className="text-xs text-gray-500">Avg</div>
+                  <div className="text-xs text-gray-700">Avg</div>
                   <span className="inline-block bg-teal-300 text-teal-900 font-bold px-2 py-0.5 rounded-full text-sm">
                     {formatNumber(avgFtes, 1)}
                   </span>
@@ -572,9 +572,9 @@ export default function EnhancementsForecastPage() {
 
               {/* Crews Required Row */}
               <tr className="bg-gray-100 border-b border-gray-200">
-                <td className="px-2 py-1.5 text-xs text-gray-500 sticky left-0 bg-gray-100 z-10">
+                <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-gray-100 z-10">
                   <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span>Crews ({CREW_SIZE}-person)</span>
@@ -586,12 +586,12 @@ export default function EnhancementsForecastPage() {
                   const hasJump = crews > 0 && prevCrews !== null && prevCrews > 0 && crews !== prevCrews;
                   
                   return (
-                    <td key={d.month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-gray-600'}`}>
+                    <td key={d.month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-gray-700'}`}>
                       {d.crews > 0 ? crews : '—'}
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-600 bg-gray-200">
+                <td className="px-2 py-1.5 text-center text-xs text-gray-700 bg-gray-200">
                   {avgCrews > 0 ? Math.ceil(avgCrews) : '—'}
                 </td>
               </tr>
@@ -630,7 +630,7 @@ export default function EnhancementsForecastPage() {
         {/* Formula Reference */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
-          <div className="text-sm text-gray-600 space-y-1">
+          <div className="text-sm text-gray-700 space-y-1">
             <div><span className="font-medium">Enhancement Revenue</span> = (Maintenance + Onsite) Revenue × 40%</div>
             <div><span className="font-medium">Labor Revenue</span> = Enhancement Revenue × 70%</div>
             <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>

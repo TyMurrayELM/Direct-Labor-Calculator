@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  useBranches, 
+import {
+  useBranches,
   useRevenueForecasts,
   useAllBranchForecasts,
   batchUpsertForecasts,
@@ -11,6 +11,7 @@ import {
 } from '../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
+import PnlSection from '../components/PnlSection';
 
 export default function ForecastPage() {
   const router = useRouter();
@@ -57,9 +58,10 @@ export default function ForecastPage() {
   const [session, setSession] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedDepartment, setSelectedDepartment] = useState('maintenance');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
-  
+
   // Local state for form inputs
   const [monthlyRevenue, setMonthlyRevenue] = useState(
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
@@ -96,7 +98,7 @@ export default function ForecastPage() {
   );
   const { forecasts: allBranchForecasts, loading: allForecastsLoading, refetchForecasts: refetchAllForecasts } = useAllBranchForecasts(selectedYear);
   const { crews, loading: crewsLoading } = useCrews(); // Fetch all crews (no branchId filter)
-  
+
   // Check authentication
   useEffect(() => {
     const getSession = async () => {
@@ -816,7 +818,7 @@ export default function ForecastPage() {
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {yearOptions.map(year => (
                   <option key={year} value={year}>{year}</option>
@@ -834,7 +836,9 @@ export default function ForecastPage() {
               </svg>
               <span>Export</span>
             </button>
-            
+
+            {/* P&L Import moved to PnlVersionBar below */}
+
             <button
               onClick={handleSave}
               disabled={isSaving || !selectedBranchId || isCombinedView}
@@ -2030,6 +2034,23 @@ export default function ForecastPage() {
             </table>
           </div>
         </div>
+        )}
+
+        {/* P&L Section */}
+        {!isCombinedView && (
+          <PnlSection
+            branchId={selectedBranchId}
+            branchName={selectedBranch?.name}
+            year={selectedYear}
+            department={selectedDepartment}
+            onDepartmentChange={setSelectedDepartment}
+            departmentOptions={[
+              { value: 'maintenance', label: 'Maintenance' },
+              { value: 'maintenance_onsite', label: 'Maintenance Onsite' },
+              { value: 'maintenance_wo', label: 'Maintenance WO' },
+              { value: 'all_maintenance', label: 'All Maintenance' }
+            ]}
+          />
         )}
 
         {/* Formula Reference */}

@@ -9,6 +9,7 @@ import {
 } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
+import PnlSection from '../../components/PnlSection';
 
 export default function SprayForecastPage() {
   const router = useRouter();
@@ -722,6 +723,16 @@ export default function SprayForecastPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* P&L Section */}
+        {!isPhoenixView && !isEncoreView && (
+          <PnlSection
+            branchId={selectedBranchId}
+            branchName={selectedBranch?.name}
+            year={selectedYear}
+            department="spray"
+          />
         )}
 
         {/* Formula Reference */}

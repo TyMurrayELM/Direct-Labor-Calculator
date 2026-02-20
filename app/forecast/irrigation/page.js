@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  useBranches, 
+import {
+  useBranches,
   useRevenueForecasts,
   useAllBranchForecasts
 } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
+import PnlSection from '../../components/PnlSection';
 
 export default function IrrigationForecastPage() {
   const router = useRouter();
@@ -653,6 +654,16 @@ export default function IrrigationForecastPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* P&L Section */}
+        {!isPhoenixView && (
+          <PnlSection
+            branchId={selectedBranchId}
+            branchName={selectedBranch?.name}
+            year={selectedYear}
+            department="irrigation"
+          />
         )}
 
         {/* Formula Reference */}

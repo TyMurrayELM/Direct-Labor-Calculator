@@ -1660,18 +1660,374 @@ onsite_actual_labor_cost: data.onsiteActualLaborCost || null,
 export async function deleteForecasts(branchId, year) {
   try {
     const supabaseClient = getSupabaseClient();
-    
+
     const { error } = await supabaseClient
       .from('revenue_forecasts')
       .delete()
       .eq('branch_id', branchId)
       .eq('year', year);
-    
+
     if (error) throw error;
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error deleting forecasts:', error);
     return { success: false, error: error.message };
   }
+}
+
+const ALL_MAINTENANCE_DEPARTMENTS = ['maintenance', 'maintenance_onsite', 'maintenance_wo'];
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/** Normalize total-row names: "Total - Income" and "Total Income" both become "total income" */
+function normalizeTotalName(name) {
+  if (!name) return '';
+  return name.toLowerCase().replace(/^total\s*-\s*/, 'total ').trim();
+}
+
+/**
+ * For a department's rows, build a map of account_code -> normalized total name.
+ * Each detail row is associated with the next total row that follows it.
+ * e.g. detail "Onsite Revenue" before "Total Revenue" maps to "total revenue".
+ */
+function buildTotalMembership(rows) {
+  const map = new Map();
+  const pendingCodes = [];
+  for (const row of rows) {
+    if (row.row_type === 'detail' && row.account_code) {
+      pendingCodes.push(row.account_code);
+    } else if (row.row_type === 'total') {
+      const totalName = normalizeTotalName(row.account_name);
+      for (const code of pendingCodes) {
+        map.set(code, totalName);
+      }
+      pendingCodes.length = 0;
+    }
+  }
+  return map;
+}
+
+/**
+ * Merge P&L line items from multiple departments into a single combined view.
+ * Always uses 'maintenance' as the template (primary department).
+ * Detail rows are matched by account_code and month values summed.
+ * Structural rows (headers, totals, calculated, percent) are kept from the template.
+ * Orphaned detail rows are placed before the matching total row in the template
+ * (matched by which total row they fall under in their source department).
+ * Row_order is reassigned sequentially so PnlTable's sort preserves intended order.
+ */
+export function mergeAllDepartments(allItems) {
+  // Group by department
+  const byDept = {};
+  for (const item of allItems) {
+    if (!byDept[item.department]) byDept[item.department] = [];
+    byDept[item.department].push(item);
+  }
+
+  const deptKeys = Object.keys(byDept);
+  if (deptKeys.length === 0) return [];
+
+  // Always use 'maintenance' as template if available
+  const templateKey = byDept['maintenance'] ? 'maintenance' : deptKeys[0];
+  const templateRows = byDept[templateKey];
+  const otherDepts = deptKeys.filter(dk => dk !== templateKey);
+
+  // For each other department, build:
+  // - detailsByCode: account_code -> detail row (for value matching)
+  // - totalByCode: account_code -> normalized total name (for orphan placement)
+  const otherDeptData = otherDepts.map(dk => {
+    const rows = byDept[dk];
+    const detailsByCode = new Map();
+    for (const row of rows) {
+      if (row.row_type === 'detail' && row.account_code) {
+        detailsByCode.set(row.account_code, row);
+      }
+    }
+    const totalByCode = buildTotalMembership(rows);
+    return { dk, detailsByCode, totalByCode };
+  });
+
+  const consumedCodes = new Set();
+
+  // Build merged result — template structure with summed values + total-aware orphan insertion
+  const merged = [];
+  for (const row of templateRows) {
+    if (row.row_type === 'detail' && row.account_code) {
+      // Sum month values across all departments, tracking per-dept breakdown
+      const summed = { ...row };
+      const breakdown = {};
+      for (const mk of MONTH_KEYS) {
+        breakdown[mk] = { [templateKey]: parseFloat(row[mk]) || 0 };
+        let val = parseFloat(row[mk]) || 0;
+        for (const { dk, detailsByCode } of otherDeptData) {
+          const match = detailsByCode.get(row.account_code);
+          const deptVal = match ? (parseFloat(match[mk]) || 0) : 0;
+          breakdown[mk][dk] = deptVal;
+          val += deptVal;
+        }
+        summed[mk] = val;
+      }
+      summed._deptBreakdown = breakdown;
+      merged.push(summed);
+      consumedCodes.add(row.account_code);
+    } else if (row.row_type === 'total') {
+      // Before the total, insert orphaned detail rows from other departments
+      // whose source total row name matches this template total row name
+      const thisTotalName = normalizeTotalName(row.account_name);
+      for (const { detailsByCode, totalByCode } of otherDeptData) {
+        for (const [code, item] of detailsByCode) {
+          if (!consumedCodes.has(code) && totalByCode.get(code) === thisTotalName) {
+            merged.push({ ...item });
+            consumedCodes.add(code);
+          }
+        }
+      }
+      merged.push({ ...row });
+    } else {
+      // Other structural rows — keep as-is from template
+      merged.push({ ...row });
+    }
+  }
+
+  // Any remaining orphans (total name didn't match any template total)
+  for (const { detailsByCode } of otherDeptData) {
+    for (const [code, item] of detailsByCode) {
+      if (!consumedCodes.has(code)) {
+        merged.push({ ...item });
+        consumedCodes.add(code);
+      }
+    }
+  }
+
+  // Reassign sequential row_order so PnlTable's sort preserves our intended order
+  for (let i = 0; i < merged.length; i++) {
+    merged[i].row_order = i + 1;
+  }
+
+  return merged;
+}
+
+/**
+ * Hook to fetch P&L line items and import metadata
+ * @param {number} branchId - The branch ID
+ * @param {string} department - The department name (e.g. 'maintenance') or 'all_maintenance'
+ * @param {number} year - The year
+ * @param {number|null} versionId - null = working draft, number = saved version
+ * @returns {Object} - Hook result with lineItems, importInfo, loading, error, refetchPnlData
+ */
+export function usePnlLineItems(branchId, department, year, versionId = null) {
+  const [lineItems, setLineItems] = useState([]);
+  const [importInfo, setImportInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchPnlData = useCallback(async () => {
+    if (!branchId || !department || !year) {
+      setLineItems([]);
+      setImportInfo(null);
+      setLoading(false);
+      return;
+    }
+
+    const isAllMaintenance = department === 'all_maintenance';
+
+    try {
+      setLoading(true);
+
+      const supabaseClient = getSupabaseClient();
+
+      if (isAllMaintenance) {
+        // Combined view: fetch from all 3 maintenance departments
+        // For combined view, versionId is a version name string or null (draft)
+        let query = supabaseClient
+          .from('pnl_line_items')
+          .select('*')
+          .eq('branch_id', branchId)
+          .in('department', ALL_MAINTENANCE_DEPARTMENTS)
+          .eq('year', year)
+          .order('row_order');
+
+        if (versionId === null) {
+          query = query.is('version_id', null);
+        } else {
+          // versionId is an array of version IDs (one per department)
+          query = query.in('version_id', Array.isArray(versionId) ? versionId : [versionId]);
+        }
+
+        const { data: items, error: itemsError } = await query;
+
+        if (itemsError) {
+          if (itemsError.code === '42P01' || itemsError.message?.includes('does not exist')) {
+            setLineItems([]);
+            setImportInfo(null);
+            setLoading(false);
+            return;
+          }
+          throw itemsError;
+        }
+
+        setLineItems(mergeAllDepartments(items || []));
+        setImportInfo(null); // No single import record for combined view
+      } else {
+        // Normal single-department fetch
+        let query = supabaseClient
+          .from('pnl_line_items')
+          .select('*')
+          .eq('branch_id', branchId)
+          .eq('department', department)
+          .eq('year', year)
+          .order('row_order');
+
+        if (versionId === null) {
+          query = query.is('version_id', null);
+        } else {
+          query = query.eq('version_id', versionId);
+        }
+
+        const { data: items, error: itemsError } = await query;
+
+        if (itemsError) {
+          if (itemsError.code === '42P01' || itemsError.message?.includes('does not exist')) {
+            setLineItems([]);
+            setImportInfo(null);
+            setLoading(false);
+            return;
+          }
+          throw itemsError;
+        }
+
+        // Fetch import metadata
+        const { data: imports, error: importError } = await supabaseClient
+          .from('pnl_imports')
+          .select('*')
+          .eq('branch_id', branchId)
+          .eq('department', department)
+          .eq('year', year)
+          .limit(1);
+
+        if (importError && importError.code !== '42P01') throw importError;
+
+        setLineItems(items || []);
+        setImportInfo(imports?.[0] || null);
+      }
+    } catch (err) {
+      console.error('Error fetching P&L data:', err?.message || err?.code || JSON.stringify(err));
+      setError(err?.message || 'Failed to fetch P&L data');
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, department, year, versionId]);
+
+  useEffect(() => {
+    fetchPnlData();
+  }, [fetchPnlData]);
+
+  // Patch a single line item locally without refetching (avoids loading flash)
+  // Pass { _deleted: true } to remove the item from the list
+  const patchLineItem = useCallback((id, updates) => {
+    if (updates._deleted) {
+      setLineItems(prev => prev.filter(li => li.id !== id));
+    } else {
+      setLineItems(prev => prev.map(li => li.id === id ? { ...li, ...updates } : li));
+    }
+  }, []);
+
+  // Reorder line items locally by a new array of IDs (avoids loading flash)
+  const reorderLineItems = useCallback((newIdOrder) => {
+    setLineItems(prev => {
+      const byId = new Map(prev.map(li => [li.id, li]));
+      const reordered = [];
+      for (let i = 0; i < newIdOrder.length; i++) {
+        const item = byId.get(newIdOrder[i]);
+        if (item) reordered.push({ ...item, row_order: i });
+      }
+      // Append any items not in the order list (e.g. reference-only rows without IDs)
+      for (const li of prev) {
+        if (!newIdOrder.includes(li.id)) reordered.push(li);
+      }
+      return reordered;
+    });
+  }, []);
+
+  return { lineItems, importInfo, loading, error, refetchPnlData: fetchPnlData, patchLineItem, reorderLineItems };
+}
+
+/**
+ * Hook to fetch saved P&L versions
+ * @param {number} branchId
+ * @param {string} department
+ * @param {number} year
+ */
+export function usePnlVersions(branchId, department, year) {
+  const [versions, setVersions] = useState([]);
+  const [allRawVersions, setAllRawVersions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchVersions = useCallback(async () => {
+    if (!branchId || !department || !year) {
+      setVersions([]);
+      setAllRawVersions([]);
+      setLoading(false);
+      return;
+    }
+
+    const isAllMaintenance = department === 'all_maintenance';
+
+    try {
+      setLoading(true);
+      const supabaseClient = getSupabaseClient();
+
+      let query = supabaseClient
+        .from('pnl_versions')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('year', year)
+        .order('created_at', { ascending: false });
+
+      if (isAllMaintenance) {
+        query = query.in('department', ALL_MAINTENANCE_DEPARTMENTS);
+      } else {
+        query = query.eq('department', department);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          setVersions([]);
+          setAllRawVersions([]);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
+
+      if (isAllMaintenance && data) {
+        setAllRawVersions(data);
+        // Deduplicate by version_name — keep first occurrence (most recent created_at)
+        const seen = new Set();
+        const deduped = [];
+        for (const v of data) {
+          if (!seen.has(v.version_name)) {
+            seen.add(v.version_name);
+            deduped.push(v);
+          }
+        }
+        setVersions(deduped);
+      } else {
+        setAllRawVersions(data || []);
+        setVersions(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching P&L versions:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, department, year]);
+
+  useEffect(() => {
+    fetchVersions();
+  }, [fetchVersions]);
+
+  return { versions, allRawVersions, loading, refetchVersions: fetchVersions };
 }

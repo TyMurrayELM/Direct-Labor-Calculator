@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useProperties, useCrews, useBranches, updatePropertyHours, updatePropertyQSVisitTime, usePropertyOptions, useComplexes } from '../hooks/useSupabase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import UserManagementModal from './UserManagementModal';
 // No need to import PropertyForm as we're navigating to properties page
 
 // Custom Branch Dropdown Component (inline for easy copy/paste)
@@ -135,6 +136,11 @@ const DirectLaborCalculator = () => {
   
   // User role state
   const [userRole, setUserRole] = useState(null);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+  const [showExports, setShowExports] = useState(false);
+  const exportsRef = useRef(null);
+  const [showForecast, setShowForecast] = useState(false);
+  const forecastRef = useRef(null);
   
   // Fetch user role from allowlist
   useEffect(() => {
@@ -154,7 +160,21 @@ const DirectLaborCalculator = () => {
     
     fetchUserRole();
   }, [session, supabase]);
-  
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportsRef.current && !exportsRef.current.contains(event.target)) {
+        setShowExports(false);
+      }
+      if (forecastRef.current && !forecastRef.current.contains(event.target)) {
+        setShowForecast(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // URL params for persistent filters
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1176,122 +1196,166 @@ const DirectLaborCalculator = () => {
             <h1 className="text-2xl font-bold text-gray-800">Direct Labor Maintenance Calculator</h1>
             
             <div className="flex items-center space-x-2">
-              {/* Export Buttons Group */}
-              {userRole === 'admin' && (
-                <>
-                  {/* All Properties Export - No complex grouping */}
-                  <button
-                    onClick={exportAllProperties}
-                    className="px-2 py-2.5 bg-white text-indigo-700 border border-indigo-400 rounded hover:bg-indigo-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                    title="Export all properties individually (no complex grouping)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>All Props</span>
-                  </button>
-
-                  {/* Route Export & QS Export Stack */}
-                  <div className="flex flex-col space-y-0.5">
-                    <button
-                      onClick={exportToCSV}
-                      className="px-2 py-0.5 bg-white text-gray-700 border border-gray-400 rounded hover:bg-gray-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                      title="Export with complex grouping for route optimization"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      <span>Route Export</span>
-                    </button>
-                    <button
-                      onClick={exportQSSchedule}
-                      className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                      title="Export QS Schedule with visit times"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                      </svg>
-                      <span>QS Export</span>
-                    </button>
-                  </div>
-                </>
-              )}
-              
-              {/* Scheduling & QS Routes - Now next to Route Export */}
-              <div className="flex flex-col space-y-0.5">
-                <Link 
-                  href="/schedule" 
-                  className="px-2 py-0.5 bg-white text-purple-700 border border-purple-500 rounded hover:bg-purple-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                  <span>Scheduling</span>
-                </Link>
-                <Link 
-                  href="/qs-routes" 
-                  className="px-2 py-0.5 bg-white text-teal-700 border border-teal-500 rounded hover:bg-teal-50 transition-colors shadow-sm text-xs font-medium flex items-center space-x-1"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  <span>QS Routes</span>
-                </Link>
-              </div>
-
-              {/* Divider */}
-              <div className="h-8 w-px bg-gray-300"></div>
-
-              {/* Crews, Properties, FTE Forecast Group */}
-              <Link 
-                href="/crews" 
-                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              {/* Page Navigation Links */}
+              <Link
+                href="/crews"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
                 <span>Crews</span>
               </Link>
-              
-              <Link 
-                href="/properties" 
-                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+
+              <Link
+                href="/properties"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
                 <span>Properties</span>
               </Link>
 
-              <Link 
-                href="/forecast" 
-                className="px-3 py-1.5 bg-white text-amber-700 border border-amber-600 rounded-lg hover:bg-amber-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              <Link
+                href="/schedule"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                 </svg>
-                <span>FTE Forecast</span>
+                <span>Scheduling</span>
               </Link>
 
-              {/* Modern Google SSO Sign Out Button */}
+              <Link
+                href="/qs-routes"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                <span>QS Routes</span>
+              </Link>
+
+              <div className="relative" ref={forecastRef}>
+                <button
+                  onClick={() => setShowForecast(!showForecast)}
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                  </svg>
+                  <span>FTE Forecast</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {showForecast && (
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    <Link href="/forecast" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                      <span>Maintenance</span>
+                    </Link>
+                    <Link href="/forecast/arbor" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                      <span>Arbor</span>
+                    </Link>
+                    <Link href="/forecast/enhancements" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                      <span>Enhancements</span>
+                    </Link>
+                    <Link href="/forecast/irrigation" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                      <span>Irrigation</span>
+                    </Link>
+                    <Link href="/forecast/spray" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                      <span>Spray</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-gray-300"></div>
+
+              {/* Exports Dropdown (admin only) */}
+              {userRole === 'admin' && (
+                <div className="relative" ref={exportsRef}>
+                  <button
+                    onClick={() => setShowExports(!showExports)}
+                    className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Exports</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  {showExports && (
+                    <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <button
+                        onClick={() => { exportAllProperties(); setShowExports(false); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>All Properties Export</span>
+                      </button>
+                      <button
+                        onClick={() => { exportToCSV(); setShowExports(false); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span>Route Export</span>
+                      </button>
+                      <button
+                        onClick={() => { exportQSSchedule(); setShowExports(false); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        <span>QS Export</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Manage Users (admin only) */}
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setShowUserManagement(true)}
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                  title="Manage Users"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                  </svg>
+                  <span>Users</span>
+                </button>
+              )}
+
+              {/* Sign Out Button */}
               {session && (
-                <button 
+                <button
                   onClick={handleSignOut}
                   className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-300 rounded-full hover:bg-gray-50 hover:shadow-md transition-all shadow-sm"
                   title={`Signed in as ${session.user?.email}`}
                 >
                   {session.user?.user_metadata?.avatar_url ? (
-                    <img 
-                      src={session.user.user_metadata.avatar_url} 
-                      alt="Profile" 
+                    <img
+                      src={session.user.user_metadata.avatar_url}
+                      alt="Profile"
                       className="w-6 h-6 rounded-full"
-                      onError={(e) => { 
-                        e.target.style.display = 'none'; 
+                      onError={(e) => {
+                        e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
                       }}
                     />
                   ) : null}
-                  <div 
+                  <div
                     className={`w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium ${session.user?.user_metadata?.avatar_url ? 'hidden' : ''}`}
                   >
                     {session.user?.email?.charAt(0).toUpperCase() || 'U'}
@@ -1305,84 +1369,73 @@ const DirectLaborCalculator = () => {
           </div>
           
           {/* Filter Controls Row */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center">
-              <label className="font-medium text-gray-700 whitespace-nowrap">Branch:</label>
-              <div className="ml-2">
-                <BranchDropdown
-                  branches={branches}
-                  selectedBranchId={selectedBranchId}
-                  onChange={(branchId) => {
-                    setSelectedBranchId(branchId);
-                    setSelectedCrewId(null);
-                    setPage(1);
-                  }}
-                />
+          <div className="flex flex-wrap items-center gap-2">
+            <BranchDropdown
+              branches={branches}
+              selectedBranchId={selectedBranchId}
+              onChange={(branchId) => {
+                setSelectedBranchId(branchId);
+                setSelectedCrewId(null);
+                setPage(1);
+              }}
+            />
+
+            <div className="relative">
+              <select
+                value={selectedCrewType}
+                onChange={(e) => {
+                  setSelectedCrewType(e.target.value);
+                  setPage(1);
+                }}
+                className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
+                style={{ minWidth: '180px' }}
+              >
+                <option value="">All Crew Types</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Onsite">Onsite</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
               </div>
             </div>
-            
-            <div className="flex items-center">
-              <label className="font-medium text-gray-700 whitespace-nowrap">Crew Type:</label>
-              <div className="relative ml-2">
-                <select
-                  value={selectedCrewType}
-                  onChange={(e) => {
-                    setSelectedCrewType(e.target.value);
-                    setPage(1); // Reset to first page
-                  }}
-                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
-                  style={{ minWidth: '180px' }}
-                >
-                  <option value="">All Crew Types</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Onsite">Onsite</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
+
+            <div className="relative">
+              <select
+                value={selectedCrewId || ""}
+                onChange={(e) => {
+                  const crewId = e.target.value ? parseInt(e.target.value) : null;
+                  setSelectedCrewId(crewId);
+                  setPage(1);
+                }}
+                className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
+                disabled={crewsLoading}
+                style={{ minWidth: '180px' }}
+              >
+                <option value="">All Crews</option>
+                {crews
+                  .filter(crew => !selectedCrewType || crew.crew_type === selectedCrewType)
+                  .map((crew) => (
+                    <option key={crew.id} value={crew.id}>
+                      {crew.name} ({crew.crew_type})
+                    </option>
+                  ))
+                }
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
               </div>
             </div>
-            
-            <div className="flex items-center">
-              <label className="font-medium text-gray-700 whitespace-nowrap">Crew:</label>
-              <div className="relative ml-2">
-                <select
-                  value={selectedCrewId || ""}
-                  onChange={(e) => {
-                    const crewId = e.target.value ? parseInt(e.target.value) : null;
-                    setSelectedCrewId(crewId);
-                    setPage(1); // Reset to first page
-                  }}
-                  className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
-                  disabled={crewsLoading}
-                  style={{ minWidth: '180px' }}
-                >
-                  <option value="">All Crews</option>
-                  {crews
-                    .filter(crew => !selectedCrewType || crew.crew_type === selectedCrewType)
-                    .map((crew) => (
-                      <option key={crew.id} value={crew.id}>
-                        {crew.name} ({crew.crew_type})
-                      </option>
-                    ))
-                  }
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            
-            {/* Mismatch Filter Toggle */}
+
+            {/* Mismatch Filter Toggle - pushed right */}
             <button
               onClick={() => setShowMismatchOnly(!showMismatchOnly)}
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${
-                showMismatchOnly 
-                  ? 'bg-amber-500 text-white border border-amber-600 hover:bg-amber-600' 
+              className={`ml-auto flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${
+                showMismatchOnly
+                  ? 'bg-amber-500 text-white border border-amber-600 hover:bg-amber-600'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
               title="Show only properties where Current Hours ≠ New Hours"
@@ -1394,12 +1447,13 @@ const DirectLaborCalculator = () => {
             </button>
           </div>
           
-          {/* Target DL and Cost Section */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-blue-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <label className="text-sm font-medium text-gray-700 mr-3">Target Direct Labor:</label>
+          {/* Compact Stats Bar */}
+          <div className="mt-3 flex items-stretch flex-wrap gap-2">
+            {/* Target Group */}
+            <div className="flex items-center gap-4 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5">
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-slate-800 uppercase tracking-wide">Target DL</span>
+                <div className="flex items-center mt-0.5">
                   <div className="relative">
                     <input
                       type="text"
@@ -1411,127 +1465,99 @@ const DirectLaborCalculator = () => {
                           setTargetDirectLaborPercent(parseFloat(value || 0) / 100);
                         }
                       }}
-                      className="border border-blue-200 rounded-lg w-20 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-bold bg-white shadow-sm"
+                      className="border border-slate-400 rounded w-14 px-2 py-0.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-bold bg-white"
                     />
-                    <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-sm font-medium text-gray-600">%</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">Target Wk Hrs:</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="px-3 py-1 rounded-full bg-blue-600 text-white text-sm font-bold">
-                      {formatNumber(totalTargetHours)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalTargetHours)} HC)
-                    </span>
+                    <span className="absolute right-1.5 top-1/2 transform -translate-y-1/2 text-xs font-bold text-slate-700">%</span>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-3">Current Overall DL:</span>
-                  <span className={`px-3 py-1 rounded-full text-white text-sm font-bold ${currentOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {formatPercent(currentOverallDirectLabor)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">Current Wk Hours:</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="px-3 py-1 rounded-full bg-blue-600 text-white text-sm font-bold">
-                      {formatNumber(totalCurrentHours)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalCurrentHours)} HC)
-                    </span>
-                  </div>
+              <div className="h-8 w-px bg-slate-300" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-slate-800 uppercase tracking-wide">Target Hrs</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-slate-900">{formatNumber(totalTargetHours)}</span>
+                  <span className="text-xs font-semibold text-slate-600">({formatHeadcount(totalTargetHours)} HC)</span>
                 </div>
               </div>
             </div>
-            
-            <div className="bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-3">Hourly Rates:</span>
-                  <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-bold shadow-sm">
-                    PHX: ${HOURLY_COST_PHOENIX_MAINTENANCE}/${HOURLY_COST_PHOENIX_ONSITE} | LV: ${HOURLY_COST_LAS_VEGAS_MAINTENANCE}/${HOURLY_COST_LAS_VEGAS_ONSITE}
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">New Wk Hours:</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-sm font-bold">
-                      {formatNumber(totalNewHours)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({formatHeadcount(totalNewHours)} HC)
-                    </span>
-                  </div>
+
+            {/* Current Group */}
+            <div className="flex items-center gap-4 bg-blue-100 border border-blue-300 rounded-lg px-4 py-2.5">
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Current DL</span>
+                <span className={`text-sm font-bold mt-0.5 ${currentOverallDirectLabor < targetDirectLaborPercent * 100 ? 'text-green-700' : 'text-red-700'}`}>
+                  {formatPercent(currentOverallDirectLabor)}
+                </span>
+              </div>
+              <div className="h-8 w-px bg-blue-300" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Current Hrs</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-blue-900">{formatNumber(totalCurrentHours)}</span>
+                  <span className="text-xs font-semibold text-blue-700">({formatHeadcount(totalCurrentHours)} HC)</span>
                 </div>
               </div>
-              
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-3">New Overall DL:</span>
-                  <span className={`px-3 py-1 rounded-full text-white text-sm font-bold ${newOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {formatPercent(newOverallDirectLabor)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">Difference:</span>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-white text-sm font-bold ${totalNewHours <= totalTargetHours ? 'bg-green-500' : 'bg-red-500'}`}>
-                      {formatNumber(totalNewHours - totalTargetHours)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({(newHeadcount - targetHeadcount).toFixed(1)} HC)
-                    </span>
-                  </div>
+            </div>
+
+            {/* New Group */}
+            <div className="flex items-center gap-4 bg-indigo-100 border border-indigo-300 rounded-lg px-4 py-2.5">
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-indigo-900 uppercase tracking-wide">New DL</span>
+                <span className={`text-sm font-bold mt-0.5 ${newOverallDirectLabor < targetDirectLaborPercent * 100 ? 'text-green-700' : 'text-red-700'}`}>
+                  {formatPercent(newOverallDirectLabor)}
+                </span>
+              </div>
+              <div className="h-8 w-px bg-indigo-300" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-indigo-900 uppercase tracking-wide">New Hrs</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-indigo-900">{formatNumber(totalNewHours)}</span>
+                  <span className="text-xs font-semibold text-indigo-700">({formatHeadcount(totalNewHours)} HC)</span>
                 </div>
               </div>
+            </div>
+
+            {/* Diff Group */}
+            <div className={`flex items-center rounded-lg px-4 py-2.5 ${totalNewHours <= totalTargetHours ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+              <div className="flex flex-col">
+                <span className={`text-xs font-semibold uppercase tracking-wide ${totalNewHours <= totalTargetHours ? 'text-green-900' : 'text-red-900'}`}>Diff</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className={`text-sm font-bold ${totalNewHours <= totalTargetHours ? 'text-green-800' : 'text-red-800'}`}>
+                    {formatNumber(totalNewHours - totalTargetHours)}
+                  </span>
+                  <span className={`text-xs font-semibold ${totalNewHours <= totalTargetHours ? 'text-green-700' : 'text-red-700'}`}>({(newHeadcount - targetHeadcount).toFixed(1)} HC)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rates */}
+            <div className="flex items-center text-xs font-semibold text-slate-700 px-2">
+              Rates: PHX ${HOURLY_COST_PHOENIX_MAINTENANCE}/${HOURLY_COST_PHOENIX_ONSITE} &middot; LV ${HOURLY_COST_LAS_VEGAS_MAINTENANCE}/${HOURLY_COST_LAS_VEGAS_ONSITE}
             </div>
           </div>
           
           {/* Advanced Filters Section */}
-          <div className="mt-4">
-            <div className="flex justify-between items-center mb-2">
-              <button 
+          <div className="mt-3">
+            <div className="flex items-center mb-2">
+              <button
                 type="button"
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center focus:outline-none"
+                className="relative px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-300 rounded-full hover:bg-blue-100 flex items-center gap-1.5 focus:outline-none transition-colors"
               >
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className={`h-5 w-5 mr-1 transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                {showAdvancedFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
+                {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
+                {/* Active filter count dot */}
+                {(() => {
+                  const count = [regionFilter, accountManagerFilter, propertyTypeFilter, companyFilter, clientFilter, propertyNameFilter].filter(Boolean).length;
+                  return count > 0 ? (
+                    <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-blue-500 rounded-full">
+                      {count}
+                    </span>
+                  ) : null;
+                })()}
               </button>
-              
-              {/* Filter badge */}
-              {(regionFilter || accountManagerFilter || propertyTypeFilter || companyFilter || clientFilter || propertyNameFilter) && (
-                <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
-                  <span className="font-medium">Filters Active</span>
-                  <button 
-                    onClick={clearFilters}
-                    className="ml-1 text-blue-500 hover:text-blue-700"
-                    title="Clear all filters"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
             </div>
             
             {showAdvancedFilters && (
@@ -2114,6 +2140,14 @@ const DirectLaborCalculator = () => {
       )}
 
       {/* No need for the PropertyForm modal */}
+
+      {/* User Management Modal */}
+      {showUserManagement && (
+        <UserManagementModal
+          onClose={() => setShowUserManagement(false)}
+          currentUserEmail={session?.user?.email}
+        />
+      )}
     </div>
   );
 };

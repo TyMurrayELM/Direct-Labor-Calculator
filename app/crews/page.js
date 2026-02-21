@@ -516,10 +516,20 @@ if (false) { // Always continue with deletion for now
   if (crewsLoading || branchesLoading || propertiesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-blue-50">
-        <div className="p-8 bg-white shadow-lg rounded-lg">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin"></div>
-            <p className="text-lg font-semibold text-gray-700">Loading crews and properties...</p>
+        <div className="w-full max-w-2xl px-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="h-7 w-7 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+            <p className="text-lg font-semibold text-black">Loading crews and properties...</p>
+          </div>
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex gap-4 animate-pulse">
+                <div className="h-4 bg-blue-200 rounded w-44" />
+                <div className="h-4 bg-blue-100 rounded w-24" />
+                <div className="h-4 bg-blue-200 rounded w-20" />
+                <div className="h-4 bg-blue-100 rounded w-16" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -528,183 +538,185 @@ if (false) { // Always continue with deletion for now
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-blue-50 min-h-screen">
-      <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-white to-gray-100 p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <h1 className="text-2xl font-bold text-gray-800">Crew Management</h1>
-            </div>
-            <div className="flex space-x-3">
-              <Link href="/" className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Calculator
-              </Link>
-              <button
-                onClick={handleAddCrew}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add New Crew
-              </button>
-            </div>
+      <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-blue-200">
+        {/* Title Bar */}
+        <div className="px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border-b border-blue-100">
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <h1 className="text-xl font-bold text-black">Crew Management</h1>
           </div>
+          <div className="flex space-x-3">
+            <Link href="/" className="px-4 py-2 border border-blue-300 bg-white text-blue-700 font-medium rounded-lg hover:bg-blue-50 transition-colors flex items-center text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Calculator
+            </Link>
+            <button
+              onClick={handleAddCrew}
+              className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add New Crew
+            </button>
+          </div>
+        </div>
 
+        {/* Filters + Info + Summary */}
+        <div className="px-6 py-4 bg-white border-b border-blue-100">
           {/* Branch and Crew Type Filters */}
-          <div className="mt-4 flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <select
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-black font-medium"
             >
               <option value="">All Branches</option>
               {branches?.map(branch => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
-            
+
             <select
               value={crewTypeFilter}
               onChange={(e) => setCrewTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-black font-medium"
             >
               <option value="">All Crew Types</option>
               <option value="Maintenance">Maint</option>
               <option value="Onsite">Onsite</option>
             </select>
-            
+
             {(branchFilter || crewTypeFilter) && (
               <button
                 onClick={() => {
                   setBranchFilter('');
                   setCrewTypeFilter('');
                 }}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 flex items-center"
+                className="px-3 py-2 text-sm text-blue-700 font-medium hover:text-blue-900 flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Clear Filters
+                Clear
               </button>
             )}
-          </div>
-          
-          {/* Direct Labor Info Section - Collapsible */}
-          <div className="mt-4 bg-blue-50 rounded-lg border border-blue-100">
-            <button
-              onClick={() => setInfoBoxCollapsed(!infoBoxCollapsed)}
-              className="w-full p-4 flex items-center text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm font-medium">Direct Labor Target: {TARGET_DIRECT_LABOR_PERCENT}% (Green = Below Target, Red = Above Target)</span>
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className={`h-4 w-4 ml-2 transition-transform duration-200 ${infoBoxCollapsed ? '' : 'rotate-180'}`} 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
+
+            <div className="ml-auto">
+              <button
+                onClick={() => setInfoBoxCollapsed(!infoBoxCollapsed)}
+                className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-300 rounded-full hover:bg-blue-100 flex items-center gap-1.5"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {!infoBoxCollapsed && (
-              <div className="px-4 pb-4 text-xs text-blue-700 ml-7">
-                <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Hourly Cost Assumptions:</strong></li>
-                  <ul className="list-none pl-4 space-y-0.5">
-                    <li>• Phoenix Maintenance: ${HOURLY_COST_PHOENIX_MAINTENANCE.toFixed(2)}/hr | Phoenix Onsite: ${HOURLY_COST_PHOENIX_ONSITE.toFixed(2)}/hr</li>
-                    <li>• Las Vegas Maintenance: ${HOURLY_COST_LAS_VEGAS_MAINTENANCE.toFixed(2)}/hr | Las Vegas Onsite: ${HOURLY_COST_LAS_VEGAS_ONSITE.toFixed(2)}/hr</li>
-                  </ul>
-                  <li>The "Monthly Revenue Required" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
-                  <li>For example, a 4-person Phoenix Maintenance crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month, this crew would need approximately {formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST_PHOENIX_MAINTENANCE / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue.</li>
-                  <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
-                  <li><strong>Assigned DL %</strong> - The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
-                  <li><strong>Effective DL %</strong> - Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
-                  <li><strong>DL Utilization %</strong> - The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
-                </ul>
-              </div>
-            )}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                DL Target: {TARGET_DIRECT_LABOR_PERCENT}%
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-3 w-3 transition-transform duration-200 ${infoBoxCollapsed ? '' : 'rotate-180'}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {/* Summary Metrics Row */}
-          <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Summary {branchFilter || crewTypeFilter ? `(${[
-                  branchFilter ? branches.find(b => b.id === parseInt(branchFilter))?.name : null,
-                  crewTypeFilter ? (crewTypeFilter === 'Maintenance' ? 'Maint' : crewTypeFilter) : null
-                ].filter(Boolean).join(' / ') || 'Filtered'})` : '(All Branches)'}
-              </h3>
+          {/* Direct Labor Info Section - Collapsible */}
+          {!infoBoxCollapsed && (
+            <div className="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200 text-xs text-black">
+              <ul className="list-disc pl-4 space-y-1">
+                <li><strong>Hourly Cost Assumptions:</strong></li>
+                <ul className="list-none pl-4 space-y-0.5">
+                  <li>• Phoenix Maintenance: ${HOURLY_COST_PHOENIX_MAINTENANCE.toFixed(2)}/hr | Phoenix Onsite: ${HOURLY_COST_PHOENIX_ONSITE.toFixed(2)}/hr</li>
+                  <li>• Las Vegas Maintenance: ${HOURLY_COST_LAS_VEGAS_MAINTENANCE.toFixed(2)}/hr | Las Vegas Onsite: ${HOURLY_COST_LAS_VEGAS_ONSITE.toFixed(2)}/hr</li>
+                </ul>
+                <li>The "Revenue Req'd" shows how much revenue each crew should generate to hit the {TARGET_DIRECT_LABOR_PERCENT}% Direct Labor target.</li>
+                <li>For example, a 4-person Phoenix Maintenance crew works 160 hours/week (144 on-property hours assuming 10% drive time). With 4.33 weeks per month, this crew would need approximately {formatCurrency(4 * HOURS_PER_MONTH * HOURLY_COST_PHOENIX_MAINTENANCE / (TARGET_DIRECT_LABOR_PERCENT / 100))} in monthly revenue.</li>
+                <li>We use 4.33 weeks per month to accurately convert weekly hours to monthly revenue, accounting for the fact that months have varying numbers of days.</li>
+                <li><strong>Assigned DL %</strong> — The labor cost from hours assigned to properties as a percentage of monthly revenue.</li>
+                <li><strong>Effective DL %</strong> — Total labor cost (all paid hours) as a percentage of monthly revenue. <em>This is the metric that appears on financial reports and KPIs are based on.</em></li>
+                <li><strong>DL Utilization %</strong> — The percentage of a crew's available hours (after drive time) that are assigned to properties.</li>
+              </ul>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-              {/* Crews */}
-              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Crews</div>
-                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalCrews}</div>
+          )}
+
+          {/* Summary Metrics Row */}
+          <div className="mt-3 flex items-stretch flex-wrap gap-2">
+            {/* Crews */}
+            <div className="flex items-center gap-4 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5">
+              <div>
+                <div className="text-xs font-semibold text-slate-800 uppercase tracking-wide">Crews</div>
+                <div className="text-lg font-bold text-black">{summaryMetrics.totalCrews}</div>
               </div>
-              
-              {/* Properties */}
-              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Properties</div>
-                <div className="text-lg font-bold text-gray-800">{summaryMetrics.totalProperties}</div>
+              <div>
+                <div className="text-xs font-semibold text-slate-800 uppercase tracking-wide">Properties</div>
+                <div className="text-lg font-bold text-black">{summaryMetrics.totalProperties}</div>
               </div>
-              
-              {/* Total Crew Size */}
-              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Total FTEs</div>
-                <div className="text-lg font-bold text-gray-800">
+              <div>
+                <div className="text-xs font-semibold text-slate-800 uppercase tracking-wide">FTEs</div>
+                <div className="text-lg font-bold text-black">
                   {summaryMetrics.totalCrewSize}
-                  <span className="text-sm font-normal text-gray-400"> / {summaryMetrics.requiredFTEs.toFixed(1)}</span>
+                  <span className="text-sm font-semibold text-slate-500"> / {summaryMetrics.requiredFTEs.toFixed(1)}</span>
                 </div>
               </div>
-              
-              {/* Monthly Revenue */}
-              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Monthly Revenue</div>
-                <div className="text-lg font-bold text-gray-800">{formatCurrency(summaryMetrics.totalMonthlyRevenue)}</div>
+            </div>
+
+            {/* Revenue & Hours */}
+            <div className="flex items-center gap-4 bg-blue-100 border border-blue-300 rounded-lg px-4 py-2.5">
+              <div>
+                <div className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Monthly Revenue</div>
+                <div className="text-lg font-bold text-black">{formatCurrency(summaryMetrics.totalMonthlyRevenue)}</div>
               </div>
-              
-              {/* Current Hours */}
-              <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Assigned Hrs/Wk</div>
-                <div className="text-lg font-bold text-gray-800">
+              <div>
+                <div className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Assigned Hrs/Wk</div>
+                <div className="text-lg font-bold text-black">
                   {summaryMetrics.totalCurrentHours.toFixed(1)} / {summaryMetrics.totalAvailableHours.toFixed(0)}
                 </div>
               </div>
-              
-              {/* DL Utilization % */}
-              <div className={`rounded-lg p-3 border shadow-sm ${getUtilizationColorClass(summaryMetrics.avgUtilization)}`}>
-                <div className="text-xs uppercase tracking-wide opacity-75">DL Utilization %</div>
+            </div>
+
+            {/* DL Utilization % */}
+            <div className={`flex items-center rounded-lg px-4 py-2.5 border ${getUtilizationColorClass(summaryMetrics.avgUtilization)}`}>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide">Utilization</div>
                 <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgUtilization)}</div>
               </div>
-              
-              {/* Assigned DL % */}
-              <div className={`rounded-lg p-3 border shadow-sm ${getDLColorClass(summaryMetrics.avgAssignedDL)}`}>
-                <div className="text-xs uppercase tracking-wide opacity-75">Assigned DL %</div>
+            </div>
+
+            {/* Assigned DL % */}
+            <div className={`flex items-center rounded-lg px-4 py-2.5 border ${getDLColorClass(summaryMetrics.avgAssignedDL)}`}>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide">Assigned DL</div>
                 <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgAssignedDL)}</div>
               </div>
-              
-              {/* Effective DL % */}
-              <div className={`rounded-lg p-3 border-2 shadow-sm ${getDLColorClass(summaryMetrics.avgEffectiveDL)} border-blue-400`}>
-                <div className="text-xs uppercase tracking-wide opacity-75 font-semibold">Effective DL %</div>
+            </div>
+
+            {/* Effective DL % */}
+            <div className={`flex items-center rounded-lg px-4 py-2.5 border-2 ${getDLColorClass(summaryMetrics.avgEffectiveDL)} border-blue-400`}>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wide">Effective DL</div>
                 <div className="text-lg font-bold">{formatPercent(summaryMetrics.avgEffectiveDL)}</div>
               </div>
             </div>
+
+            {branchFilter || crewTypeFilter ? (
+              <div className="flex items-center text-xs font-semibold text-blue-700 px-2">
+                {[
+                  branchFilter ? branches.find(b => b.id === parseInt(branchFilter))?.name : null,
+                  crewTypeFilter ? (crewTypeFilter === 'Maintenance' ? 'Maint' : crewTypeFilter) : null
+                ].filter(Boolean).join(' / ')}
+              </div>
+            ) : null}
           </div>
         </div>
-      
+
         {/* Message Banner */}
         {message.text && (
           <div className={`p-4 mx-6 my-4 rounded-lg flex items-start ${
@@ -727,142 +739,139 @@ if (false) { // Always continue with deletion for now
       
         {/* Crew List */}
         <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-20">
+          <table className="w-full table-fixed">
+            <thead className="sticky top-0 z-20" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
               <tr>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-20 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('name')} className="flex items-center focus:outline-none">
-                    Crew Name
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'name' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Name
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'name' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'name' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'name'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('type')} className="flex items-center focus:outline-none">
                     Type
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'type' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'type' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'type' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'type'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm" style={{ width: 'min-content' }}>
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('branch')} className="flex items-center focus:outline-none">
                     Branch
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'branch' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'branch' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'branch' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'branch'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                {/* New Vehicle Column - Made more compact */}
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm" style={{ width: 'min-content' }}>
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('vehicle')} className="flex items-center focus:outline-none">
                     Vehicle
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'vehicle' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'vehicle' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'vehicle' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'vehicle'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('propertyCount')} className="flex items-center focus:outline-none">
-                    Properties
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'propertyCount' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Props
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'propertyCount' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'propertyCount' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'propertyCount'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('size')} className="flex items-center focus:outline-none">
-                    Crew Size
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'size' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Size
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'size' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'size' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'size'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
-                  Monthly Revenue<br/>Required
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white tracking-tight select-none">
+                  Rev Req'd
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('monthlyInvoice')} className="flex items-center focus:outline-none">
-                    Monthly Revenue
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'monthlyInvoice' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Revenue
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'monthlyInvoice' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'monthlyInvoice' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'monthlyInvoice'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('currentHours')} className="flex items-center focus:outline-none">
-                    Current Hours
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'currentHours' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Hours
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'currentHours' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'currentHours' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'currentHours'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                {/* DL Utilization % Column - Moved here */}
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('utilization')} className="flex items-center focus:outline-none">
-                    DL Utilization %
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'utilization' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Util %
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'utilization' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'utilization' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'utilization'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-white uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none">
                   <button onClick={() => handleSort('directLabor')} className="flex items-center focus:outline-none">
-                    Assigned DL %
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'directLabor' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                    Asgn DL%
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'directLabor' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'directLabor' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'directLabor'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
                   </button>
                 </th>
-                {/* New Column: Effective DL % with highlighted styling */}
-                <th scope="col" className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider sticky top-0 bg-blue-50 z-10 shadow-sm border-b-2 border-blue-400">
-                  <button onClick={() => handleSort('effectiveDL')} className="flex items-center focus:outline-none font-bold text-blue-700">
-                    Effective DL %
-                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'effectiveDL' ? "currentColor" : "#CBD5E0"} strokeWidth={1.5}>
+                <th scope="col" className="px-2 py-2 text-left text-[0.65rem] font-bold text-blue-100 uppercase tracking-tight cursor-pointer hover:bg-white/10 select-none bg-white/10">
+                  <button onClick={() => handleSort('effectiveDL')} className="flex items-center focus:outline-none">
+                    Eff DL%
+                    <svg xmlns="http://www.w3.org/2000/svg" className="ml-0.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke={sortBy === 'effectiveDL' ? "currentColor" : "rgba(255,255,255,0.4)"} strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={
-                        sortBy === 'effectiveDL' 
-                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7") 
+                        sortBy === 'effectiveDL'
+                          ? (sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7")
                           : "M5 15l7-7 7 7"
                       } />
                     </svg>
@@ -870,16 +879,16 @@ if (false) { // Always continue with deletion for now
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
+            <tbody className="bg-white">
               {filteredCrews.length === 0 ? (
                 <tr>
-                  <td colSpan="13" className="px-3 py-12 text-center text-gray-500">
+                  <td colSpan="13" className="px-3 py-12 text-center text-black">
                     <div className="flex flex-col items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-blue-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      <p className="text-lg font-medium">No crews found</p>
-                      <p className="text-sm text-gray-400 mt-1">Add a new crew to get started</p>
+                      <p className="text-lg font-semibold">No crews found</p>
+                      <p className="text-sm text-blue-600 mt-1">Add a new crew to get started</p>
                     </div>
                   </td>
                 </tr>
@@ -952,15 +961,15 @@ if (false) { // Always continue with deletion for now
                   };
                   
                   return (
-                    <tr 
-                      key={crew.id} 
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    <tr
+                      key={crew.id}
+                      className="hover:bg-blue-50/50 transition-colors cursor-pointer border-b border-blue-100"
                       onClick={() => router.push(`/properties?crew=${crew.id}`)}
                       title={`Click to view properties assigned to ${crew.name}`}
                     >
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      <td className="px-2 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-medium text-gray-900">{crew.name}</span>
+                          <span className="text-xs font-semibold text-black">{crew.name}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -975,7 +984,7 @@ if (false) { // Always continue with deletion for now
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      <td className="px-2 py-2 whitespace-nowrap">
                         <span className={`px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full ${
                           crew.crew_type === 'Maintenance' ? 'bg-green-100 text-green-800' :
                           crew.crew_type === 'Enhancement' ? 'bg-blue-100 text-blue-800' :
@@ -987,7 +996,7 @@ if (false) { // Always continue with deletion for now
                           {crew.crew_type === 'Maintenance' ? 'Maint' : crew.crew_type}
                         </span>
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap" style={{ width: 'min-content' }}>
+                      <td className="px-2 py-2 whitespace-nowrap">
                         {/* Branch name with lighter color styling - smaller font and tighter fit */}
                         <span 
                           className="px-2 py-0.5 rounded-full text-[0.65rem] leading-4 font-medium border shadow-sm"
@@ -1001,78 +1010,72 @@ if (false) { // Always continue with deletion for now
                         </span>
                       </td>
                       {/* Display Vehicle Information - More compact */}
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      <td className="px-2 py-2 whitespace-nowrap">
                         {crew.vehicle ? (
-                          <span className="px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full bg-gray-100 text-gray-800">
+                          <span className="px-2 py-0.5 inline-flex text-[0.65rem] leading-4 font-semibold rounded-full bg-slate-100 text-black border border-slate-300">
                             {crew.vehicle}
                           </span>
                         ) : (
-                          <span className="text-[0.65rem] text-gray-400">-</span>
+                          <span className="text-[0.65rem] text-black">-</span>
                         )}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {stats.propertyCount}
-                        </span>
+                      <td className="px-2 py-2 whitespace-nowrap text-xs font-bold text-black text-center">
+                        {stats.propertyCount}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
-                        {crew.size ? (
-                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            {crew.size}
-                          </span>
-                        ) : '-'}
+                      <td className="px-2 py-2 whitespace-nowrap text-xs font-bold text-black text-center">
+                        {crew.size || '-'}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs font-medium">
+                      <td className="px-2 py-2 whitespace-nowrap text-xs font-bold">
                         {crew.size ? (
-                          <span className="text-blue-600">
+                          <span className="text-blue-700">
                             {formatCurrency(requiredRevenue)}
                           </span>
                         ) : '-'}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs font-medium text-gray-700">
+                      <td className="px-2 py-2 whitespace-nowrap text-xs font-bold text-black">
                         {formatCurrency(stats.totalMonthlyInvoice)}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-700">
+                      <td className="px-2 py-2 whitespace-nowrap text-xs font-semibold text-black">
                         {stats.totalCurrentHours > 0 ? (
                           `${stats.totalCurrentHours.toFixed(1)} / ${(crew.size * 40 * hoursAdjustmentFactor).toFixed(0)}`
                         ) : (
                           `0.0 / ${(crew.size * 40 * hoursAdjustmentFactor).toFixed(0)}`
                         )}
                       </td>
-                      {/* DL Utilization % - Moved here */}
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      {/* DL Utilization % */}
+                      <td className={`px-2 py-2 whitespace-nowrap ${crew.size ? (utilizationPercent >= 95 ? 'bg-green-50' : utilizationPercent >= 90 ? 'bg-yellow-50' : 'bg-red-50') : ''}`}>
                         {crew.size ? (
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            getRowUtilizationColorClass(utilizationPercent)
+                          <span className={`text-xs font-bold ${
+                            utilizationPercent >= 95 ? 'text-green-700' : utilizationPercent >= 90 ? 'text-yellow-700' : 'text-red-700'
                           }`}>
                             {formatPercent(utilizationPercent)}
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-black">-</span>
                         )}
                       </td>
                       {/* Assigned DL % */}
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      <td className={`px-2 py-2 whitespace-nowrap ${stats.propertyCount > 0 ? (isDirectLaborGood ? 'bg-green-50' : 'bg-red-50') : ''}`}>
                         {stats.propertyCount > 0 ? (
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            isDirectLaborGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          <span className={`text-xs font-bold ${
+                            isDirectLaborGood ? 'text-green-700' : 'text-red-700'
                           }`}>
                             {formatPercent(stats.directLaborPercent)}
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-black">-</span>
                         )}
                       </td>
                       {/* Effective DL % */}
-                      <td className="px-3 py-4 whitespace-nowrap bg-blue-50">
+                      <td className={`px-2 py-2 whitespace-nowrap ${crew.size ? (effectiveDLPercent <= 40 ? 'bg-green-50' : 'bg-red-50') : 'bg-blue-50/30'}`}>
                         {crew.size ? (
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
-                            getEffectiveDLColorClass(effectiveDLPercent)
+                          <span className={`text-xs font-bold ${
+                            effectiveDLPercent <= 40 ? 'text-green-700' : 'text-red-700'
                           }`}>
                             {formatPercent(effectiveDLPercent)}
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-black">-</span>
                         )}
                       </td>
                     </tr>
@@ -1084,7 +1087,7 @@ if (false) { // Always continue with deletion for now
         </div>
         
         {/* Footer */}
-        <div className="bg-gray-50 p-4 border-t border-gray-200 text-center text-sm text-gray-500">
+        <div className="bg-blue-50 p-4 border-t-2 border-blue-300 text-center text-sm font-semibold text-black">
           {filteredCrews.length > 0 ? `Showing ${filteredCrews.length} crews` : 'No crews to display'}
         </div>
       </div>

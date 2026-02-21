@@ -711,7 +711,8 @@ export default function PropertiesPage() {
         (property.account_manager && property.account_manager.toLowerCase().includes(query)) ||
         (property.region && property.region.toLowerCase().includes(query)) ||
         (property.company && property.company.toLowerCase().includes(query)) ||
-        (property.client && property.client.toLowerCase().includes(query))
+        (property.client && property.client.toLowerCase().includes(query)) ||
+        (property.address && property.address.toLowerCase().includes(query))
       );
     }
     
@@ -916,17 +917,17 @@ export default function PropertiesPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-blue-100 min-h-screen">
-      <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
-        <div className="bg-gradient-to-r from-white to-gray-100 p-6 border-b border-gray-200">
+      <div className="bg-white shadow-xl rounded-xl overflow-clip border border-blue-200">
+        <div className="bg-white px-6 py-4 border-b border-blue-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600 mr-3" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600 mr-3" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
               </svg>
-              <h1 className="text-2xl font-bold text-gray-800">Property Management</h1>
+              <h1 className="text-xl font-bold text-black">Property Management</h1>
             </div>
             <div className="flex space-x-3">
-              <Link href="/" className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center">
+              <Link href="/" className="px-4 py-2 border border-blue-300 bg-white text-blue-700 font-medium rounded-lg hover:bg-blue-50 shadow-sm transition-colors flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
@@ -934,7 +935,7 @@ export default function PropertiesPage() {
               </Link>
               <button
                 onClick={handleAddProperty}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center"
+                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -952,10 +953,10 @@ export default function PropertiesPage() {
                 placeholder="Search properties..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                className="w-full px-4 py-3 pl-10 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-2.5 pl-10 pr-10 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -964,7 +965,7 @@ export default function PropertiesPage() {
                   onClick={() => setSearchText('')}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400 hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -978,7 +979,7 @@ export default function PropertiesPage() {
             <select
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-black font-medium"
             >
               <option value="">All Branches</option>
               {branches?.map(branch => (
@@ -990,7 +991,7 @@ export default function PropertiesPage() {
             <select
               value={crewFilter}
               onChange={(e) => setCrewFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-black font-medium"
             >
               <option value="">All Crews</option>
               {crews?.filter(c => !branchFilter || c.branch_id === parseInt(branchFilter)).map(crew => (
@@ -1002,7 +1003,7 @@ export default function PropertiesPage() {
             <select
               value={complexFilter}
               onChange={(e) => setComplexFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-black font-medium"
             >
               <option value="">All Complexes</option>
               {complexes?.filter(c => !branchFilter || c.branch_id === parseInt(branchFilter)).map(complex => (
@@ -1014,7 +1015,7 @@ export default function PropertiesPage() {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 flex items-center"
+                className="px-3 py-2 text-sm text-blue-700 hover:text-blue-900 font-medium flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1097,66 +1098,77 @@ export default function PropertiesPage() {
         
         {/* Properties List */}
         {isLoading ? (
-          <div className="p-12 text-center">
-            <div className="flex items-center justify-center">
-              <div className="w-8 h-8 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin"></div>
-              <p className="ml-3 text-lg font-medium text-gray-700">Loading properties...</p>
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-6 w-6 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+              <p className="text-sm font-semibold text-black">Loading properties...</p>
+            </div>
+            <div className="space-y-2">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-40" />
+                  <div className="h-4 bg-blue-50 rounded w-20" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                  <div className="h-4 bg-blue-50 rounded w-24" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                </div>
+              ))}
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('name')}>
+          <div>
+            <table className="w-full table-fixed">
+              <thead className="sticky top-0 z-10">
+                <tr style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight cursor-pointer" onClick={() => handleSort('name')}>
                     <div className="flex items-center">
                       Property
                       {sortBy === 'name' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
                         </svg>
                       )}
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('monthly_invoice')}>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight cursor-pointer" onClick={() => handleSort('monthly_invoice')}>
                     <div className="flex items-center">
-                      Monthly Invoice
+                      Invoice
                       {sortBy === 'monthly_invoice' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
                         </svg>
                       )}
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('current_hours')}>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight cursor-pointer" onClick={() => handleSort('current_hours')}>
                     <div className="flex items-center">
                       <div>
                         <div>Hours</div>
-                        <div className="text-[0.6rem] font-normal normal-case text-gray-400">Current / Target</div>
+                        <div className="text-[0.55rem] font-normal normal-case text-blue-100">Curr / Target</div>
                       </div>
                       {sortBy === 'current_hours' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === 'asc' ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
                         </svg>
                       )}
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Crew</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight">Branch</th>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight">Crew</th>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight">Type</th>
+                  <th scope="col" className="px-1.5 py-2 text-left text-[0.65rem] font-semibold text-white uppercase tracking-tight">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className="bg-white">
                 {filteredProperties?.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="7" className="px-6 py-12 text-center text-black">
                       <div className="flex flex-col items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-blue-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                         </svg>
-                        <p className="text-lg font-medium">No properties found</p>
-                        <p className="text-sm text-gray-400 mt-1">{searchText ? "Try a different search term" : "Add a new property to get started"}</p>
+                        <p className="text-lg font-medium text-black">No properties found</p>
+                        <p className="text-sm text-black mt-1">{searchText ? "Try a different search term" : "Add a new property to get started"}</p>
                       </div>
                     </td>
                   </tr>
@@ -1165,10 +1177,10 @@ export default function PropertiesPage() {
                     const branchInfo = getBranchInfo(property.branch_id);
                     
                     return (
-                      <tr key={property.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">{property.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                      <tr key={property.id} className="hover:bg-blue-50/50 transition-colors border-b border-blue-100">
+                        <td className="px-1.5 py-1.5">
+                          <div className="font-medium text-black text-xs">{property.name}</div>
+                          <div className="text-[0.65rem] text-black mt-0.5">
                             {property.complex_id && complexNameMap[property.complex_id] && (
                               <span className="block text-orange-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -1180,10 +1192,10 @@ export default function PropertiesPage() {
                             {property.account_manager && <span className="block">Manager: {property.account_manager}</span>}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap text-xs font-medium text-black">
                           {formatCurrency(property.monthly_invoice)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap text-xs">
                           {(() => {
                             const currentHrs = property.current_hours || 0;
                             const crewInfo = getCrewInfo(property.crew_id);
@@ -1192,19 +1204,19 @@ export default function PropertiesPage() {
                             const isOver = currentHrs > targetHrs * 1.02 && targetHrs > 0;
                             const dotColor = isOver ? 'bg-red-500' : 'bg-green-500';
                             return (
-                              <div className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
+                              <div className="flex items-center gap-1">
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
                                 <div>
-                                  <div className="font-medium">{currentHrs.toFixed(1)}</div>
-                                  <div className="text-xs text-gray-400">/ {targetHrs.toFixed(1)}</div>
+                                  <div className="font-medium text-black text-xs">{currentHrs.toFixed(1)}</div>
+                                  <div className="text-[0.65rem] text-black">/ {targetHrs.toFixed(1)}</div>
                                 </div>
                               </div>
                             );
                           })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div 
-                            className="px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full border"
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <div
+                            className="px-1.5 py-0.5 inline-flex text-[0.65rem] leading-4 font-medium rounded-full border"
                             style={{ 
                               backgroundColor: getLightColor(branchInfo.color),
                               borderColor: branchInfo.color,
@@ -1214,49 +1226,49 @@ export default function PropertiesPage() {
                             {branchInfo.name}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap text-xs text-black">
                           {(() => {
                             const crewInfo = getCrewInfo(property.crew_id);
                             if (!crewInfo) return '-';
                             return (
                               <span>
                                 {crewInfo.name}
-                                <span className="text-xs text-gray-400 ml-1">({crewInfo.size}m)</span>
+                                <span className="text-[0.65rem] text-black ml-0.5">({crewInfo.size}m)</span>
                               </span>
                             );
                           })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap text-xs text-black">
                           {property.property_type || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex space-x-2">
+                        <td className="px-1.5 py-1.5 whitespace-nowrap">
+                          <div className="flex space-x-1">
                             <button
                               onClick={() => handleEditProperty(property)}
-                              className="flex items-center px-2 py-1 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
+                              className="p-1 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
+                              title="Edit"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              Edit
                             </button>
                             <button
                               onClick={() => handleCopyProperty(property)}
-                              className="flex items-center px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                              className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                              title="Copy"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                               </svg>
-                              Copy
                             </button>
                             <button
                               onClick={() => handleDeleteProperty(property)}
-                              className="flex items-center px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                              className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                              title="Delete"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
-                              Delete
                             </button>
                           </div>
                         </td>
@@ -1270,14 +1282,14 @@ export default function PropertiesPage() {
         )}
         
         {/* Status footer without pagination */}
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 sm:px-6">
+        <div className="bg-blue-50 px-4 py-3 border-t-2 border-blue-300 sm:px-6">
           <div className="flex items-center justify-between">
             <div className="sm:block">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-black font-semibold">
                 {searchText ? (
-                  <span>Found <span className="font-medium">{filteredProperties?.length || 0}</span> properties matching "<span className="font-medium">{searchText}</span>"</span>
+                  <span>Found <span className="font-bold">{filteredProperties?.length || 0}</span> properties matching "<span className="font-bold">{searchText}</span>"</span>
                 ) : (
-                  <span>Showing <span className="font-medium">{properties?.length || 0}</span> properties</span>
+                  <span>Showing <span className="font-bold">{properties?.length || 0}</span> properties</span>
                 )}
               </p>
             </div>

@@ -135,7 +135,7 @@ export default function UserManagementModal({ onClose, currentUserEmail }) {
         {/* User List */}
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading users...</div>
+            <div className="text-center py-8 text-black font-medium">Loading users...</div>
           ) : (
             <table className="w-full text-sm">
               <thead>

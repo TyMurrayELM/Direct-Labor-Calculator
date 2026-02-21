@@ -699,10 +699,20 @@ export default function QSRoutesPage() {
   if (branchesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="p-8 bg-white shadow-lg rounded-lg">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 border-t-4 border-b-4 border-teal-500 rounded-full animate-spin"></div>
-            <p className="text-lg font-semibold text-gray-700">Loading...</p>
+        <div className="w-full max-w-2xl px-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="h-7 w-7 rounded-full border-[3px] border-teal-600 border-t-transparent animate-spin" />
+            <p className="text-lg font-semibold text-black">Loading...</p>
+          </div>
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex gap-4 animate-pulse">
+                <div className="h-4 bg-teal-200 rounded w-44" />
+                <div className="h-4 bg-teal-100 rounded w-24" />
+                <div className="h-4 bg-teal-200 rounded w-20" />
+                <div className="h-4 bg-teal-100 rounded w-16" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -868,9 +878,21 @@ export default function QSRoutesPage() {
 
         {/* Content Area */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-t-4 border-b-4 border-teal-500 rounded-full animate-spin"></div>
-            <span className="ml-3 text-gray-600">Loading routes...</span>
+          <div className="py-8 px-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-6 w-6 rounded-full border-[3px] border-teal-600 border-t-transparent animate-spin" />
+              <span className="text-sm font-semibold text-black">Loading routes...</span>
+            </div>
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="h-4 bg-teal-100 rounded w-40" />
+                  <div className="h-4 bg-teal-50 rounded w-24" />
+                  <div className="h-4 bg-teal-100 rounded w-20" />
+                  <div className="h-4 bg-teal-50 rounded w-16" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : routes.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border">

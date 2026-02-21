@@ -638,10 +638,20 @@ export default function PropertiesPage() {
         
         {/* Properties List - Removed client-side filtering */}
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="flex items-center justify-center">
-              <div className="w-8 h-8 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin"></div>
-              <p className="ml-3 text-lg font-medium text-gray-700">Loading properties...</p>
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-6 w-6 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+              <p className="text-sm font-semibold text-black">Loading properties...</p>
+            </div>
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-40" />
+                  <div className="h-4 bg-blue-50 rounded w-20" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                  <div className="h-4 bg-blue-50 rounded w-24" />
+                </div>
+              ))}
             </div>
           </div>
         ) : (

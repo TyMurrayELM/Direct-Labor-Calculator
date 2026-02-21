@@ -62,7 +62,7 @@ export default function LoginPage() {
           className="w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 flex items-center justify-center space-x-2 shadow-sm transition-colors"
         >
           {loading ? (
-            <div className="w-5 h-5 border-t-2 border-b-2 border-gray-500 rounded-full animate-spin mr-2"></div>
+            <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin mr-2"></div>
           ) : (
             <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg" className="mr-2">
               <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">

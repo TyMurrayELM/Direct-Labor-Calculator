@@ -1026,9 +1026,22 @@ export default function PnlTable({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500">
-        <div className="w-5 h-5 border-2 border-gray-300 border-t-emerald-600 rounded-full animate-spin mr-3"></div>
-        Loading P&L data...
+      <div className="py-8 px-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-5 w-5 rounded-full border-[3px] border-emerald-600 border-t-transparent animate-spin" />
+          <span className="text-sm font-semibold text-black">Loading P&L data...</span>
+        </div>
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex gap-3 animate-pulse">
+              <div className="h-4 bg-emerald-100 rounded w-48" />
+              <div className="h-4 bg-emerald-50 rounded w-20" />
+              <div className="h-4 bg-emerald-100 rounded w-20" />
+              <div className="h-4 bg-emerald-50 rounded w-20" />
+              <div className="h-4 bg-emerald-100 rounded w-20" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -1636,7 +1649,7 @@ export default function PnlTable({
             />
             <div className="overflow-y-auto flex-1" style={{ maxHeight: '320px' }}>
               {structuralLoading ? (
-                <div className="text-center py-4 text-gray-400">Loading...</div>
+                <div className="text-center py-4 text-black text-sm font-medium">Loading...</div>
               ) : structuralRows.length === 0 ? (
                 <div className="text-center py-4 text-gray-400">{structuralSearch ? 'No matches' : 'Type to search or browse all'}</div>
               ) : (

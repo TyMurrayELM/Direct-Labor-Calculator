@@ -1174,11 +1174,22 @@ const DirectLaborCalculator = () => {
   // Handle loading state
   if (branchesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="p-8 bg-white shadow-lg rounded-lg">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin"></div>
-            <p className="text-lg font-semibold text-gray-700">Loading data...</p>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="w-full max-w-4xl px-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+            <p className="text-lg font-semibold text-black">Loading data...</p>
+          </div>
+          <div className="space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex gap-4 animate-pulse">
+                <div className="h-4 bg-blue-100 rounded w-48" />
+                <div className="h-4 bg-blue-50 rounded w-24" />
+                <div className="h-4 bg-blue-50 rounded w-20" />
+                <div className="h-4 bg-blue-100 rounded w-16" />
+                <div className="h-4 bg-blue-50 rounded w-20" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1711,26 +1722,39 @@ const DirectLaborCalculator = () => {
         )}
 
         {propertiesLoading ? (
-          <div className="p-12 text-center">
-            <div className="flex items-center justify-center">
-              <div className="w-8 h-8 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin"></div>
-              <p className="ml-3 text-lg font-medium text-gray-700">Loading properties...</p>
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-6 w-6 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+              <p className="text-sm font-semibold text-black">Loading properties...</p>
+            </div>
+            <div className="space-y-2">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-40" />
+                  <div className="h-4 bg-blue-50 rounded w-20" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                  <div className="h-4 bg-blue-50 rounded w-24" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                  <div className="h-4 bg-blue-50 rounded w-20" />
+                  <div className="h-4 bg-blue-100 rounded w-16" />
+                </div>
+              ))}
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-blue-900 sticky top-0 z-10">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-lg border border-blue-200">
+            <table className="min-w-full">
+              <thead className="sticky top-0 z-10" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
                 <tr>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 w-64 max-w-64 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider w-64 max-w-64 cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('property')}
                   >
                     <div className="flex items-center space-x-1">
                       <span>Property</span>
                       {sortField === 'property' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1740,15 +1764,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('css')}
                   >
                     <div className="flex items-center space-x-1">
                       <span>CSS</span>
                       {sortField === 'css' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1758,15 +1782,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('monthlyInvoice')}
                   >
                     <div className="flex items-center space-x-1">
                       <span>Monthly Invoice</span>
                       {sortField === 'monthlyInvoice' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1776,15 +1800,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('currentHours')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Current Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      <span>Current Hrs <span className="font-semibold text-blue-200 normal-case">(Crew)</span></span>
                       {sortField === 'currentHours' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1794,15 +1818,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('currentDL')}
                   >
                     <div className="flex items-center space-x-1">
                       <span>Current DL%</span>
                       {sortField === 'currentDL' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1812,15 +1836,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('targetHours')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Target Wk Hrs<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      <span>Target Hrs <span className="font-semibold text-blue-200 normal-case">(Crew)</span></span>
                       {sortField === 'targetHours' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1830,15 +1854,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('newHours')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>New Wkly Total Hours<br/><span className="text-blue-200 normal-case">(Crew Hrs)</span></span>
+                      <span>New Hrs <span className="font-semibold text-blue-200 normal-case">(Crew)</span></span>
                       {sortField === 'newHours' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1848,15 +1872,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('newDL')}
                   >
                     <div className="flex items-center space-x-1">
                       <span>New DL%</span>
                       {sortField === 'newDL' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1866,15 +1890,15 @@ const DirectLaborCalculator = () => {
                       )}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
-                    className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-900 cursor-pointer hover:bg-blue-800 select-none"
+                  <th
+                    scope="col"
+                    className="px-4 py-2.5 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
                     onClick={() => handleSort('qsVisit')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>QS Visit<br/><span className="text-blue-200 normal-case">(minutes)</span></span>
+                      <span>QS Visit <span className="font-semibold text-blue-200 normal-case">(min)</span></span>
                       {sortField === 'qsVisit' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                           {sortDirection === 'asc' ? (
                             <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                           ) : (
@@ -1886,26 +1910,26 @@ const DirectLaborCalculator = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody>
                 {sortedProperties.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="9" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center">
                         {showMismatchOnly ? (
                           <>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <p className="text-lg font-medium text-green-700">All properties are up to date!</p>
-                            <p className="text-sm text-gray-400 mt-1">No properties need hours updates on this page</p>
+                            <p className="text-lg font-semibold text-green-700">All properties are up to date!</p>
+                            <p className="text-sm text-black mt-1">No properties need hours updates on this page</p>
                           </>
                         ) : (
                           <>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-blue-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
-                            <p className="text-lg font-medium">No properties found</p>
-                            <p className="text-sm text-gray-400 mt-1">Try changing your filters or adding properties</p>
+                            <p className="text-lg font-semibold text-black">No properties found</p>
+                            <p className="text-sm text-black mt-1">Try changing your filters or adding properties</p>
                           </>
                         )}
                       </div>
@@ -1917,35 +1941,34 @@ const DirectLaborCalculator = () => {
                     const crewType = property.crews?.crew_type || '';
                     const targetHours = calculateTargetHours(property.monthly_invoice, branchName, crewType);
                     const currentDLPercent = calculateDirectLaborPercent(property.current_hours, property.monthly_invoice, branchName, crewType);
-                    const newHours = editedHours[property.id] !== undefined 
-                      ? editedHours[property.id] 
+                    const newHours = editedHours[property.id] !== undefined
+                      ? editedHours[property.id]
                       : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
                     const newDLPercent = calculateDirectLaborPercent(newHours, property.monthly_invoice, branchName, crewType);
-                    
+
                     // Determine if this property is currently being saved
                     const isSaving = savingPropertyId === property.id;
                     const justSaved = recentlySavedId === property.id;
-                    
+
                     // Check if current hours differs from new/adjusted hours (needs update)
                     const hasHoursMismatch = property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours;
-                    
+
                     return (
-                      <tr 
-                        key={property.id} 
-                        className={`transition-all duration-300 ${justSaved ? 'bg-green-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${!justSaved && 'hover:bg-blue-50'}`}
+                      <tr
+                        key={property.id}
+                        className={`transition-all duration-300 border-b border-blue-100 ${justSaved ? 'bg-green-50' : 'bg-white'} ${!justSaved && 'hover:bg-blue-50/50'}`}
                       >
-                        <td className="px-4 py-2 w-64 max-w-64">
-                          {/* Make property name a link to edit property directly */}
+                        <td className="px-4 py-2.5 w-64 max-w-64">
                           <div className="flex items-center">
-                            <Link 
+                            <Link
                               href={`/properties?edit=${property.id}`}
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left break-words"
+                              className="font-semibold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left break-words"
                             >
                               {property.name}
                             </Link>
                             {property.complex_id && (
-                              <span 
-                                className="ml-1.5 text-orange-500 cursor-help" 
+                              <span
+                                className="ml-1.5 text-orange-600 cursor-help"
                                 title={complexNameMap[property.complex_id] || 'Part of complex'}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -1954,12 +1977,12 @@ const DirectLaborCalculator = () => {
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-col text-xs text-gray-500 mt-1">
+                          <div className="flex flex-col text-xs text-black mt-0.5">
                             {property.crews && (
                               <span>Crew: {property.crews.name} ({property.crews.crew_type}) - {property.crews.size}m</span>
                             )}
                             {(property.service_window_start || property.service_window_end) && (
-                              <span className="text-purple-600 mt-0.5">
+                              <span className="text-purple-800 font-medium mt-0.5">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                                 </svg>
@@ -1968,22 +1991,21 @@ const DirectLaborCalculator = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-sm text-black">
                           {property.account_manager || '—'}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-sm text-black font-semibold">
                           {formatCurrency(property.monthly_invoice)}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-sm text-black">
                           <div className="flex items-center">
-                            {property.current_hours}
-                            <span className="text-gray-700 ml-1">
+                            <span className="font-semibold">{property.current_hours}</span>
+                            <span className="text-black ml-1">
                               ({property.crews?.size ? (property.current_hours / property.crews.size).toFixed(1) : '—'})
                             </span>
-                            {/* Hours mismatch indicator */}
                             {hasHoursMismatch && (
-                              <span 
-                                className="ml-2 text-amber-500" 
+                              <span
+                                className="ml-2 text-amber-600"
                                 title={`New hours (${property.adjusted_hours}) differs from current hours (${property.current_hours}) - update needed`}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1993,50 +2015,47 @@ const DirectLaborCalculator = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full ${currentDLPercent < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {formatPercent(currentDLPercent)}
-                          </span>
+                        <td className={`px-4 py-2.5 whitespace-nowrap text-sm font-bold ${currentDLPercent < targetDirectLaborPercent * 100 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                          {formatPercent(currentDLPercent)}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-indigo-600">
-                          {targetHours.toFixed(1)}
-                          <span className="text-gray-700 font-normal ml-1">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-sm">
+                          <span className="font-semibold text-indigo-700">{targetHours.toFixed(1)}</span>
+                          <span className="text-black ml-1">
                             ({property.crews?.size ? (targetHours / property.crews.size).toFixed(1) : '—'})
                           </span>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
+                        <td className="px-4 py-2.5 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <input
                               type="number"
                               value={editedHours[property.id] !== undefined ? editedHours[property.id] : ""}
                               onChange={(e) => handleNewHoursChange(property.id, e.target.value)}
                               placeholder={(property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours).toString()}
-                              className="block w-24 sm:text-sm border-gray-300 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white text-center text-gray-900 placeholder:text-gray-900"
+                              className="block w-20 text-sm border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-center font-semibold text-black placeholder:text-black"
                               disabled={isSaving}
                             />
-                            <span className="text-gray-700 text-sm">
+                            <span className="text-black text-sm">
                               ({property.crews?.size ? (newHours / property.crews.size).toFixed(1) : '—'})
                             </span>
                             {justSaved && !editedHours[property.id] && (
-                              <div className="w-8 h-8 flex items-center justify-center bg-green-500 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <div className="w-6 h-6 flex items-center justify-center bg-green-500 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                               </div>
                             )}
-                            {/* Show save button if edited value differs from the saved new hours (adjusted_hours or current_hours) */}
                             {editedHours[property.id] !== undefined && editedHours[property.id] !== (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours) && (
                               isSaving ? (
-                                <div className="w-8 h-8 flex items-center justify-center">
-                                  <div className="w-5 h-5 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+                                <div className="w-6 h-6 flex items-center justify-center">
+                                  <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
                                 </div>
                               ) : (
                                 <button
                                   onClick={() => saveNewHours(property.id, editedHours[property.id])}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
                                   title="Save changes"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                   </svg>
                                 </button>
@@ -2044,12 +2063,10 @@ const DirectLaborCalculator = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full ${newDLPercent < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {editedHours[property.id] !== undefined || property.adjusted_hours !== null ? formatPercent(newDLPercent) : "-"}
-                          </span>
+                        <td className={`px-4 py-2.5 whitespace-nowrap text-sm font-bold ${newDLPercent < targetDirectLaborPercent * 100 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                          {editedHours[property.id] !== undefined || property.adjusted_hours !== null ? formatPercent(newDLPercent) : "-"}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
+                        <td className="px-4 py-2.5 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <input
                               type="text"
@@ -2058,18 +2075,18 @@ const DirectLaborCalculator = () => {
                               value={editedQSTime[property.id] !== undefined ? editedQSTime[property.id] : ""}
                               onChange={(e) => handleQSTimeChange(property.id, e.target.value)}
                               placeholder={property.qs_visit_time !== null ? property.qs_visit_time.toString() : "—"}
-                              className="block w-20 sm:text-sm border-gray-300 border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm bg-white text-center text-gray-900 placeholder:text-gray-900"
+                              className="block w-16 text-sm border border-teal-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-center font-semibold text-black placeholder:text-black"
                               disabled={savingPropertyId === property.id}
                             />
                             {editedQSTime[property.id] !== undefined && String(editedQSTime[property.id]) !== String(property.qs_visit_time || '') && (
                               savingPropertyId === property.id ? (
-                                <div className="w-7 h-7 flex items-center justify-center">
-                                  <div className="w-4 h-4 border-t-2 border-b-2 border-teal-500 rounded-full animate-spin"></div>
+                                <div className="w-6 h-6 flex items-center justify-center">
+                                  <div className="w-4 h-4 rounded-full border-2 border-teal-600 border-t-transparent animate-spin"></div>
                                 </div>
                               ) : (
                                 <button
                                   onClick={() => saveQSTime(property.id, editedQSTime[property.id])}
-                                  className="bg-teal-600 hover:bg-teal-700 text-white p-1.5 rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                                  className="bg-teal-600 hover:bg-teal-700 text-white p-1.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500"
                                   title="Save QS time"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2079,8 +2096,8 @@ const DirectLaborCalculator = () => {
                               )
                             )}
                             {recentlySavedId === property.id && !editedQSTime[property.id] && property.qs_visit_time !== null && (
-                              <div className="w-7 h-7 flex items-center justify-center bg-green-500 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <div className="w-6 h-6 flex items-center justify-center bg-green-500 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                               </div>
@@ -2093,24 +2110,20 @@ const DirectLaborCalculator = () => {
                 )}
 
                 {/* Totals row */}
-                <tr className="bg-gray-50 font-medium border-t-2 border-gray-200">
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 w-64 max-w-64">TOTALS</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">—</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatCurrency(currentPageMonthlyInvoice)}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageCurrentHours)}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${currentOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {formatPercent(currentOverallDirectLabor)}
-                    </span>
+                <tr className="bg-blue-50 border-t-2 border-blue-300 sticky bottom-0">
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm font-bold text-black w-64 max-w-64">TOTALS</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm text-black">—</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm font-bold text-black">{formatCurrency(currentPageMonthlyInvoice)}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm font-bold text-black">{formatNumber(currentPageCurrentHours)}</td>
+                  <td className={`px-4 py-2.5 whitespace-nowrap text-sm font-bold ${currentOverallDirectLabor < targetDirectLaborPercent * 100 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                    {formatPercent(currentOverallDirectLabor)}
                   </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageTargetHours)}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(currentPageNewHours)}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${newOverallDirectLabor < targetDirectLaborPercent * 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {currentPageNewHours > 0 ? formatPercent(newOverallDirectLabor) : "-"}
-                    </span>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm font-bold text-black">{formatNumber(currentPageTargetHours)}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm font-bold text-black">{formatNumber(currentPageNewHours)}</td>
+                  <td className={`px-4 py-2.5 whitespace-nowrap text-sm font-bold ${newOverallDirectLabor < targetDirectLaborPercent * 100 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                    {currentPageNewHours > 0 ? formatPercent(newOverallDirectLabor) : "-"}
                   </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">—</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-sm text-black">—</td>
                 </tr>
               </tbody>
             </table>

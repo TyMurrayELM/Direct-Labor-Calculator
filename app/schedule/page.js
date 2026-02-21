@@ -786,7 +786,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6 max-w-md w-full">
-          <h3 className="text-lg font-semibold mb-4">Quick Edit: {crew?.name}</h3>
+          <h3 className="text-lg font-semibold text-black mb-4">Quick Edit: {crew?.name}</h3>
           
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
@@ -797,32 +797,32 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Crew Size
                 </label>
                 <input
                   type="number"
                   value={formData.size}
                   onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                   min="1"
                   max="10"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-black mt-1">
                   Current capacity: {formData.size * 8 * DRIVE_TIME_FACTOR} hours/day
                 </p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Supervisor
                 </label>
                 <input
                   type="text"
                   value={formData.supervisor}
                   onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                   placeholder="Enter supervisor name"
                 />
               </div>
@@ -842,7 +842,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors text-black font-medium"
                 disabled={editingSaving}
               >
                 Cancel
@@ -911,57 +911,57 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
 
   return (
     <div className="max-w-7xl mx-auto p-4 bg-blue-100 min-h-screen">
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-blue-200">
         {/* Navigation Header */}
-        <div className="mb-6 pb-4 border-b border-gray-200">
+        <div className="mb-6 pb-4 border-b border-blue-100">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800">Weekly Schedule - Drag & Drop</h1>
-            
+            <h1 className="text-xl font-bold text-black">Weekly Schedule - Drag & Drop</h1>
+
             <div className="flex space-x-3">
-              <Link 
-                href="/" 
-                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors text-sm flex items-center space-x-1.5"
+              <Link
+                href="/"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 <span>Back to Calculator</span>
               </Link>
               
-              <Link 
-                href="/crews" 
-                className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              <Link
+                href="/crews"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
                 <span>Manage Crews</span>
               </Link>
               
-              <Link 
-                href="/properties" 
-                className="px-3 py-1.5 bg-white text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              <Link
+                href="/properties"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
                 <span>Manage Properties</span>
               </Link>
               
-              <Link 
-                href="/crew-schedule" 
-                className="px-3 py-1.5 bg-white text-teal-700 border border-teal-600 rounded-lg hover:bg-teal-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+              <Link
+                href="/crew-schedule"
+                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                 </svg>
                 <span>Crew Schedule</span>
               </Link>
               
               {session && (
-                <button 
+                <button
                   onClick={handleSignOut}
-                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11.293 9.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L10 10.414V15a1 1 0 102 0v-4.586l1.293 1.293z" />
@@ -977,7 +977,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">Select Crew:</label>
+              <label className="text-sm font-medium text-black">Select Crew:</label>
               <div className="flex items-center space-x-2">
                 {selectedCrew && branches.find(b => b.id === selectedCrew.branch_id) && 
                   getIconPath(branches.find(b => b.id === selectedCrew.branch_id)?.name) && (
@@ -996,7 +996,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     setSelectedCrew(crew);
                     setHasChanges(false);
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black font-medium"
                 >
                   {(() => {
                     // Group crews by branch
@@ -1028,7 +1028,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               </div>
               {selectedCrew && (
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-black">
                     Supervisor: <span className="font-medium">{selectedCrew.supervisor}</span>
                     {branches.find(b => b.id === selectedCrew.branch_id) && (
                       <> | Branch: <span className="font-medium">
@@ -1038,7 +1038,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                   </span>
                   <button
                     onClick={() => setShowCrewEditModal(true)}
-                    className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors rounded hover:bg-gray-100"
+                    className="ml-2 p-1 text-blue-400 hover:text-blue-600 transition-colors rounded hover:bg-blue-50"
                     title="Quick edit crew size & supervisor"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1061,8 +1061,8 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                 disabled={isSaving || !hasChanges}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   hasChanges 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-blue-100 text-blue-400 cursor-not-allowed'
                 }`}
               >
                 {isSaving ? 'Saving...' : 'Save Schedule'}
@@ -1090,26 +1090,26 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-7 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
+        <div className="grid grid-cols-7 gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
           <div>
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <div className="text-xs text-black font-medium flex items-center gap-1">
               Weekly Capacity
-              <span 
-                className="cursor-help text-gray-400 hover:text-gray-600" 
+              <span
+                className="cursor-help text-blue-400 hover:text-blue-600"
                 title={`Based on ${stats.workDaysInWeek} work days (${stats.hasSaturdayWork ? 'includes Saturday' : 'Mon-Fri only'})`}
               >ℹ</span>
             </div>
-            <div className="text-lg font-bold text-gray-800">{stats.weeklyCapacity.toFixed(1)} hrs</div>
+            <div className="text-lg font-bold text-black">{stats.weeklyCapacity.toFixed(1)} hrs</div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Scheduled Hours</div>
+            <div className="text-xs text-black font-medium">Scheduled Hours</div>
             <div className="text-lg font-bold text-blue-600">{stats.totalScheduledHours.toFixed(1)} hrs</div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <div className="text-xs text-black font-medium flex items-center gap-1">
               Utilization
-              <span 
-                className="cursor-help text-gray-400 hover:text-gray-600" 
+              <span
+                className="cursor-help text-blue-400 hover:text-blue-600"
                 title="Percentage of total weekly capacity being used. Target: 90%+"
               >ℹ</span>
             </div>
@@ -1122,30 +1122,30 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <div className="text-xs text-black font-medium flex items-center gap-1">
               Monthly Crew Cost
-              <span 
-                className="cursor-help text-gray-400 hover:text-gray-600" 
+              <span
+                className="cursor-help text-blue-400 hover:text-blue-600"
                 title={`Based on ${stats.workDaysInWeek}-day work week${stats.hasSaturdayWork ? ' (Saturday at 1.5x OT rate)' : ''}`}
               >ℹ</span>
             </div>
             <div className="text-lg font-bold text-red-600">${Math.round(stats.monthlyCrewCost).toLocaleString()}</div>
             {stats.hasSaturdayWork && (
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="text-xs text-black mt-1">
                 <div>Reg: ${Math.round(stats.monthlyRegularCrewCost).toLocaleString()}</div>
                 <div className="text-orange-600">OT: ${Math.round(stats.monthlySaturdayCrewCost).toLocaleString()}</div>
               </div>
             )}
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium">Monthly Revenue</div>
+            <div className="text-xs text-black font-medium">Monthly Revenue</div>
             <div className="text-lg font-bold text-green-600">${stats.totalRevenue.toLocaleString()}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <div className="text-xs text-black font-medium flex items-center gap-1">
               Assigned DL %
-              <span 
-                className="cursor-help text-gray-400 hover:text-gray-600" 
+              <span
+                className="cursor-help text-blue-400 hover:text-blue-600"
                 title={`Assigned Direct Labor: Labor cost based on scheduled hours vs revenue (adjusted for drive time). Target is <40%${stats.hasSaturdayWork ? '. Saturday hours calculated at 1.5x OT rate.' : ''}`}
               >ℹ</span>
             </div>
@@ -1156,10 +1156,10 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <div className="text-xs text-black font-medium flex items-center gap-1">
               Effective DL %
-              <span 
-                className="cursor-help text-gray-400 hover:text-gray-600" 
+              <span
+                className="cursor-help text-blue-400 hover:text-blue-600"
                 title={`Effective Direct Labor: Full crew cost for ${stats.workDaysInWeek} days regardless of utilization${stats.hasSaturdayWork ? ' (Saturday at 1.5x OT rate)' : ''}. Shows what you're actually paying for the full-time crew vs revenue. Target is <40%`}
               >ℹ</span>
             </div>
@@ -1169,7 +1169,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               {stats.effectiveDirectLaborPercent.toFixed(1)}%
             </div>
             {stats.hasSaturdayWork && (
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="text-xs text-black mt-1">
                 <div>M-F: {stats.regularEffectiveDL.toFixed(1)}%</div>
                 <div className={`${stats.saturdayEffectiveDL > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'}`}>
                   Sat: {stats.saturdayEffectiveDL.toFixed(1)}%
@@ -1183,13 +1183,13 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
         <div className="grid grid-cols-7 gap-3">
           {/* Unassigned Jobs Column - Updated to show branch-wide unassigned */}
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2 text-sm">
+            <h3 className="font-semibold text-black mb-2 text-sm">
               <div className="flex flex-col">
                 <span>Branch Unassigned</span>
-                <span className="text-xs font-normal text-gray-500">({selectedBranchName})</span>
+                <span className="text-xs font-normal text-black">({selectedBranchName})</span>
               </div>
             </h3>
-            <div className="text-xs text-gray-500 mb-2">
+            <div className="text-xs text-black mb-2">
               Total: {unassignedJobs.length} properties
             </div>
             <div
@@ -1198,7 +1198,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, 'unassigned')}
               className={`border-2 rounded-lg p-2 min-h-[500px] transition-colors ${
-                dragOverDay === 'unassigned' ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-yellow-50'
+                dragOverDay === 'unassigned' ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-yellow-50'
               }`}
             >
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
@@ -1222,7 +1222,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                   >
                     <div className="flex justify-between items-start">
                       <div 
-                        className="text-xs font-medium text-gray-900 truncate flex-1"
+                        className="text-xs font-medium text-black truncate flex-1"
                         title={job.name}
                       >
                         {job.name}
@@ -1234,7 +1234,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                       </div>
                       <Link 
                         href={`/properties?edit=${job.id}&return=/schedule`}
-                        className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        className="ml-1 text-blue-400 hover:text-blue-600 transition-colors"
                         title="Edit property"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
@@ -1302,13 +1302,13 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
               <div key={day}>
                 <div className="mb-2">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-700 text-sm">
+                    <h3 className="font-semibold text-black text-sm">
                       {day}
                       {isSaturday && (
                         <span className="ml-1 text-xs font-normal text-orange-600">(OT)</span>
                       )}
                     </h3>
-                    <span className="text-xs text-gray-500">{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
+                    <span className="text-xs text-black">{dayHours.toFixed(1)}/{dailyCrewHours.toFixed(1)} hrs</span>
                   </div>
                   {isSaturday && (
                     <div className="bg-orange-50 border border-orange-200 rounded px-1 py-0.5 mb-1">
@@ -1317,31 +1317,31 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                   )}
                   <div className="border-t mt-1 pt-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Jobs:</span>
+                      <span className="text-black">Jobs:</span>
                       <span className="font-medium">{dayJobs.length}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Revenue:</span>
+                      <span className="text-black">Revenue:</span>
                       <span className="font-medium text-green-600">
                         ${dayWeeklyRevenue.toFixed(0)}/wk
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600" title="Man Hours: Total scheduled hours for all properties">Man Hrs:</span>
+                      <span className="text-black" title="Man Hours: Total scheduled hours for all properties">Man Hrs:</span>
                       <span className="font-medium text-blue-600">
                         {dayHours.toFixed(1)}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600" title="Crew Hours: Man hours divided by crew size">Crew Hrs:</span>
+                      <span className="text-black" title="Crew Hours: Man hours divided by crew size">Crew Hrs:</span>
                       <span className="font-medium text-purple-600">
                         {crewHours.toFixed(1)}
                       </span>
                     </div>
                     
                     {/* Drive Time Input */}
-                    <div className="flex justify-between text-xs items-center mt-1 pt-1 border-t border-gray-200">
-                      <span className="text-gray-600" title="Drive time between properties">Drive Time:</span>
+                    <div className="flex justify-between text-xs items-center mt-1 pt-1 border-t border-blue-100">
+                      <span className="text-black" title="Drive time between properties">Drive Time:</span>
                       <input
                         type="number"
                         value={driveTime}
@@ -1350,13 +1350,13 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                         step="0.1"
                         min="0"
                         max="24"
-                        className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium"
+                        className="w-16 px-1 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-black"
                       />
                     </div>
                     
                     {/* Total Hours Display */}
                     <div className="flex justify-between text-xs items-center bg-blue-50 px-1 py-0.5 rounded">
-                      <span className="text-gray-700 font-medium" title="Crew Hours + Drive Time">Total Hours:</span>
+                      <span className="text-black font-medium" title="Crew Hours + Drive Time">Total Hours:</span>
                       <span className="font-bold text-blue-700">
                         {totalHours.toFixed(1)}
                       </span>
@@ -1364,7 +1364,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     
                   </div>
                   <div className="flex justify-between text-xs mt-1 pt-1 border-t">
-                    <span className="text-gray-600" title={`Assigned Direct Labor: Labor cost based on scheduled hours${isSaturday ? ' at OT rate' : ''} (adjusted for drive time)`}>aDL:</span>
+                    <span className="text-black" title={`Assigned Direct Labor: Labor cost based on scheduled hours${isSaturday ? ' at OT rate' : ''} (adjusted for drive time)`}>aDL:</span>
                     <span 
                       className={dlPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}
                       title={`Scheduled hours (${dayHours.toFixed(1)}) × $${(isSaturday ? OVERTIME_HOURLY_COST : HOURLY_COST).toFixed(2)}/hr × ${WEEKS_PER_MONTH} weeks ÷ (${(dayMonthlyRevenue).toFixed(0)} revenue × ${DRIVE_TIME_FACTOR}) = ${dlPercent.toFixed(1)}%`}
@@ -1373,7 +1373,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600" title={`Effective Direct Labor: Labor cost based on full crew capacity${isSaturday ? ' at OT rate' : ''} (what you actually pay)`}>eDL:</span>
+                    <span className="text-black" title={`Effective Direct Labor: Labor cost based on full crew capacity${isSaturday ? ' at OT rate' : ''} (what you actually pay)`}>eDL:</span>
                     <span 
                       className={`font-medium ${
                         eDLPercent > TARGET_DIRECT_LABOR_PERCENT ? 'text-orange-600' : 'text-green-600'
@@ -1384,7 +1384,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600" title="Percentage of available crew hours that are scheduled">Utilization:</span>
+                    <span className="text-black" title="Percentage of available crew hours that are scheduled">Utilization:</span>
                     <span 
                       className={`font-medium ${
                         utilizationPercent > 100 ? 'text-red-600' : 
@@ -1398,7 +1398,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                   </div>
                   <div className="border-t mt-1 pt-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">
+                      <span className="text-black">
                         Crew Cost{isSaturday ? ' (OT)' : ''}:
                       </span>
                       <span className={`font-medium ${isSaturday ? 'text-orange-600' : 'text-red-600'}`}>
@@ -1425,7 +1425,7 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                     isSaturday ? 'border-orange-300 bg-orange-50' :
                     utilizationPercent > 100 ? 'border-red-300 bg-red-50' :
                     utilizationPercent > 90 ? 'border-yellow-300 bg-yellow-50' :
-                    'border-gray-200 bg-gray-50'
+                    'border-blue-200 bg-blue-50/30'
                   }`}
                 >
                   <div className="space-y-2">
@@ -1455,19 +1455,19 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
                           draggable={true}
                           onDragStart={(e) => onDragStart(e, job, day)}
                           onDragEnd={onDragEnd}
-                          className="bg-white p-2 rounded shadow-sm border border-gray-200 cursor-move transition-all hover:shadow-md hover:border-blue-300"
+                          className="bg-white p-2 rounded shadow-sm border border-blue-100 cursor-move transition-all hover:shadow-md hover:border-blue-300"
                           style={{ userSelect: 'none' }}
                         >
                           <div className="flex justify-between items-start">
                             <div 
-                              className="text-xs font-medium text-gray-900 truncate flex-1"
+                              className="text-xs font-medium text-black truncate flex-1"
                               title={job.name}
                             >
                               {job.name}
                             </div>
                             <Link 
                               href={`/properties?edit=${job.id}&return=/schedule`}
-                              className="ml-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              className="ml-1 text-blue-400 hover:text-blue-600 transition-colors"
                               title="Edit property"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1537,9 +1537,9 @@ const { properties = [], loading: propertiesLoading, refetchProperties } = usePr
         </div>
 
         {/* Updated Legend */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 className="font-medium text-gray-700 mb-2 text-sm">How to Use:</h4>
-          <ul className="text-xs text-gray-600 space-y-1">
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-medium text-black mb-2 text-sm">How to Use:</h4>
+          <ul className="text-xs text-black space-y-1">
             <li>• The "Branch Unassigned" column shows ALL unscheduled properties from the {selectedBranchName} branch</li>
             <li>• Properties with green backgrounds are already assigned to {selectedCrew?.name || 'this crew'}</li>
             <li>• Properties with orange backgrounds belong to other crews - dragging them will reassign them to {selectedCrew?.name || 'this crew'}</li>

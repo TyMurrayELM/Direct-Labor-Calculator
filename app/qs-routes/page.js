@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useBranches } from '../hooks/useSupabase';
 
 // Get branch icon path based on branch name
@@ -132,11 +132,22 @@ export default function QSRoutesPage() {
     getSession();
   }, [supabase, router]);
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     if (branches.length > 0 && !selectedBranchId) {
+      const branchParam = searchParams.get('branch');
+      if (branchParam) {
+        const branchId = parseInt(branchParam);
+        const match = branches.find(b => b.id === branchId);
+        if (match) {
+          setSelectedBranchId(branchId);
+          return;
+        }
+      }
       setSelectedBranchId(branches[0].id);
     }
-  }, [branches, selectedBranchId]);
+  }, [branches, selectedBranchId, searchParams]);
 
   // Fetch property schedule data when branch changes
   useEffect(() => {

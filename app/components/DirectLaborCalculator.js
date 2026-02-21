@@ -9,30 +9,30 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import UserManagementModal from './UserManagementModal';
 // No need to import PropertyForm as we're navigating to properties page
 
+// Get icon based on branch name
+const getIconPath = (branchName) => {
+  if (!branchName) return null;
+
+  const name = branchName.toLowerCase();
+  if (name.includes('vegas') || name.includes('lv')) {
+    return '/lv.png';
+  } else if (name.includes('north')) {
+    return '/n.png';
+  } else if (name.includes('southeast') || name.includes('se')) {
+    return '/se.png';
+  } else if (name.includes('southwest') || name.includes('sw')) {
+    return '/sw.png';
+  }
+  return null;
+};
+
 // Custom Branch Dropdown Component (inline for easy copy/paste)
 const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
-  
+
   // Get selected branch
   const selectedBranch = branches.find(branch => branch.id === selectedBranchId) || {};
-  
-  // Get icon based on branch name
-  const getIconPath = (branchName) => {
-    if (!branchName) return null;
-    
-    const name = branchName.toLowerCase();
-    if (name.includes('vegas') || name.includes('lv')) {
-      return '/lv.png';
-    } else if (name.includes('north')) {
-      return '/n.png';
-    } else if (name.includes('southeast') || name.includes('se')) {
-      return '/se.png';
-    } else if (name.includes('southwest') || name.includes('sw')) {
-      return '/sw.png';
-    }
-    return null;
-  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -84,7 +84,7 @@ const BranchDropdown = ({ branches, selectedBranchId, onChange }) => {
       </button>
       
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
+        <div className="absolute z-50 mt-1 w-full rounded-md bg-white shadow-lg">
           <div className="py-1 max-h-60 overflow-y-auto">
             <button
               type="button"
@@ -141,6 +141,8 @@ const DirectLaborCalculator = () => {
   const exportsRef = useRef(null);
   const [showForecast, setShowForecast] = useState(false);
   const forecastRef = useRef(null);
+  const [showQsRoutes, setShowQsRoutes] = useState(false);
+  const qsRoutesRef = useRef(null);
   
   // Fetch user role from allowlist
   useEffect(() => {
@@ -169,6 +171,9 @@ const DirectLaborCalculator = () => {
       }
       if (forecastRef.current && !forecastRef.current.contains(event.target)) {
         setShowForecast(false);
+      }
+      if (qsRoutesRef.current && !qsRoutesRef.current.contains(event.target)) {
+        setShowQsRoutes(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -1238,15 +1243,48 @@ const DirectLaborCalculator = () => {
                 <span>Scheduling</span>
               </Link>
 
-              <Link
-                href="/qs-routes"
-                className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-                <span>QS Routes</span>
-              </Link>
+              <div className="relative" ref={qsRoutesRef}>
+                <button
+                  onClick={() => setShowQsRoutes(!showQsRoutes)}
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <span>QS Routes</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {showQsRoutes && (
+                  <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    {branches.map((branch) => (
+                      <Link
+                        key={branch.id}
+                        href={`/qs-routes?branch=${branch.id}`}
+                        onClick={() => setShowQsRoutes(false)}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <div
+                          className="w-1 h-6 rounded-full mr-2.5 flex-shrink-0"
+                          style={{ backgroundColor: branch.color || '#cccccc' }}
+                        />
+                        {getIconPath(branch.name) && (
+                          <img
+                            src={getIconPath(branch.name)}
+                            alt=""
+                            width={18}
+                            height={18}
+                            className="mr-2 flex-shrink-0"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        <span className="font-medium">{branch.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="relative" ref={forecastRef}>
                 <button

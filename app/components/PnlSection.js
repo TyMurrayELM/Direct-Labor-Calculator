@@ -54,11 +54,22 @@ export default function PnlSection({
   const pnlCellUpdateTimer = useRef(null);
   const pendingPnlUpdates = useRef(new Map());
 
+  // --- Admin-configured defaults ---
+  const [pnlDefaults, setPnlDefaults] = useState(null);
+  const defaultsAppliedKey = useRef(null);
+  useEffect(() => {
+    fetch('/api/pnl-defaults')
+      .then(r => r.json())
+      .then(d => { if (d.success) setPnlDefaults(d.defaults); })
+      .catch(() => {});
+  }, []);
+
   // Reset version selections when branch/year/department changes
   useEffect(() => {
     setSelectedVersionId(null);
     setReferenceVersionId(null);
     setReferenceItems(null);
+    defaultsAppliedKey.current = null;
   }, [branchId, year, department]);
 
   // --- Combined department logic ---
@@ -68,6 +79,23 @@ export default function PnlSection({
   const { versions: pnlVersions, allRawVersions: pnlAllRawVersions, refetchVersions: refetchPnlVersions } = usePnlVersions(
     branchId, department, year
   );
+
+  // Apply admin-configured defaults when versions load for a new context
+  useEffect(() => {
+    if (!pnlVersions || pnlVersions.length === 0 || !pnlDefaults) return;
+    const key = `${branchId}-${year}-${department}`;
+    if (defaultsAppliedKey.current === key) return;
+    defaultsAppliedKey.current = key;
+
+    if (pnlDefaults.default_version_name) {
+      const match = pnlVersions.find(v => v.version_name === pnlDefaults.default_version_name);
+      if (match) setSelectedVersionId(match.id);
+    }
+    if (pnlDefaults.compare_version_name) {
+      const match = pnlVersions.find(v => v.version_name === pnlDefaults.compare_version_name);
+      if (match) setReferenceVersionId(match.id);
+    }
+  }, [pnlVersions, pnlDefaults, branchId, year, department]);
 
   // For all_maintenance: map selected version ID to array of version IDs across all 3 departments
   const pnlEffectiveVersionId = useMemo(() => {

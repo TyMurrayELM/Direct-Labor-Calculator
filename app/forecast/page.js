@@ -1236,7 +1236,7 @@ export default function ForecastPage() {
             <tbody className="text-sm">
               {/* Revenue Input Row */}
               <tr className="bg-emerald-50/60 border-b border-emerald-100 hover:bg-emerald-50 transition-colors duration-150">
-                <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-emerald-50/60 z-10">
+                <td className={`px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-emerald-50/60 ${showPnlImportDropdown ? 'z-50' : 'z-10'}`}>
                   <div className="flex items-center gap-1.5">
                     Monthly Revenue
                     {!isCombinedView && (

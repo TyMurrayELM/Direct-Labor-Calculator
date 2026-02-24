@@ -22,6 +22,7 @@ FTE forecast and P&L versioning tool built with Next.js and Supabase.
 - **Fill Forecast**: Copy forecast-month values from any saved version into the working draft or another version
 - **Lock/Unlock**: Prevent edits to finalized versions
 - **Delete**: Remove unlocked versions
+- **Admin defaults**: Admins can configure a default version and compare-to version via Admin Settings; these auto-apply when loading any branch/department
 
 ### Admin-Only Rows
 - Detail rows can be flagged as `admin_only` to hide sensitive compensation data from P&L managers
@@ -64,6 +65,7 @@ app/
     PnlImport.js            — NetSuite P&L file upload
     BudgetImport.js         — Planning file upload (Revenue + COGS + OpEx)
     DirectLaborCalculator.js — FTE/labor calculator component
+    AdminSettingsModal.js   — Admin settings (Users + P&L Defaults tabs)
   api/pnl/
     import/route.js         — Import line items (preserves forecasts + admin flags)
     save-version/route.js   — Snapshot draft to named version
@@ -73,6 +75,9 @@ app/
     lock-version/route.js   — Lock/unlock a version
     delete-version/route.js — Delete an unlocked version
     reorder-row/route.js    — Reorder rows via drag-and-drop
+  api/pnl-defaults/
+    route.js                — Get/set P&L default version and compare-to
+    version-names/route.js  — List saved version names for defaults picker
   hooks/useSupabase.js      — All data fetching hooks + CRUD functions
 lib/
   parsePnlXls.js            — NetSuite Income Statement XLS parser

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   useBranches,
@@ -88,6 +88,12 @@ export default function ForecastPage() {
     months.reduce((acc, month) => ({ ...acc, [month]: '' }), {})
   );
   const [isNormalized, setIsNormalized] = useState(true);
+
+  // P&L revenue import
+  const [showPnlImportDropdown, setShowPnlImportDropdown] = useState(false);
+  const [pnlVersionNames, setPnlVersionNames] = useState([]);
+  const [pnlImportLoading, setPnlImportLoading] = useState(false);
+  const pnlImportRef = useRef(null);
   
   // Fetch data
   const { branches, loading: branchesLoading } = useBranches();
@@ -238,6 +244,92 @@ export default function ForecastPage() {
 
   const parseRevenue = (value) => {
     return parseFloat(String(value).replace(/,/g, '')) || 0;
+  };
+
+  // P&L revenue import — month key mapping (P&L uses lowercase, forecast uses title case)
+  const MONTH_KEY_MAP = {
+    jan: 'Jan', feb: 'Feb', mar: 'Mar', apr: 'Apr',
+    may: 'May', jun: 'Jun', jul: 'Jul', aug: 'Aug',
+    sep: 'Sep', oct: 'Oct', nov: 'Nov', dec: 'Dec'
+  };
+
+  // Close P&L import dropdown on outside click
+  useEffect(() => {
+    if (!showPnlImportDropdown) return;
+    const handleClickOutside = (e) => {
+      if (pnlImportRef.current && !pnlImportRef.current.contains(e.target)) {
+        setShowPnlImportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPnlImportDropdown]);
+
+  // Open P&L import dropdown and fetch available versions
+  const handleOpenPnlImport = async () => {
+    if (showPnlImportDropdown) {
+      setShowPnlImportDropdown(false);
+      return;
+    }
+    setShowPnlImportDropdown(true);
+    setPnlImportLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('pnl_versions')
+        .select('version_name')
+        .eq('branch_id', selectedBranchId)
+        .eq('year', selectedYear)
+        .in('department', ['maintenance', 'maintenance_onsite'])
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setPnlVersionNames([...new Set(data.map(r => r.version_name))]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch P&L versions:', err);
+    } finally {
+      setPnlImportLoading(false);
+    }
+  };
+
+  // Import revenue values from a P&L version into the input fields
+  const handleImportPnlRevenue = async (versionName) => {
+    setShowPnlImportDropdown(false);
+    setPnlImportLoading(true);
+    try {
+      const vParam = versionName ? `&versionName=${encodeURIComponent(versionName)}` : '';
+      const res = await fetch(
+        `/api/pnl/cross-dept-revenue?branchId=${selectedBranchId}&year=${selectedYear}${vParam}`
+      );
+      const result = await res.json();
+      if (result.success && result.departments) {
+        // Import maintenance revenue
+        const maintRev = result.departments.maintenance || {};
+        const newMonthlyRevenue = { ...monthlyRevenue };
+        for (const [lk, value] of Object.entries(maintRev)) {
+          const mk = MONTH_KEY_MAP[lk];
+          if (mk && value) newMonthlyRevenue[mk] = Math.round(value).toLocaleString('en-US');
+        }
+        setMonthlyRevenue(newMonthlyRevenue);
+
+        // Import maintenance_onsite revenue
+        const onsiteRev = result.departments.maintenance_onsite || {};
+        const newOnsiteRevenue = { ...onsiteRevenue };
+        for (const [lk, value] of Object.entries(onsiteRev)) {
+          const mk = MONTH_KEY_MAP[lk];
+          if (mk && value) newOnsiteRevenue[mk] = Math.round(value).toLocaleString('en-US');
+        }
+        setOnsiteRevenue(newOnsiteRevenue);
+
+        setSaveMessage({ type: 'success', text: `Revenue imported from P&L${versionName ? ` (${versionName})` : ' (Working Draft)'}` });
+      } else {
+        setSaveMessage({ type: 'error', text: 'No revenue data found in P&L' });
+      }
+    } catch (err) {
+      setSaveMessage({ type: 'error', text: `Import failed: ${err.message}` });
+    } finally {
+      setPnlImportLoading(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
   };
 
   // Check if Encore (company-wide) or Phoenix (combined Phoenix branches) view is selected
@@ -1145,7 +1237,55 @@ export default function ForecastPage() {
               {/* Revenue Input Row */}
               <tr className="bg-emerald-50/60 border-b border-emerald-100 hover:bg-emerald-50 transition-colors duration-150">
                 <td className="px-3 py-2.5 font-medium text-slate-700 sticky left-0 bg-emerald-50/60 z-10">
-                  Monthly Revenue
+                  <div className="flex items-center gap-1.5">
+                    Monthly Revenue
+                    {!isCombinedView && (
+                      <div className="relative" ref={pnlImportRef}>
+                        <button
+                          onClick={handleOpenPnlImport}
+                          disabled={pnlImportLoading}
+                          title="Import revenue from P&L version"
+                          className="p-0.5 rounded text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 transition-colors"
+                        >
+                          {pnlImportLoading ? (
+                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                        {showPnlImportDropdown && (
+                          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]">
+                            <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100 font-normal">
+                              Import revenue from P&L:
+                            </div>
+                            <button
+                              onClick={() => handleImportPnlRevenue(null)}
+                              className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 font-normal"
+                            >
+                              Working Draft
+                            </button>
+                            {pnlVersionNames.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleImportPnlRevenue(name)}
+                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 font-normal"
+                              >
+                                {name}
+                              </button>
+                            ))}
+                            {pnlVersionNames.length === 0 && !pnlImportLoading && (
+                              <div className="px-3 py-2 text-xs text-gray-400 font-normal">No saved versions</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 {months.map(month => (
                   <td key={month} className="px-1 py-1.5">

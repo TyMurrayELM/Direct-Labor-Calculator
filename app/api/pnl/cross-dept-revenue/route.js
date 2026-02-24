@@ -64,6 +64,50 @@ function computeRevenueTotals(rows) {
   return totals;
 }
 
+/** Compute direct labor totals from detail rows between Direct Labor header and Total Direct Labor */
+function computeDirectLaborTotals(rows) {
+  const sorted = [...rows].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
+
+  let headerIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].row_type === 'section_header' &&
+        sorted[i].account_name?.toLowerCase().trim() === 'direct labor') {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) {
+    const empty = {};
+    for (const mk of MONTH_KEYS) empty[mk] = 0;
+    return empty;
+  }
+
+  let totalIdx = sorted.length;
+  for (let i = headerIdx + 1; i < sorted.length; i++) {
+    if (sorted[i].row_type === 'total' &&
+        normalizeTotalName(sorted[i].account_name) === 'total direct labor') {
+      totalIdx = i;
+      break;
+    }
+    if (sorted[i].row_type === 'section_header') {
+      totalIdx = i;
+      break;
+    }
+  }
+
+  const totals = {};
+  for (const mk of MONTH_KEYS) {
+    let sum = 0;
+    for (let i = headerIdx + 1; i < totalIdx; i++) {
+      if (sorted[i].row_type === 'detail') {
+        sum += parseFloat(sorted[i][mk]) || 0;
+      }
+    }
+    totals[mk] = Math.round(sum * 100) / 100;
+  }
+  return totals;
+}
+
 export async function GET(request) {
   try {
     const role = await getUserRole();
@@ -127,8 +171,10 @@ export async function GET(request) {
       const rows = data || [];
       console.log(`[cross-dept] ${dept} (version: ${versionName || 'draft'}): ${rows.length} rows`);
 
-      result[dept] = computeRevenueTotals(rows);
-      console.log(`[cross-dept] ${dept} revenue totals:`, result[dept]);
+      result[dept] = {
+        revenue: computeRevenueTotals(rows),
+        directLabor: computeDirectLaborTotals(rows)
+      };
     }
 
     return NextResponse.json({ success: true, departments: result });

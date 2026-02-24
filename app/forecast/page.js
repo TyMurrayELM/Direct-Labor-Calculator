@@ -302,27 +302,44 @@ export default function ForecastPage() {
       );
       const result = await res.json();
       if (result.success && result.departments) {
+        const maintData = result.departments.maintenance || {};
+        const onsiteData = result.departments.maintenance_onsite || {};
+
         // Import maintenance revenue
-        const maintRev = result.departments.maintenance || {};
         const newMonthlyRevenue = { ...monthlyRevenue };
-        for (const [lk, value] of Object.entries(maintRev)) {
+        for (const [lk, value] of Object.entries(maintData.revenue || {})) {
           const mk = MONTH_KEY_MAP[lk];
           if (mk && value) newMonthlyRevenue[mk] = Math.round(value).toLocaleString('en-US');
         }
         setMonthlyRevenue(newMonthlyRevenue);
 
         // Import maintenance_onsite revenue
-        const onsiteRev = result.departments.maintenance_onsite || {};
         const newOnsiteRevenue = { ...onsiteRevenue };
-        for (const [lk, value] of Object.entries(onsiteRev)) {
+        for (const [lk, value] of Object.entries(onsiteData.revenue || {})) {
           const mk = MONTH_KEY_MAP[lk];
           if (mk && value) newOnsiteRevenue[mk] = Math.round(value).toLocaleString('en-US');
         }
         setOnsiteRevenue(newOnsiteRevenue);
 
-        setSaveMessage({ type: 'success', text: `Revenue imported from P&L${versionName ? ` (${versionName})` : ' (Working Draft)'}` });
+        // Import maintenance direct labor cost
+        const newActualLaborCost = { ...actualLaborCost };
+        for (const [lk, value] of Object.entries(maintData.directLabor || {})) {
+          const mk = MONTH_KEY_MAP[lk];
+          if (mk && value) newActualLaborCost[mk] = Math.round(value).toLocaleString('en-US');
+        }
+        setActualLaborCost(newActualLaborCost);
+
+        // Import maintenance_onsite direct labor cost
+        const newOnsiteActualLaborCost = { ...onsiteActualLaborCost };
+        for (const [lk, value] of Object.entries(onsiteData.directLabor || {})) {
+          const mk = MONTH_KEY_MAP[lk];
+          if (mk && value) newOnsiteActualLaborCost[mk] = Math.round(value).toLocaleString('en-US');
+        }
+        setOnsiteActualLaborCost(newOnsiteActualLaborCost);
+
+        setSaveMessage({ type: 'success', text: `Revenue & labor imported from P&L${versionName ? ` (${versionName})` : ' (Working Draft)'}` });
       } else {
-        setSaveMessage({ type: 'error', text: 'No revenue data found in P&L' });
+        setSaveMessage({ type: 'error', text: 'No data found in P&L' });
       }
     } catch (err) {
       setSaveMessage({ type: 'error', text: `Import failed: ${err.message}` });

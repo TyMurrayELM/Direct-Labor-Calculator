@@ -142,7 +142,7 @@ export default function PnlTable({
   const [monthColWidth, setMonthColWidth] = useState(52);
   const [notePopover, setNotePopover] = useState(null); // { id, monthKey, noteText, x, y }
   const [pctPopover, setPctPopover] = useState(null); // { id, pctOfTotal, pctSources: string[] }
-  const [crossDeptData, setCrossDeptData] = useState(null); // { maintenance: {jan,...}, maintenance_onsite: {jan,...} }
+  const [crossDeptData, setCrossDeptData] = useState(null); // { maintenance: {revenue:{jan,...}, directLabor:{jan,...}}, ... }
 
   // Multi-cell selection state
   const [selectedCells, setSelectedCells] = useState(new Set());
@@ -692,7 +692,7 @@ export default function PnlTable({
       if (!crossDeptData) return null;
       const parts = key.split(':');
       const dept = parts[1]; // 'maintenance' or 'maintenance_onsite'
-      return crossDeptData[dept] || null;
+      return crossDeptData[dept]?.revenue || null;
     }
     if (key.startsWith('detail:')) {
       const code = key.substring(7);

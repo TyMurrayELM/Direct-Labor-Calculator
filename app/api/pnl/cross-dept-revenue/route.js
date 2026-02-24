@@ -64,17 +64,54 @@ function computeRevenueTotals(rows) {
   return totals;
 }
 
-/** Read values from the "Total - Direct Labor" row directly */
+/** Sum detail rows between "Direct Labor" account_header and "Total - Direct Labor" total.
+ *  Falls back to reading the total row directly if it has non-zero values. */
 function computeDirectLaborTotals(rows) {
-  const dlRow = rows.find(r =>
-    r.row_type === 'total' &&
-    normalizeTotalName(r.account_name) === 'total direct labor'
-  );
-  const totals = {};
-  for (const mk of MONTH_KEYS) {
-    totals[mk] = dlRow ? (Math.round((parseFloat(dlRow[mk]) || 0) * 100) / 100) : 0;
+  const sorted = [...rows].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
+
+  // Find the Direct Labor header (can be section_header or account_header)
+  let headerIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    if ((sorted[i].row_type === 'account_header' || sorted[i].row_type === 'section_header') &&
+        sorted[i].account_name?.toLowerCase().trim() === 'direct labor') {
+      headerIdx = i;
+      break;
+    }
   }
-  return totals;
+
+  // Find the Total - Direct Labor row
+  const dlTotalIdx = sorted.findIndex(r =>
+    r.row_type === 'total' && normalizeTotalName(r.account_name) === 'total direct labor'
+  );
+
+  // If we found both header and total, sum detail rows between them
+  if (headerIdx >= 0 && dlTotalIdx > headerIdx) {
+    const totals = {};
+    for (const mk of MONTH_KEYS) {
+      let sum = 0;
+      for (let i = headerIdx + 1; i < dlTotalIdx; i++) {
+        if (sorted[i].row_type === 'detail') {
+          sum += parseFloat(sorted[i][mk]) || 0;
+        }
+      }
+      totals[mk] = Math.round(sum * 100) / 100;
+    }
+    return totals;
+  }
+
+  // Fallback: read the total row directly (if it has values)
+  if (dlTotalIdx >= 0) {
+    const dlRow = sorted[dlTotalIdx];
+    const totals = {};
+    for (const mk of MONTH_KEYS) {
+      totals[mk] = Math.round((parseFloat(dlRow[mk]) || 0) * 100) / 100;
+    }
+    return totals;
+  }
+
+  const empty = {};
+  for (const mk of MONTH_KEYS) empty[mk] = 0;
+  return empty;
 }
 
 export async function GET(request) {

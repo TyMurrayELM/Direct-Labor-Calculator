@@ -64,46 +64,15 @@ function computeRevenueTotals(rows) {
   return totals;
 }
 
-/** Compute direct labor totals from detail rows between Direct Labor header and Total Direct Labor */
+/** Read values from the "Total - Direct Labor" row directly */
 function computeDirectLaborTotals(rows) {
-  const sorted = [...rows].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
-
-  let headerIdx = -1;
-  for (let i = 0; i < sorted.length; i++) {
-    if (sorted[i].row_type === 'section_header' &&
-        sorted[i].account_name?.toLowerCase().trim() === 'direct labor') {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) {
-    const empty = {};
-    for (const mk of MONTH_KEYS) empty[mk] = 0;
-    return empty;
-  }
-
-  let totalIdx = sorted.length;
-  for (let i = headerIdx + 1; i < sorted.length; i++) {
-    if (sorted[i].row_type === 'total' &&
-        normalizeTotalName(sorted[i].account_name) === 'total direct labor') {
-      totalIdx = i;
-      break;
-    }
-    if (sorted[i].row_type === 'section_header') {
-      totalIdx = i;
-      break;
-    }
-  }
-
+  const dlRow = rows.find(r =>
+    r.row_type === 'total' &&
+    normalizeTotalName(r.account_name) === 'total direct labor'
+  );
   const totals = {};
   for (const mk of MONTH_KEYS) {
-    let sum = 0;
-    for (let i = headerIdx + 1; i < totalIdx; i++) {
-      if (sorted[i].row_type === 'detail') {
-        sum += parseFloat(sorted[i][mk]) || 0;
-      }
-    }
-    totals[mk] = Math.round(sum * 100) / 100;
+    totals[mk] = dlRow ? (Math.round((parseFloat(dlRow[mk]) || 0) * 100) / 100) : 0;
   }
   return totals;
 }

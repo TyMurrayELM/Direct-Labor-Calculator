@@ -1821,6 +1821,12 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Clear stale data immediately when inputs change (before async fetch)
+  useEffect(() => {
+    setLineItems([]);
+    setImportInfo(null);
+  }, [branchId, department, year, versionId]);
+
   const fetchPnlData = useCallback(async () => {
     if (!branchId || !department || !year) {
       setLineItems([]);
@@ -1962,6 +1968,12 @@ export function usePnlVersions(branchId, department, year) {
   const [versions, setVersions] = useState([]);
   const [allRawVersions, setAllRawVersions] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Clear stale versions immediately when inputs change (before async fetch)
+  useEffect(() => {
+    setVersions([]);
+    setAllRawVersions([]);
+  }, [branchId, department, year]);
 
   const fetchVersions = useCallback(async () => {
     if (!branchId || !department || !year) {

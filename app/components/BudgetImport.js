@@ -11,14 +11,53 @@ export default function BudgetImport({ branchId, branchName, department, year, o
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState(null);
-  const revenueRef = useRef(null);
-  const cogsRef = useRef(null);
-  const opexRef = useRef(null);
+  const revenueInputRef = useRef(null);
+  const cogsInputRef = useRef(null);
+  const opexInputRef = useRef(null);
+  const [files, setFiles] = useState({ revenue: null, cogs: null, opex: null });
+  const [dragOver, setDragOver] = useState({ revenue: false, cogs: false, opex: false });
+
+  const setFile = (key, file) => {
+    if (file && (file.name.endsWith('.xls') || file.name.endsWith('.xlsx'))) {
+      setFiles(prev => ({ ...prev, [key]: file }));
+    }
+  };
+
+  const handleDrop = (key) => (e) => {
+    e.preventDefault();
+    setDragOver(prev => ({ ...prev, [key]: false }));
+    const file = e.dataTransfer.files?.[0];
+    setFile(key, file);
+  };
+
+  const handleDragOver = (key) => (e) => {
+    e.preventDefault();
+    setDragOver(prev => ({ ...prev, [key]: true }));
+  };
+
+  const handleDragLeave = (key) => (e) => {
+    e.preventDefault();
+    setDragOver(prev => ({ ...prev, [key]: false }));
+  };
+
+  const handleFileChange = (key) => (e) => {
+    const file = e.target.files?.[0];
+    setFile(key, file);
+    // Reset input so same file can be re-selected
+    if (e.target) e.target.value = '';
+  };
 
   const handleImport = async () => {
-    const revenueFile = revenueRef.current?.files?.[0];
-    const cogsFile = cogsRef.current?.files?.[0];
-    const opexFile = opexRef.current?.files?.[0];
+    const revenueFile = files.revenue;
+    const cogsFile = files.cogs;
+    const opexFile = files.opex;
+
+    console.log('Budget import — files state:', {
+      revenue: revenueFile?.name || null,
+      cogs: cogsFile?.name || null,
+      opex: opexFile?.name || null,
+      branchName
+    });
 
     if (!revenueFile && !cogsFile && !opexFile) {
       setMessage({ type: 'error', text: 'Upload at least one file' });
@@ -33,9 +72,13 @@ export default function BudgetImport({ branchId, branchName, department, year, o
       let cogsAccounts = [];
       let opexAccounts = [];
 
+      console.log('Budget import — branch filter:', branchName);
+
       if (revenueFile) {
         const buf = await revenueFile.arrayBuffer();
+        console.log('Revenue file size:', buf.byteLength, 'bytes');
         const parsed = parsePlanningSheet(buf, branchName);
+        console.log('Revenue parsed:', parsed.type, parsed.accounts.length, 'accounts');
         if (parsed.type === 'revenue') {
           revenueAccounts = parsed.accounts;
         } else if (parsed.type === 'cogs') {
@@ -47,7 +90,9 @@ export default function BudgetImport({ branchId, branchName, department, year, o
 
       if (cogsFile) {
         const buf = await cogsFile.arrayBuffer();
+        console.log('COGS file size:', buf.byteLength, 'bytes');
         const parsed = parsePlanningSheet(buf, branchName);
+        console.log('COGS parsed:', parsed.type, parsed.accounts.length, 'accounts');
         if (parsed.type === 'cogs') {
           cogsAccounts = parsed.accounts;
         } else if (parsed.type === 'revenue') {
@@ -59,7 +104,9 @@ export default function BudgetImport({ branchId, branchName, department, year, o
 
       if (opexFile) {
         const buf = await opexFile.arrayBuffer();
+        console.log('OpEx file size:', buf.byteLength, 'bytes');
         const parsed = parsePlanningSheet(buf, branchName);
+        console.log('OpEx parsed:', parsed.type, parsed.accounts.length, 'accounts');
         if (parsed.type === 'opex') {
           opexAccounts = parsed.accounts;
         } else if (parsed.type === 'revenue') {
@@ -69,14 +116,16 @@ export default function BudgetImport({ branchId, branchName, department, year, o
         }
       }
 
+      console.log('Totals — revenue:', revenueAccounts.length, 'cogs:', cogsAccounts.length, 'opex:', opexAccounts.length);
+
       const lineItems = buildBudgetLineItems(cogsAccounts, opexAccounts, revenueAccounts);
 
       if (lineItems.length === 0) {
-        throw new Error('No accounts found in the uploaded file(s)');
+        throw new Error('No accounts found in the uploaded file(s). Check that the branch name matches column C in the spreadsheet.');
       }
 
       // Build file name from uploaded files
-      const fileNames = [revenueFile?.name, cogsFile?.name, opexFile?.name].filter(Boolean).join(' + ');
+      const uploadedNames = [revenueFile?.name, cogsFile?.name, opexFile?.name].filter(Boolean).join(' + ');
 
       const res = await fetch('/api/pnl/import', {
         method: 'POST',
@@ -85,7 +134,7 @@ export default function BudgetImport({ branchId, branchName, department, year, o
           branchId,
           department,
           year,
-          fileName: fileNames,
+          fileName: uploadedNames,
           months: [],
           lineItems
         })
@@ -99,11 +148,7 @@ export default function BudgetImport({ branchId, branchName, department, year, o
 
       setMessage({ type: 'success', text: `Imported ${result.rowCount} budget rows` });
       setOpen(false);
-
-      // Reset file inputs
-      if (revenueRef.current) revenueRef.current.value = '';
-      if (cogsRef.current) cogsRef.current.value = '';
-      if (opexRef.current) opexRef.current.value = '';
+      setFiles({ revenue: null, cogs: null, opex: null });
 
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -113,6 +158,38 @@ export default function BudgetImport({ branchId, branchName, department, year, o
       setImporting(false);
     }
   };
+
+  const dropZone = (key, label, inputRef) => (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <div
+        onDrop={handleDrop(key)}
+        onDragOver={handleDragOver(key)}
+        onDragLeave={handleDragLeave(key)}
+        onClick={() => inputRef.current?.click()}
+        className={`border-2 border-dashed rounded-md px-3 py-2 text-center cursor-pointer transition-colors ${
+          dragOver[key]
+            ? 'border-teal-500 bg-teal-50'
+            : files[key]
+              ? 'border-teal-300 bg-teal-50/50'
+              : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50'
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xls,.xlsx"
+          onChange={handleFileChange(key)}
+          className="hidden"
+        />
+        {files[key] ? (
+          <span className="text-xs text-teal-700 font-medium">{files[key].name}</span>
+        ) : (
+          <span className="text-xs text-gray-400">Drop file or click to browse</span>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative inline-flex items-center gap-2">
@@ -141,33 +218,9 @@ export default function BudgetImport({ branchId, branchName, department, year, o
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80">
           <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Revenue Planning File</label>
-              <input
-                ref={revenueRef}
-                type="file"
-                accept=".xls,.xlsx"
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">COGS Planning File</label>
-              <input
-                ref={cogsRef}
-                type="file"
-                accept=".xls,.xlsx"
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">OpEx Planning File</label>
-              <input
-                ref={opexRef}
-                type="file"
-                accept=".xls,.xlsx"
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
-              />
-            </div>
+            {dropZone('revenue', 'Revenue Planning File', revenueInputRef)}
+            {dropZone('cogs', 'COGS Planning File', cogsInputRef)}
+            {dropZone('opex', 'OpEx Planning File', opexInputRef)}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleImport}

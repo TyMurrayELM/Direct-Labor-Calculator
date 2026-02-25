@@ -459,7 +459,7 @@ export default function PnlVersionBar({
               department={department}
               year={year}
               onImportComplete={onImportComplete}
-              hasExistingImport={!!importInfo}
+              hasExistingImport={hasLineItems}
               versionId={selectedVersionId}
             />
             {selectedVersionId === null && (

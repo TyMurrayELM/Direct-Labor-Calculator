@@ -811,8 +811,8 @@ export default function PnlTable({
     return true;
   }, [isEditable, isLocked, importedMonthKeys]);
 
-  const handleStartEdit = useCallback((id, monthKey, currentValue) => {
-    setEditingCell({ id, monthKey });
+  const handleStartEdit = useCallback((id, monthKey, currentValue, rowIdx) => {
+    setEditingCell({ id, monthKey, rowIdx: rowIdx ?? null });
     const num = parseFloat(currentValue);
     setEditValue(isNaN(num) || num === 0 ? '' : num.toString());
   }, []);
@@ -826,15 +826,58 @@ export default function PnlTable({
     setEditValue('');
   }, [editingCell, editValue, onCellChange]);
 
+  // Find next/prev editable cell for Tab navigation
+  const findNextEditableCell = useCallback((fromRowIdx, fromMonthIdx, direction) => {
+    if (fromRowIdx == null) return null;
+    let r = fromRowIdx;
+    let m = fromMonthIdx + direction;
+    const totalRows = displayRows.length;
+    // Walk through cells in direction, wrapping rows
+    for (let steps = 0; steps < totalRows * 12; steps++) {
+      if (m > 11) { m = 0; r++; }
+      if (m < 0) { m = 11; r--; }
+      if (r < 0 || r >= totalRows) return null;
+      const row = displayRows[r];
+      if (row && !row.isRefOnly && row.item.id && isCellEditable(row.item, MONTH_KEYS[m])) {
+        return { rowIdx: r, monthIdx: m, item: row.item };
+      }
+      m += direction;
+    }
+    return null;
+  }, [displayRows, isCellEditable]);
+
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      // Save current cell
+      if (editingCell && onCellChange) {
+        const val = parseFloat(editValue) || 0;
+        onCellChange(editingCell.id, editingCell.monthKey, val);
+      }
+      // Navigate to next/prev editable cell
+      const currentMonthIdx = MONTH_KEYS.indexOf(editingCell?.monthKey);
+      const currentRowIdx = editingCell?.rowIdx;
+      if (currentRowIdx != null && currentMonthIdx !== -1) {
+        const direction = e.shiftKey ? -1 : 1;
+        const next = findNextEditableCell(currentRowIdx, currentMonthIdx, direction);
+        if (next) {
+          setEditingCell({ id: next.item.id, monthKey: MONTH_KEYS[next.monthIdx], rowIdx: next.rowIdx });
+          const num = parseFloat(next.item[MONTH_KEYS[next.monthIdx]]);
+          setEditValue(isNaN(num) || num === 0 ? '' : num.toString());
+          return;
+        }
+      }
+      // Fallback: just exit edit mode
+      setEditingCell(null);
+      setEditValue('');
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       handleFinishEdit();
     } else if (e.key === 'Escape') {
       setEditingCell(null);
       setEditValue('');
     }
-  }, [handleFinishEdit]);
+  }, [editingCell, editValue, onCellChange, findNextEditableCell, handleFinishEdit]);
 
   // --- Multi-cell selection ---
   const computeSelectedCells = useCallback((anchor, end) => {
@@ -922,8 +965,9 @@ export default function PnlTable({
         const colonIdx = cellKey.indexOf(':');
         const id = parseInt(cellKey.substring(0, colonIdx));
         const monthKey = cellKey.substring(colonIdx + 1);
-        const row = displayRows.find(r => r.item.id === id);
-        if (row) handleStartEdit(id, monthKey, row.item[monthKey]);
+        const rowIdx = displayRows.findIndex(r => r.item.id === id);
+        const row = rowIdx !== -1 ? displayRows[rowIdx] : null;
+        if (row) handleStartEdit(id, monthKey, row.item[monthKey], rowIdx);
         setSelectedCells(new Set());
         setSelectionAnchor(null);
         setSelectionEnd(null);

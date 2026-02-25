@@ -657,6 +657,7 @@ export default function PnlTable({
     const groups = [];
     let currentSection = null;
     let currentItems = [];
+    const seenValues = new Set();
     for (const li of computedLineItems) {
       if (li.row_type === 'section_header') {
         if (currentSection && currentItems.length) {
@@ -665,17 +666,17 @@ export default function PnlTable({
         currentSection = li.account_name;
         currentItems = [];
       } else if (li.row_type === 'total') {
-        currentItems.push({
-          label: li.account_name,
-          value: normalizeTotalName(li.account_name),
-          type: 'total'
-        });
+        const value = normalizeTotalName(li.account_name);
+        if (!seenValues.has(value)) {
+          seenValues.add(value);
+          currentItems.push({ label: li.account_name, value, type: 'total' });
+        }
       } else if (li.row_type === 'detail' && li.account_code) {
-        currentItems.push({
-          label: li.account_name,
-          value: `detail:${li.account_code}`,
-          type: 'detail'
-        });
+        const value = `detail:${li.account_code}`;
+        if (!seenValues.has(value)) {
+          seenValues.add(value);
+          currentItems.push({ label: li.account_name, value, type: 'detail' });
+        }
       }
     }
     if (currentSection && currentItems.length) {

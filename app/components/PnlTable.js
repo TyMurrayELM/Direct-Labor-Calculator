@@ -130,6 +130,7 @@ export default function PnlTable({
   isAdmin = false,
   onToggleAdminOnly,
   onTogglePctMode,
+  onApplyIncrement,
   onAddRefRow,
   onAddStructuralRow,
   onDeleteLineItem,
@@ -142,7 +143,9 @@ export default function PnlTable({
   const [monthColWidth, setMonthColWidth] = useState(52);
   const [notePopover, setNotePopover] = useState(null); // { id, monthKey, noteText, x, y }
   const [pctPopover, setPctPopover] = useState(null); // { id, pctOfTotal, pctSources: string[] }
-  const [crossDeptData, setCrossDeptData] = useState(null); // { maintenance: {revenue:{jan,...}, directLabor:{jan,...}}, ... }
+  const [incrPopover, setIncrPopover] = useState(null); // { id, baseMonth, baseValue, increment, x, y, hasExisting }
+  const [crossDeptData, setCrossDeptData] = useState(null); // { maintenance: {revenue:{jan,...}, directLabor:{jan,...}, byBranch:{...}}, ... }
+  const [crossDeptBranchNames, setCrossDeptBranchNames] = useState(null); // { branchId: name, ... }
 
   // Multi-cell selection state
   const [selectedCells, setSelectedCells] = useState(new Set());
@@ -221,6 +224,7 @@ export default function PnlTable({
 
   useEffect(() => {
     setCrossDeptData(null);
+    setCrossDeptBranchNames(null);
     if (!crossDeptConfig) return;
     if (!hasXdeptSources) return;
 
@@ -230,7 +234,10 @@ export default function PnlTable({
         const vParam = crossDeptConfig.versionName ? `&versionName=${encodeURIComponent(crossDeptConfig.versionName)}` : '';
         const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}`);
         const result = await res.json();
-        if (!cancelled && result.success) setCrossDeptData(result.departments);
+        if (!cancelled && result.success) {
+          setCrossDeptData(result.departments);
+          if (result.branchNames) setCrossDeptBranchNames(result.branchNames);
+        }
       } catch (err) {
         console.error('Failed to fetch cross-dept revenue:', err);
       }
@@ -477,26 +484,51 @@ export default function PnlTable({
     // Build reference lookups
     const refByCode = new Map();
     const refByName = new Map();
-    for (const ri of effectiveRefItems) {
-      if (ri.account_code) refByCode.set(ri.account_code, ri);
-      if (ri.account_name && (ri.row_type === 'total' || ri.row_type === 'calculated' || ri.row_type === 'percent' || ri.row_type === 'section_header')) {
-        refByName.set(normalizeTotalName(ri.account_name), ri);
+    // Detail-row lookup by (section, account_name) for fallback matching
+    // when account codes differ across versions (e.g. "6152.10" vs "6152.1")
+    const refDetailBySecName = new Map(); // "section\taccount_name" → ri
+    {
+      let curRefSec = null;
+      for (const ri of effectiveRefItems) {
+        if (ri.account_code) refByCode.set(ri.account_code, ri);
+        if (ri.row_type === 'section_header') {
+          curRefSec = ri.account_name.toLowerCase();
+        }
+        if (ri.account_name && (ri.row_type === 'total' || ri.row_type === 'calculated' || ri.row_type === 'percent' || ri.row_type === 'section_header')) {
+          refByName.set(normalizeTotalName(ri.account_name), ri);
+        }
+        if (ri.row_type === 'detail' && ri.account_name && curRefSec) {
+          const key = `${curRefSec}\t${ri.account_name.toLowerCase().trim()}`;
+          if (!refDetailBySecName.has(key)) refDetailBySecName.set(key, ri);
+        }
       }
     }
 
+    // Track which primary section we're in (for detail name-fallback)
+    let findRefSection = null;
+
     // Match a primary item to its reference counterpart
     function findRef(item) {
+      if (item.row_type === 'section_header') {
+        findRefSection = item.account_name.toLowerCase();
+      }
       if (item.account_code && refByCode.has(item.account_code)) {
         return refByCode.get(item.account_code);
       }
       if (item.account_name && (item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'percent' || item.row_type === 'section_header')) {
         return refByName.get(normalizeTotalName(item.account_name)) || null;
       }
+      // Fallback for detail rows: match by section + account_name
+      if (item.row_type === 'detail' && item.account_name && findRefSection) {
+        const key = `${findRefSection}\t${item.account_name.toLowerCase().trim()}`;
+        return refDetailBySecName.get(key) || null;
+      }
       return null;
     }
 
     // Pass 1: Collect ALL matched ref codes up front so we know the full
     // set before inserting any ref-only rows.
+    findRefSection = null;
     const matchedRefCodes = new Set();
     for (const item of computedLineItems) {
       const ref = findRef(item);
@@ -518,6 +550,7 @@ export default function PnlTable({
     // Pass 2: Build merged display list.
     // Insert ref-only rows only before section-level totals (those without
     // an account_code), not before sub-totals like "Total 5050 - Subcontractors".
+    findRefSection = null; // reset for pass 2
     const merged = [];
     let currentPrimarySection = null;
 
@@ -720,6 +753,23 @@ export default function PnlTable({
     onTogglePctMode(pctPopover.id, pct, JSON.stringify(pctPopover.pctSources));
     setPctPopover(null);
   }, [pctPopover, importedMonthKeys, findSourceRow, onCellChange, onTogglePctMode]);
+
+  // Apply monthly increment: compute values and write to cells
+  // Fills months after the selected base month (not just forecast months)
+  const handleIncrApply = useCallback(() => {
+    if (!incrPopover) return;
+    const increment = parseFloat(incrPopover.increment);
+    if (isNaN(increment) || increment === 0) return;
+    const baseValue = parseFloat(incrPopover.baseValue) || 0;
+    const baseIdx = MONTH_KEYS.indexOf(incrPopover.baseMonth);
+    const fillKeys = MONTH_KEYS.filter((m, i) => i > baseIdx && !importedMonthKeys.has(m));
+    for (let i = 0; i < fillKeys.length; i++) {
+      const val = Math.round((baseValue + increment * (i + 1)) * 100) / 100;
+      onCellChange(incrPopover.id, fillKeys[i], val);
+    }
+    onApplyIncrement(incrPopover.id, increment, incrPopover.baseMonth);
+    setIncrPopover(null);
+  }, [incrPopover, importedMonthKeys, onCellChange, onApplyIncrement]);
 
   // Auto-recalculate pct-of-total rows when their SOURCE values change.
   // Respects manual overrides: only updates cells whose current value matches
@@ -1359,21 +1409,56 @@ export default function PnlTable({
                 }
               }
 
+              // Compute expected seeded values for monthly_increment rows (for emerald tint on matching cells)
+              let incrExpected = null;
+              if (!isRefOnly && item.monthly_increment != null && item.increment_base_month) {
+                const incr = parseFloat(item.monthly_increment);
+                const baseVal = parseFloat(item[item.increment_base_month]) || 0;
+                const baseIdx = MONTH_KEYS.indexOf(item.increment_base_month);
+                if (!isNaN(incr) && incr !== 0 && baseIdx >= 0) {
+                  incrExpected = {};
+                  const fillKeys = MONTH_KEYS.filter((m, mi) => mi > baseIdx && !importedMonthKeys.has(m));
+                  for (let fi = 0; fi < fillKeys.length; fi++) {
+                    incrExpected[fillKeys[fi]] = Math.round((baseVal + incr * (fi + 1)) * 100) / 100;
+                  }
+                }
+              }
+
               // Compute expected seeded values for pct_of_total rows (for purple tint on matching cells)
               let pctExpected = null;
+              let pctBreakdown = null; // { monthKey: { sources, branches, total, result }, ... }
               if (!isRefOnly && item.pct_of_total != null && item.pct_source) {
                 const sources = parsePctSources(item.pct_source);
                 const pct = parseFloat(item.pct_of_total) / 100;
                 if (sources.length > 0 && !isNaN(pct)) {
                   pctExpected = {};
+                  pctBreakdown = {};
                   for (const mk of MONTH_KEYS) {
                     if (importedMonthKeys.has(mk)) continue;
                     let sourceSum = 0;
+                    const bd = {};
+                    const branchDetail = []; // [{ src, branchName, value }]
                     for (const src of sources) {
                       const srcRow = findSourceRow(src);
-                      if (srcRow) sourceSum += parseFloat(srcRow[mk]) || 0;
+                      const srcVal = srcRow ? (parseFloat(srcRow[mk]) || 0) : 0;
+                      sourceSum += srcVal;
+                      const label = formatPctSources([src], computedLineItems);
+                      bd[label] = srcVal;
+                      // Add per-branch breakdown for xdept sources
+                      if (src.startsWith('xdept:') && crossDeptData && crossDeptBranchNames) {
+                        const dept = src.split(':')[1];
+                        const deptData = crossDeptData[dept];
+                        if (deptData?.byBranch) {
+                          for (const [bid, bData] of Object.entries(deptData.byBranch)) {
+                            const bName = crossDeptBranchNames[bid] || `Branch ${bid}`;
+                            const bVal = parseFloat(bData.revenue?.[mk]) || 0;
+                            branchDetail.push({ src: label, branch: bName, value: bVal });
+                          }
+                        }
+                      }
                     }
                     pctExpected[mk] = Math.round(sourceSum * pct * 100) / 100;
+                    pctBreakdown[mk] = { sources: bd, branches: branchDetail, total: sourceSum, result: pctExpected[mk] };
                   }
                 }
               }
@@ -1444,7 +1529,10 @@ export default function PnlTable({
                               const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}`);
                               const result = await res.json();
                               console.log('[cross-dept] API response:', result);
-                              if (result.success) setCrossDeptData(result.departments);
+                              if (result.success) {
+                                setCrossDeptData(result.departments);
+                                if (result.branchNames) setCrossDeptBranchNames(result.branchNames);
+                              }
                             } catch (err) {
                               console.error('Failed to fetch cross-dept revenue:', err);
                             }
@@ -1461,6 +1549,43 @@ export default function PnlTable({
                         }}
                       >
                         %
+                      </span>
+                    )}
+                    {onApplyIncrement && item.row_type === 'detail' && !isRefOnly && item.id && (
+                      <span
+                        className={`inline-block w-5 text-center cursor-pointer select-none ${
+                          item.monthly_increment != null
+                            ? 'text-emerald-500 hover:text-emerald-700 font-bold'
+                            : 'text-gray-300 hover:text-emerald-500'
+                        }`}
+                        style={{ marginRight: '2px', fontSize: '10px' }}
+                        title={item.monthly_increment != null
+                          ? `+$${Number(item.monthly_increment).toLocaleString()}/mo from ${(item.increment_base_month || '').toUpperCase()} — click to edit`
+                          : 'Seed forecast with monthly increment'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (incrPopover?.id === item.id) {
+                            setIncrPopover(null);
+                            return;
+                          }
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          // Determine last actual month and its value
+                          const actualMonths = MONTH_KEYS.filter(m => importedMonthKeys.has(m));
+                          const lastActualMonth = actualMonths.length > 0 ? actualMonths[actualMonths.length - 1] : null;
+                          const baseMonth = item.increment_base_month || lastActualMonth || 'jan';
+                          const baseValue = parseFloat(item[baseMonth]) || 0;
+                          setIncrPopover({
+                            id: item.id,
+                            baseMonth,
+                            baseValue,
+                            increment: item.monthly_increment != null ? String(item.monthly_increment) : '',
+                            x: rect.left,
+                            y: rect.bottom + 4,
+                            hasExisting: item.monthly_increment != null
+                          });
+                        }}
+                      >
+                        +$
                       </span>
                     )}
                     {isRefOnly && item.row_type === 'detail' && onAddRefRow && (
@@ -1505,6 +1630,13 @@ export default function PnlTable({
                         ({item.pct_of_total}% of {formatPctSources(parsePctSources(item.pct_source), computedLineItems)})
                       </span>
                     )}
+                    {item.monthly_increment != null && (
+                      <span className="ml-1 text-emerald-500 text-[10px] font-normal"
+                        title={`Monthly increment of $${Number(item.monthly_increment).toLocaleString()} from ${(item.increment_base_month || '').toUpperCase()}`}
+                      >
+                        (+${Number(item.monthly_increment).toLocaleString()}/mo)
+                      </span>
+                    )}
                   </td>
 
                   {MONTH_KEYS.map((key, keyIdx) => {
@@ -1515,9 +1647,10 @@ export default function PnlTable({
                     const isBoundary = actualCount > 0 && actualCount < 12 && keyIdx === actualCount;
                     const isSelected = !isRefOnly && selectedCells.has(`${item.id}:${key}`);
                     const isPctMatch = pctExpected && key in pctExpected && val === pctExpected[key];
+                    const isIncrMatch = incrExpected && key in incrExpected && val === incrExpected[key];
                     const dlBg = isDLPercent && !isRefOnly ? getDLPercentBg(val) : null;
                     const varBg = !dlBg && refMonthPcts ? getVariancePercentBg(val, refMonthPcts[key], 10) : null;
-                    const cellBg = dlBg || varBg || (isPctMatch ? 'rgba(147, 51, 234, 0.08)' : null);
+                    const cellBg = dlBg || varBg || (isPctMatch ? 'rgba(147, 51, 234, 0.08)' : isIncrMatch ? 'rgba(16, 185, 129, 0.08)' : null);
                     const cellNote = !isRefOnly && item.cell_notes?.[key];
                     const deptBreakdown = item._deptBreakdown?.[key];
                     const cellTitle = (() => {
@@ -1527,6 +1660,21 @@ export default function PnlTable({
                         for (const [dk, dv] of Object.entries(deptBreakdown)) {
                           if (dv !== 0) parts.push(`${DEPT_SHORT[dk] || dk}: ${formatCurrency(dv)}`);
                         }
+                      }
+                      if (pctBreakdown?.[key]) {
+                        const bd = pctBreakdown[key];
+                        for (const [label, sv] of Object.entries(bd.sources)) {
+                          parts.push(`${label}: ${formatCurrency(sv)}`);
+                          // Show per-branch detail for this source
+                          if (bd.branches?.length) {
+                            const srcBranches = bd.branches.filter(b => b.src === label);
+                            for (const b of srcBranches) {
+                              parts.push(`  ${b.branch}: ${formatCurrency(b.value)}`);
+                            }
+                          }
+                        }
+                        parts.push(`Source total: ${formatCurrency(bd.total)}`);
+                        parts.push(`${item.pct_of_total}% = ${formatCurrency(bd.result)}`);
                       }
                       if (cellNote) parts.push(cellNote);
                       return parts.length ? parts.join('\n') : undefined;
@@ -1847,6 +1995,87 @@ export default function PnlTable({
               )}
               <button
                 onClick={() => setPctPopover(null)}
+                className="px-3 py-1.5 text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Monthly increment popover — rendered outside the overflow wrapper */}
+      {incrPopover && (
+        <>
+          <div className="fixed inset-0 z-[99]" onClick={() => setIncrPopover(null)} />
+          <div
+            className="fixed z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-xs"
+            style={{ left: incrPopover.x, top: incrPopover.y, width: '260px' }}
+          >
+            <div className="mb-2 font-semibold text-gray-700 text-sm">Monthly Increment</div>
+            <div className="mb-2">
+              <label className="text-gray-500 block mb-1 font-medium">Base month:</label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={incrPopover.baseMonth}
+                  onChange={(e) => {
+                    const newMonth = e.target.value;
+                    const row = lineItems?.find(li => li.id === incrPopover.id);
+                    const newBaseValue = row ? (parseFloat(row[newMonth]) || 0) : 0;
+                    setIncrPopover(p => ({ ...p, baseMonth: newMonth, baseValue: newBaseValue }));
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  {MONTH_KEYS.map((mk, mi) => (
+                    <option key={mk} value={mk}>{MONTH_LABELS[mi]}</option>
+                  ))}
+                </select>
+                <span className="text-gray-700 font-medium">${Number(incrPopover.baseValue).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="text-gray-500 block mb-1 font-medium">Increment per month:</label>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={incrPopover.increment}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v)) setIncrPopover(p => ({ ...p, increment: v }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleIncrApply();
+                    if (e.key === 'Escape') setIncrPopover(null);
+                  }}
+                  autoFocus
+                  placeholder="e.g. 3333"
+                  className="w-28 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <span className="text-gray-500">/mo</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleIncrApply}
+                className="flex-1 px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium"
+              >
+                Apply
+              </button>
+              {incrPopover.hasExisting && (
+                <button
+                  onClick={() => {
+                    onApplyIncrement(incrPopover.id, null, null);
+                    setIncrPopover(null);
+                  }}
+                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                onClick={() => setIncrPopover(null)}
                 className="px-3 py-1.5 text-gray-500 hover:text-gray-700"
               >
                 Cancel

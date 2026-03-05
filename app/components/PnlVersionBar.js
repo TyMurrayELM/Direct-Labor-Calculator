@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import PnlImport from './PnlImport';
-import BudgetImport from './BudgetImport';
 
 /** Parse actual month count from version name: "1+11" → 1, "12+0" → 12, "Original Budget" → 0 */
 function parseActualMonthsFromName(name) {
@@ -13,19 +11,8 @@ function parseActualMonthsFromName(name) {
 /**
  * Version controls bar rendered above the P&L table.
  */
-const DEPARTMENT_LABELS = {
-  maintenance: 'Maintenance',
-  maintenance_onsite: 'Maintenance Onsite',
-  maintenance_wo: 'Maintenance WO',
-  arbor: 'Arbor',
-  enhancements: 'Enhancements',
-  spray: 'Spray',
-  irrigation: 'Irrigation'
-};
-
 export default function PnlVersionBar({
   branchId,
-  branchName,
   department,
   year,
   versions,
@@ -41,9 +28,9 @@ export default function PnlVersionBar({
   versionNote,
   onUpdateVersionNote,
   hasLineItems,
-  onCopyStructure,
   readOnly = false,
-  canDelete = false
+  canDelete = false,
+  onClearDraft
 }) {
   const [saving, setSaving] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -54,14 +41,12 @@ export default function PnlVersionBar({
   const [fillMessage, setFillMessage] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmClearDraft, setConfirmClearDraft] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [showNotePopover, setShowNotePopover] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [showCopyDropdown, setShowCopyDropdown] = useState(false);
-  const [copying, setCopying] = useState(false);
-  const [copyMessage, setCopyMessage] = useState(null);
   const fillDropdownRef = useRef(null);
   const noteRef = useRef(null);
-  const copyDropdownRef = useRef(null);
 
   // Close Fill Forecast dropdown on click outside
   useEffect(() => {
@@ -74,18 +59,6 @@ export default function PnlVersionBar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFillDropdown]);
-
-  // Close copy dropdown on click outside
-  useEffect(() => {
-    if (!showCopyDropdown) return;
-    const handleClickOutside = (e) => {
-      if (copyDropdownRef.current && !copyDropdownRef.current.contains(e.target)) {
-        setShowCopyDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCopyDropdown]);
 
   // Close note popover on click outside
   useEffect(() => {
@@ -102,7 +75,6 @@ export default function PnlVersionBar({
   const VERSION_NAME_OPTIONS = [
     'Working Forecast',
     'Original Forecast',
-    'Original Budget',
     '0+12',
     '1+11', '2+10', '3+9', '4+8', '5+7', '6+6',
     '7+5', '8+4', '9+3', '10+2', '11+1', '12+0',
@@ -349,6 +321,43 @@ export default function PnlVersionBar({
                 Save Version
               </button>
             )}
+
+            {/* Clear Draft — only when viewing draft with existing data */}
+            {onClearDraft && hasLineItems && (
+              confirmClearDraft ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-red-600 font-medium">Clear all draft data?</span>
+                  <button
+                    onClick={async () => {
+                      setClearing(true);
+                      await onClearDraft();
+                      setClearing(false);
+                      setConfirmClearDraft(false);
+                    }}
+                    disabled={clearing}
+                    className="px-2 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {clearing ? 'Clearing...' : 'Yes, clear'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmClearDraft(false)}
+                    className="px-2 py-1 text-gray-500 hover:text-gray-700 text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmClearDraft(true)}
+                  className="px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 border border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Clear Draft
+                </button>
+              )
+            )}
           </>
         )}
 
@@ -449,30 +458,7 @@ export default function PnlVersionBar({
           </select>
         </div>
 
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-
-        {/* Import buttons — draft or unlocked saved versions, not in readOnly mode */}
-        {!readOnly && !currentVersionLocked && (
-          <>
-            <PnlImport
-              branchId={branchId}
-              department={department}
-              year={year}
-              onImportComplete={onImportComplete}
-              hasExistingImport={hasLineItems}
-              versionId={selectedVersionId}
-            />
-            {selectedVersionId === null && (
-              <BudgetImport
-                branchId={branchId}
-                branchName={branchName}
-                department={department}
-                year={year}
-                onImportComplete={onImportComplete}
-              />
-            )}
-          </>
-        )}
+        {/* Import buttons moved to PnlSection header row */}
 
         {/* Fill Forecast — draft or unlocked saved versions, not in readOnly mode */}
         {!readOnly && !currentVersionLocked && versions.filter(v => v.id !== selectedVersionId).length > 0 && (
@@ -511,60 +497,7 @@ export default function PnlVersionBar({
           </div>
         )}
 
-        {/* Copy Structure — draft only, not in readOnly mode */}
-        {!readOnly && selectedVersionId === null && onCopyStructure && (
-          <div className="relative" ref={copyDropdownRef}>
-            <button
-              onClick={() => setShowCopyDropdown(!showCopyDropdown)}
-              disabled={copying}
-              className="px-3 py-1.5 bg-indigo-500 text-white rounded-md text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
-              </svg>
-              {copying ? 'Copying...' : 'Copy Structure'}
-            </button>
-            {showCopyDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
-                  Copy account structure from:
-                </div>
-                {Object.entries(DEPARTMENT_LABELS)
-                  .filter(([key]) => key !== department)
-                  .map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={async () => {
-                        if (hasLineItems && !window.confirm('This will replace all existing draft rows. Continue?')) return;
-                        setShowCopyDropdown(false);
-                        setCopying(true);
-                        setCopyMessage(null);
-                        try {
-                          await onCopyStructure(key);
-                          setCopyMessage(`Copied from ${label}`);
-                          setTimeout(() => setCopyMessage(null), 3000);
-                        } catch (err) {
-                          setCopyMessage(`Error: ${err.message}`);
-                          setTimeout(() => setCopyMessage(null), 5000);
-                        } finally {
-                          setCopying(false);
-                        }
-                      }}
-                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-800"
-                    >
-                      {label}
-                    </button>
-                  ))}
-              </div>
-            )}
-            {copyMessage && (
-              <span className={`absolute top-full left-0 mt-1 text-xs whitespace-nowrap ${copyMessage.startsWith('Error') ? 'text-red-600' : 'text-emerald-600'}`}>
-                {copyMessage}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Copy Structure moved to PnlSection header row */}
 
         {/* Import info */}
         {importInfo && (

@@ -156,6 +156,9 @@ export async function POST(request) {
     const matchedSourceIds = new Set();
 
     for (const row of workingRows) {
+      // Skip header rows — they are structural labels and should never carry values
+      if (row.row_type === 'section_header' || row.row_type === 'account_header') continue;
+
       const sourceRow =
         (row.account_code && sourceByCode[row.account_code]) ||
         (row.account_name && sourceByName[row.account_name.toLowerCase()]) ||
@@ -173,6 +176,12 @@ export async function POST(request) {
       if (sourceRow.pct_of_total != null && row.pct_of_total == null) {
         row.pct_of_total = sourceRow.pct_of_total;
         row.pct_source = sourceRow.pct_source;
+      }
+
+      // Copy monthly_increment mode from source if target doesn't have it set
+      if (sourceRow.monthly_increment != null && row.monthly_increment == null) {
+        row.monthly_increment = sourceRow.monthly_increment;
+        row.increment_base_month = sourceRow.increment_base_month;
       }
     }
 
@@ -226,6 +235,12 @@ export async function POST(request) {
       if ((row.pct_of_total ?? null) !== (orig.pct_of_total ?? null)) {
         changed.pct_of_total = row.pct_of_total ?? null;
         changed.pct_source = row.pct_source ?? null;
+        hasChanges = true;
+      }
+      // Include monthly_increment/increment_base_month changes
+      if ((row.monthly_increment ?? null) !== (orig.monthly_increment ?? null)) {
+        changed.monthly_increment = row.monthly_increment ?? null;
+        changed.increment_base_month = row.increment_base_month ?? null;
         hasChanges = true;
       }
       if (hasChanges) {
@@ -319,6 +334,8 @@ export async function POST(request) {
           indent_level: src.indent_level || 0,
           pct_of_total: src.pct_of_total ?? null,
           pct_source: src.pct_source ?? null,
+          monthly_increment: src.monthly_increment ?? null,
+          increment_base_month: src.increment_base_month ?? null,
           cell_notes: src.cell_notes ?? {},
         };
         for (const m of ALL_MONTHS) {

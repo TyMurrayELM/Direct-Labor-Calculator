@@ -59,6 +59,7 @@ export default function ForecastPage() {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [selectedYear, setSelectedYear] = useState(2026);
   const [selectedDepartment, setSelectedDepartment] = useState('maintenance');
+  const [phoenixPnlDepartment, setPhoenixPnlDepartment] = useState('arbor');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
 
@@ -353,14 +354,20 @@ export default function ForecastPage() {
   const isEncoreView = selectedBranchId === 'encore';
   const isPhoenixView = selectedBranchId === 'phoenix';
   const isCombinedView = isEncoreView || isPhoenixView;
+
+  // Phoenix parent branch ID for region-level P&L (arbor, enhancements, spray)
+  const phoenixBranchRecord = branches.find(b => b.name === 'Phoenix');
+  const phoenixBranchId = phoenixBranchRecord?.id || null;
   
-  // Helper to check if a branch is a Phoenix branch
+  // Helper to check if a branch is a Phoenix *sub*-branch (not the parent "Phoenix" record)
   const isPhoenixBranch = (branch) => {
     if (!branch || !branch.name) return false;
     const name = branch.name.toLowerCase();
-    return name.includes('phoenix') || 
-           name.includes('southeast') || 
-           name.includes('southwest') || 
+    // Exclude the parent "Phoenix" record used for region-level P&L
+    if (name === 'phoenix') return false;
+    return name.includes('phoenix') ||
+           name.includes('southeast') ||
+           name.includes('southwest') ||
            name.includes('north') ||
            name.includes('phx');
   };
@@ -429,7 +436,7 @@ export default function ForecastPage() {
     let monthOnsiteActualLaborCost = 0;
     let monthOnsiteFtes = 0;
     
-    branches.forEach(branch => {
+    operationalBranches.forEach(branch => {
       const branchForecasts = allBranchForecasts[branch.id] || [];
       const forecast = branchForecasts.find(f => f.month === month);
       if (forecast) {
@@ -721,8 +728,11 @@ export default function ForecastPage() {
     };
   }, { revenue: 0, laborBudget: 0, laborHours: 0 });
 
+  // Operational branches (exclude parent "Phoenix" record used for region-level P&L only)
+  const operationalBranches = branches.filter(b => b.name !== 'Phoenix');
+
   // Calculate company-wide totals from all branches
-  const companyTotals = branches.reduce((acc, branch) => {
+  const companyTotals = operationalBranches.reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
     const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
@@ -851,7 +861,7 @@ export default function ForecastPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">Branch:</label>
               <div className="flex flex-wrap gap-2">
-                {branches.map(branch => {
+                {branches.filter(b => b.name !== 'Phoenix').map(branch => {
                   // Define colors based on branch name
                   const branchName = branch.name.toLowerCase();
                   let lightBg, darkBg, lightText, darkText, hoverBg;
@@ -1983,7 +1993,7 @@ export default function ForecastPage() {
                 </tr>
               </thead>
               <tbody>
-                {(isPhoenixView ? branches.filter(isPhoenixBranch) : branches).map(branch => {
+                {(isPhoenixView ? branches.filter(isPhoenixBranch) : operationalBranches).map(branch => {
                   const branchForecasts = allBranchForecasts[branch.id] || [];
                   const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
                   const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
@@ -2114,7 +2124,7 @@ export default function ForecastPage() {
                       let totalYtdOnsiteRevenue = 0;
                       let totalYtdOnsiteLaborCost = 0;
                       
-                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : operationalBranches;
                       branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         ytdMonths.forEach(month => {
@@ -2156,7 +2166,7 @@ export default function ForecastPage() {
                       const lastMonth = months[lastMonthIndex];
                       let totalActualHC = 0;
                       
-                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : operationalBranches;
                       branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         const forecast = branchForecasts.find(f => f.month === lastMonth);
@@ -2177,7 +2187,7 @@ export default function ForecastPage() {
                       const lastMonth = months[lastMonthIndex];
                       let totalTargetFTEs = 0;
                       
-                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : branches;
+                      const branchesToSum = isPhoenixView ? branches.filter(isPhoenixBranch) : operationalBranches;
                       branchesToSum.forEach(branch => {
                         const branchForecasts = allBranchForecasts[branch.id] || [];
                         const branchHourlyRate = getHourlyRateByBranch(branch);
@@ -2203,7 +2213,7 @@ export default function ForecastPage() {
         </div>
         )}
 
-        {/* P&L Section */}
+        {/* P&L Section — individual branches */}
         {!isCombinedView && (
           <PnlSection
             branchId={selectedBranchId}
@@ -2216,6 +2226,22 @@ export default function ForecastPage() {
               { value: 'maintenance_onsite', label: 'Maintenance Onsite' },
               { value: 'maintenance_wo', label: 'Maintenance WO' },
               { value: 'all_maintenance', label: 'All Maintenance' }
+            ]}
+          />
+        )}
+
+        {/* P&L Section — Phoenix region-level (Arbor, Enhancement, Spray) */}
+        {isPhoenixView && phoenixBranchId && (
+          <PnlSection
+            branchId={phoenixBranchId}
+            branchName={['Corporate', 'Phoenix']}
+            year={selectedYear}
+            department={phoenixPnlDepartment}
+            onDepartmentChange={setPhoenixPnlDepartment}
+            departmentOptions={[
+              { value: 'arbor', label: 'Arbor' },
+              { value: 'enhancements', label: 'Enhancements' },
+              { value: 'spray', label: 'Spray' }
             ]}
           />
         )}

@@ -82,6 +82,9 @@ export default function SprayForecastPage() {
   const isPhoenixView = selectedBranchId === 'phoenix';
   const isEncoreView = selectedBranchId === 'encore';
 
+  // Phoenix parent branch ID for region-level P&L
+  const phoenixBranchId = branches.find(b => b.name === 'Phoenix')?.id || null;
+
   // Get Phoenix branches for combined view (Phx - North, Phx - SouthEast, Phx - SouthWest)
   const phoenixBranches = branches.filter(b => b.name.toLowerCase().includes('phx'));
 
@@ -434,7 +437,7 @@ export default function SprayForecastPage() {
                   Phoenix
                 </button>
                 {/* All individual branches */}
-                {branches.map(branch => (
+                {branches.filter(b => b.name !== 'Phoenix').map(branch => (
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
@@ -736,10 +739,10 @@ export default function SprayForecastPage() {
         )}
 
         {/* P&L Section */}
-        {!isPhoenixView && !isEncoreView && (
+        {(!isPhoenixView && !isEncoreView || (isPhoenixView && phoenixBranchId)) && (
           <PnlSection
-            branchId={selectedBranchId}
-            branchName={selectedBranch?.name}
+            branchId={isPhoenixView ? phoenixBranchId : selectedBranchId}
+            branchName={isPhoenixView ? ['Corporate', 'Phoenix'] : selectedBranch?.name}
             year={selectedYear}
             department="spray"
           />

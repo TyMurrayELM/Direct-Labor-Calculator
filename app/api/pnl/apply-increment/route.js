@@ -17,7 +17,7 @@ export async function POST(request) {
     }
 
     const supabase = getSupabase();
-    const { lineItemId, pctOfTotal, pctSource } = await request.json();
+    const { lineItemId, monthlyIncrement, incrementBaseMonth } = await request.json();
 
     if (lineItemId == null) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(request) {
 
     if (row.row_type !== 'detail') {
       return NextResponse.json(
-        { success: false, error: 'Only detail rows can use percentage mode' },
+        { success: false, error: 'Only detail rows can use increment mode' },
         { status: 400 }
       );
     }
@@ -67,26 +67,28 @@ export async function POST(request) {
       }
     }
 
-    // Update pct_of_total and pct_source (null to clear)
-    // When setting pct, clear increment fields (mutual exclusivity)
-    const updateObj = {
-      pct_of_total: pctOfTotal ?? null,
-      pct_source: pctSource ?? null
+    // Build update: set or clear increment fields, and clear pct fields for mutual exclusivity
+    const update = {
+      monthly_increment: monthlyIncrement ?? null,
+      increment_base_month: incrementBaseMonth ?? null
     };
-    if (pctOfTotal != null) {
-      updateObj.monthly_increment = null;
-      updateObj.increment_base_month = null;
+
+    // When setting increment, clear pct_of_total (mutual exclusivity)
+    if (monthlyIncrement != null) {
+      update.pct_of_total = null;
+      update.pct_source = null;
     }
+
     const { error: updateError } = await supabase
       .from('pnl_line_items')
-      .update(updateObj)
+      .update(update)
       .eq('id', lineItemId);
 
     if (updateError) throw updateError;
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Toggle pct mode error:', error);
+    console.error('Apply increment error:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

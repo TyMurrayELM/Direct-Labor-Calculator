@@ -134,56 +134,175 @@ export async function GET(request) {
     }
 
     const versionName = searchParams.get('versionName');
+    const branchIdInt = parseInt(branchId);
+
+    // For Phoenix parent branch, aggregate maintenance data across sub-branches
+    let targetBranchIds = [branchIdInt];
+    const { data: branchRecord } = await supabase
+      .from('branches')
+      .select('name')
+      .eq('id', branchIdInt)
+      .single();
+
+    if (branchRecord?.name === 'Phoenix') {
+      // Find all Phoenix sub-branches (Phx - North, etc.)
+      const { data: subBranches } = await supabase
+        .from('branches')
+        .select('id, name')
+        .neq('id', branchIdInt);
+
+      const phxSubs = (subBranches || []).filter(b =>
+        b.name.toLowerCase().includes('phx') ||
+        (b.name.toLowerCase().includes('phoenix') && b.id !== branchIdInt)
+      );
+      if (phxSubs.length > 0) {
+        targetBranchIds = phxSubs.map(b => b.id);
+      }
+    }
 
     // If a version name is provided, look up matching version IDs for maintenance depts
-    const versionIdsByDept = {};
+    const versionIdsByBranchDept = {};
     if (versionName) {
+      // Look for versions at both sub-branch and parent level
+      const lookupBranchIds = [...targetBranchIds];
+      if (!lookupBranchIds.includes(branchIdInt)) lookupBranchIds.push(branchIdInt);
+
       const { data: versions, error: vErr } = await supabase
         .from('pnl_versions')
-        .select('id, department')
-        .eq('branch_id', parseInt(branchId))
+        .select('id, branch_id, department')
+        .in('branch_id', lookupBranchIds)
         .eq('year', parseInt(year))
         .eq('version_name', versionName)
         .in('department', ['maintenance', 'maintenance_onsite']);
 
       if (vErr) throw vErr;
+      console.log(`[cross-dept] version lookup for "${versionName}" at branches [${lookupBranchIds}]:`, (versions || []).map(v => `${v.branch_id}-${v.department}=${v.id}`));
       for (const v of (versions || [])) {
-        versionIdsByDept[v.department] = v.id;
+        const key = `${v.branch_id}-${v.department}`;
+        versionIdsByBranchDept[key] = v.id;
       }
     }
 
-    // Fetch line items for both maintenance departments
+    // Fetch line items for both maintenance departments across all target branches
     const departments = ['maintenance', 'maintenance_onsite'];
     const result = {};
 
     for (const dept of departments) {
-      let q = supabase
-        .from('pnl_line_items')
-        .select('*')
-        .eq('branch_id', parseInt(branchId))
-        .eq('department', dept)
-        .eq('year', parseInt(year))
-        .order('row_order');
+      let allRows = [];
 
-      if (versionName && versionIdsByDept[dept]) {
-        q = q.eq('version_id', versionIdsByDept[dept]);
-      } else {
-        q = q.is('version_id', null);
+      for (const bid of targetBranchIds) {
+        let q = supabase
+          .from('pnl_line_items')
+          .select('*')
+          .eq('branch_id', bid)
+          .eq('department', dept)
+          .eq('year', parseInt(year))
+          .order('row_order');
+
+        const vKey = `${bid}-${dept}`;
+        if (versionName && versionIdsByBranchDept[vKey]) {
+          q = q.eq('version_id', versionIdsByBranchDept[vKey]);
+        } else {
+          q = q.is('version_id', null);
+        }
+
+        const { data, error } = await q;
+        if (error) throw error;
+        let rows = data || [];
+        const usedVersionId = versionIdsByBranchDept[vKey] || 'draft';
+        console.log(`[cross-dept] ${dept} branch=${bid} version=${usedVersionId}: ${rows.length} rows`);
+
+        // Fallback: if draft returned 0 rows, try the latest version for this branch+dept
+        if (rows.length === 0 && !versionIdsByBranchDept[vKey]) {
+          const { data: latestVersion } = await supabase
+            .from('pnl_versions')
+            .select('id, version_name')
+            .eq('branch_id', bid)
+            .eq('department', dept)
+            .eq('year', parseInt(year))
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (latestVersion?.length) {
+            const { data: fallbackData, error: fbErr } = await supabase
+              .from('pnl_line_items')
+              .select('*')
+              .eq('branch_id', bid)
+              .eq('department', dept)
+              .eq('year', parseInt(year))
+              .eq('version_id', latestVersion[0].id)
+              .order('row_order');
+            if (fbErr) throw fbErr;
+            rows = fallbackData || [];
+            console.log(`[cross-dept] ${dept} branch=${bid} fallback to version "${latestVersion[0].version_name}" (${latestVersion[0].id}): ${rows.length} rows`);
+          }
+        }
+
+        allRows = allRows.concat(rows);
       }
 
-      const { data, error } = await q;
-      if (error) throw error;
+      console.log(`[cross-dept] ${dept} (version: ${versionName || 'draft'}, branches: ${targetBranchIds.join(',')}): ${allRows.length} total rows`);
 
-      const rows = data || [];
-      console.log(`[cross-dept] ${dept} (version: ${versionName || 'draft'}): ${rows.length} rows`);
-
-      result[dept] = {
-        revenue: computeRevenueTotals(rows),
-        directLabor: computeDirectLaborTotals(rows)
-      };
+      if (targetBranchIds.length > 1 && allRows.length > 0) {
+        // Multiple branches: sum revenue/labor totals across branches
+        const branchResults = {};
+        for (const bid of targetBranchIds) {
+          const branchRows = allRows.filter(r => r.branch_id === bid);
+          if (branchRows.length > 0) {
+            branchResults[bid] = {
+              revenue: computeRevenueTotals(branchRows),
+              directLabor: computeDirectLaborTotals(branchRows)
+            };
+          }
+        }
+        // Log per-branch revenue for debugging
+        for (const [bid, br] of Object.entries(branchResults)) {
+          const revTotal = MONTH_KEYS.reduce((s, mk) => s + (br.revenue[mk] || 0), 0);
+          console.log(`[cross-dept] ${dept} branch=${bid} revenue total=$${Math.round(revTotal).toLocaleString()}`);
+        }
+        // Sum across branches
+        const summed = { revenue: {}, directLabor: {}, byBranch: {} };
+        for (const mk of MONTH_KEYS) {
+          summed.revenue[mk] = 0;
+          summed.directLabor[mk] = 0;
+          for (const bid of targetBranchIds) {
+            if (branchResults[bid]) {
+              summed.revenue[mk] += branchResults[bid].revenue[mk] || 0;
+              summed.directLabor[mk] += branchResults[bid].directLabor[mk] || 0;
+            }
+          }
+          summed.revenue[mk] = Math.round(summed.revenue[mk] * 100) / 100;
+          summed.directLabor[mk] = Math.round(summed.directLabor[mk] * 100) / 100;
+        }
+        // Include per-branch breakdown
+        for (const bid of targetBranchIds) {
+          if (branchResults[bid]) {
+            summed.byBranch[bid] = branchResults[bid];
+          }
+        }
+        result[dept] = summed;
+      } else {
+        result[dept] = {
+          revenue: computeRevenueTotals(allRows),
+          directLabor: computeDirectLaborTotals(allRows)
+        };
+      }
     }
 
-    return NextResponse.json({ success: true, departments: result });
+    // Include branch name map for multi-branch results
+    let branchNames = null;
+    if (targetBranchIds.length > 1) {
+      const { data: branchData } = await supabase
+        .from('branches')
+        .select('id, name')
+        .in('id', targetBranchIds);
+      branchNames = {};
+      for (const b of (branchData || [])) {
+        branchNames[b.id] = b.name;
+      }
+    }
+
+    return NextResponse.json({ success: true, departments: result, branchNames });
   } catch (error) {
     console.error('Cross-dept revenue error:', error);
     return NextResponse.json(

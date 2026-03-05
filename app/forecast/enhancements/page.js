@@ -81,6 +81,9 @@ export default function EnhancementsForecastPage() {
   // Check if Phoenix (combined) view is selected
   const isPhoenixView = selectedBranchId === 'phoenix';
 
+  // Phoenix parent branch ID for region-level P&L
+  const phoenixBranchId = branches.find(b => b.name === 'Phoenix')?.id || null;
+
   // Get Phoenix branches for combined view (Phx - North, Phx - SouthEast, Phx - SouthWest)
   const phoenixBranches = branches.filter(b => b.name.toLowerCase().includes('phx'));
 
@@ -349,7 +352,7 @@ export default function EnhancementsForecastPage() {
                   Phoenix
                 </button>
                 {/* All individual branches */}
-                {branches.map(branch => (
+                {branches.filter(b => b.name !== 'Phoenix').map(branch => (
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
@@ -639,10 +642,10 @@ export default function EnhancementsForecastPage() {
         )}
 
         {/* P&L Section */}
-        {!isPhoenixView && (
+        {(!isPhoenixView || phoenixBranchId) && (
           <PnlSection
-            branchId={selectedBranchId}
-            branchName={selectedBranch?.name}
+            branchId={isPhoenixView ? phoenixBranchId : selectedBranchId}
+            branchName={isPhoenixView ? ['Corporate', 'Phoenix'] : selectedBranch?.name}
             year={selectedYear}
             department="enhancements"
           />

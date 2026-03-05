@@ -5,6 +5,8 @@ import { createBrowserClient } from '@supabase/ssr';
 import { usePnlLineItems, usePnlVersions, mergeAllDepartments } from '../hooks/useSupabase';
 import PnlTable from './PnlTable';
 import PnlVersionBar from './PnlVersionBar';
+import PnlImport from './PnlImport';
+import BudgetImport from './BudgetImport';
 
 /**
  * Self-contained P&L section component.
@@ -17,6 +19,16 @@ import PnlVersionBar from './PnlVersionBar';
  *   onDepartmentChange  — if provided, renders the department dropdown (main page only)
  *   departmentOptions   — array of { value, label } for dropdown
  */
+const DEPARTMENT_LABELS = {
+  maintenance: 'Maintenance',
+  maintenance_onsite: 'Maintenance Onsite',
+  maintenance_wo: 'Maintenance WO',
+  arbor: 'Arbor',
+  enhancements: 'Enhancements',
+  spray: 'Spray',
+  irrigation: 'Irrigation'
+};
+
 export default function PnlSection({
   branchId,
   branchName,
@@ -27,7 +39,9 @@ export default function PnlSection({
 }) {
   // --- Role detection ---
   const [userRole, setUserRole] = useState(null);
-  const isAdmin = userRole === 'admin';
+  const [previewAsUser, setPreviewAsUser] = useState(false);
+  const isRealAdmin = userRole === 'admin';
+  const isAdmin = isRealAdmin && !previewAsUser;
   const isEditor = userRole === 'finance' || userRole === 'admin';
   useEffect(() => {
     const checkRole = async () => {
@@ -51,6 +65,10 @@ export default function PnlSection({
   const [selectedVersionId, setSelectedVersionId] = useState(null);
   const [referenceVersionId, setReferenceVersionId] = useState(null);
   const [referenceItems, setReferenceItems] = useState(null);
+  const [showCopyDropdown, setShowCopyDropdown] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copyMessage, setCopyMessage] = useState(null);
+  const copyDropdownRef = useRef(null);
   const pnlCellUpdateTimer = useRef(null);
   const pendingPnlUpdates = useRef(new Map());
 
@@ -83,6 +101,11 @@ export default function PnlSection({
   // Apply admin-configured defaults when versions load for a new context
   useEffect(() => {
     if (!pnlVersions || pnlVersions.length === 0 || !pnlDefaults) return;
+    // Guard against stale versions from a previous branch/department/year
+    // (the clear effect and fetch are async, so pnlVersions may still hold old data)
+    const sample = pnlVersions[0];
+    if (sample?.branch_id !== branchId || sample?.year !== year) return;
+    if (!isCombinedDepartment && sample?.department !== department) return;
     const key = `${branchId}-${year}-${department}`;
     if (defaultsAppliedKey.current === key) return;
     defaultsAppliedKey.current = key;
@@ -248,7 +271,12 @@ export default function PnlSection({
 
   const handleTogglePctMode = useCallback(async (lineItemId, pctOfTotal, pctSource) => {
     try {
-      patchLineItem(lineItemId, { pct_of_total: pctOfTotal, pct_source: pctSource });
+      const patch = { pct_of_total: pctOfTotal, pct_source: pctSource };
+      if (pctOfTotal != null) {
+        patch.monthly_increment = null;
+        patch.increment_base_month = null;
+      }
+      patchLineItem(lineItemId, patch);
       const res = await fetch('/api/pnl/toggle-pct-mode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -258,6 +286,26 @@ export default function PnlSection({
       if (!result.success) console.error('Failed to save pct mode:', result.error);
     } catch (err) {
       console.error('Failed to toggle pct mode:', err);
+    }
+  }, [patchLineItem]);
+
+  const handleApplyIncrement = useCallback(async (lineItemId, monthlyIncrement, incrementBaseMonth) => {
+    try {
+      const patch = { monthly_increment: monthlyIncrement, increment_base_month: incrementBaseMonth };
+      if (monthlyIncrement != null) {
+        patch.pct_of_total = null;
+        patch.pct_source = null;
+      }
+      patchLineItem(lineItemId, patch);
+      const res = await fetch('/api/pnl/apply-increment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineItemId, monthlyIncrement, incrementBaseMonth })
+      });
+      const result = await res.json();
+      if (!result.success) console.error('Failed to save increment:', result.error);
+    } catch (err) {
+      console.error('Failed to apply increment:', err);
     }
   }, [patchLineItem]);
 
@@ -357,6 +405,21 @@ export default function PnlSection({
     refetchPnlData();
   }, [branchId, department, year, refetchPnlData]);
 
+  const handleClearDraft = useCallback(async () => {
+    try {
+      const res = await fetch('/api/pnl/clear-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId, department, year })
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+      refetchPnlData();
+    } catch (err) {
+      console.error('Failed to clear draft:', err);
+    }
+  }, [branchId, department, year, refetchPnlData]);
+
   const handleDeleteLineItem = useCallback(async (lineItemId) => {
     patchLineItem(lineItemId, { _deleted: true });
     try {
@@ -376,10 +439,24 @@ export default function PnlSection({
     }
   }, [patchLineItem, refetchPnlData]);
 
+  // Close copy dropdown on click outside
+  useEffect(() => {
+    if (!showCopyDropdown) return;
+    const handleClickOutside = (e) => {
+      if (copyDropdownRef.current && !copyDropdownRef.current.contains(e.target)) {
+        setShowCopyDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCopyDropdown]);
+
+  const canImport = !isCombinedDepartment && isEditor && !isPnlLocked;
+
   // --- Render ---
   return (
     <div className="p-6 border-t border-gray-200">
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex flex-wrap items-center gap-3 mb-3">
         <h2 className="text-lg font-bold text-gray-800">
           {selectedVersionId
             ? `P&L — ${currentPnlVersion?.version_name || 'Version'}`
@@ -399,11 +476,115 @@ export default function PnlSection({
             ))}
           </select>
         )}
+
+        {/* Import P&L */}
+        {canImport && (
+          <PnlImport
+            branchId={branchId}
+            department={department}
+            year={year}
+            onImportComplete={refetchPnlData}
+            hasExistingImport={pnlLineItems?.length > 0}
+            versionId={selectedVersionId}
+          />
+        )}
+
+        {/* Import Budget — draft only */}
+        {canImport && selectedVersionId === null && (
+          <BudgetImport
+            branchId={branchId}
+            branchName={branchName}
+            department={department}
+            year={year}
+            onImportComplete={refetchPnlData}
+          />
+        )}
+
+        {/* Copy Structure — draft only */}
+        {canImport && selectedVersionId === null && (
+          <div className="relative" ref={copyDropdownRef}>
+            <button
+              onClick={() => setShowCopyDropdown(!showCopyDropdown)}
+              disabled={copying}
+              className="px-3 py-1.5 bg-indigo-500 text-white rounded-md text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+              </svg>
+              {copying ? 'Copying...' : 'Copy Structure'}
+            </button>
+            {showCopyDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+                <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                  Copy account structure from:
+                </div>
+                {Object.entries(DEPARTMENT_LABELS)
+                  .filter(([key]) => key !== department)
+                  .map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={async () => {
+                        if (pnlLineItems?.length > 0 && !window.confirm('This will replace all existing draft rows. Continue?')) return;
+                        setShowCopyDropdown(false);
+                        setCopying(true);
+                        setCopyMessage(null);
+                        try {
+                          await handleCopyStructure(key);
+                          setCopyMessage(`Copied from ${label}`);
+                          setTimeout(() => setCopyMessage(null), 3000);
+                        } catch (err) {
+                          setCopyMessage(`Error: ${err.message}`);
+                          setTimeout(() => setCopyMessage(null), 5000);
+                        } finally {
+                          setCopying(false);
+                        }
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-800"
+                    >
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            )}
+            {copyMessage && (
+              <span className={`text-xs ${copyMessage.startsWith('Error') ? 'text-red-600' : 'text-emerald-600'}`}>
+                {copyMessage}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Admin preview toggle */}
+        {isRealAdmin && (
+          <button
+            onClick={() => setPreviewAsUser(p => !p)}
+            title={previewAsUser ? 'Viewing as user — click to switch back to admin view' : 'Preview as non-admin user'}
+            className={`ml-auto px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1 transition-colors ${
+              previewAsUser
+                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              {previewAsUser ? (
+                <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+              ) : (
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              )}
+              {previewAsUser ? (
+                <path d="M.458 10C1.732 5.943 5.522 3 10 3c.716 0 1.414.09 2.085.248L.458 10z" />
+              ) : (
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+              )}
+            </svg>
+            {previewAsUser ? 'User view' : 'Preview as user'}
+          </button>
+        )}
       </div>
 
       <PnlVersionBar
         branchId={branchId}
-        branchName={branchName}
         department={department}
         year={year}
         versions={pnlVersions}
@@ -412,16 +593,16 @@ export default function PnlSection({
         referenceVersionId={referenceVersionId}
         onSelectReference={setReferenceVersionId}
         importInfo={pnlImportInfo}
-        onImportComplete={isCombinedDepartment || !isEditor ? undefined : refetchPnlData}
         onVersionSaved={isCombinedDepartment || !isEditor ? undefined : refetchPnlVersions}
         currentVersionLocked={isPnlLocked}
         onToggleLock={!isCombinedDepartment && isAdmin ? handlePnlToggleLock : undefined}
         versionNote={currentPnlVersion?.notes || null}
         onUpdateVersionNote={isCombinedDepartment || !isEditor ? undefined : handleUpdateVersionNote}
         hasLineItems={pnlLineItems?.length > 0}
-        onCopyStructure={isCombinedDepartment || !isEditor ? undefined : handleCopyStructure}
+        onImportComplete={isCombinedDepartment || !isEditor ? undefined : refetchPnlData}
         readOnly={isCombinedDepartment || !isEditor}
         canDelete={isAdmin}
+        onClearDraft={!isCombinedDepartment && isEditor ? handleClearDraft : undefined}
       />
 
       <PnlTable
@@ -438,6 +619,7 @@ export default function PnlSection({
         isAdmin={isAdmin}
         onToggleAdminOnly={!isCombinedDepartment && isAdmin ? handleToggleAdminOnly : undefined}
         onTogglePctMode={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleTogglePctMode : undefined}
+        onApplyIncrement={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleApplyIncrement : undefined}
         onAddRefRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddRefRow : undefined}
         onAddStructuralRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddStructuralRow : undefined}
         onDeleteLineItem={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleDeleteLineItem : undefined}

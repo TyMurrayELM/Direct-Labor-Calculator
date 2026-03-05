@@ -68,6 +68,15 @@ export async function POST(request) {
 
     if (updateError) throw updateError;
 
+    // Cascade to sub-line children so they inherit parent visibility
+    const { error: cascadeError } = await supabase
+      .from('pnl_line_items')
+      .update({ admin_only: adminOnly })
+      .eq('parent_id', lineItemId)
+      .eq('row_type', 'sub_line');
+
+    if (cascadeError) console.error('Cascade admin_only to sub-lines error:', cascadeError);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Toggle admin_only error:', error);

@@ -479,10 +479,14 @@ export default function PnlTable({
   // Group sub-lines by parent_id for injection into display rows
   const subLinesByParent = useMemo(() => {
     if (!lineItems?.length) return {};
+    // Build a set of hidden parent IDs so sub-lines inherit parent visibility
+    const hiddenParentIds = !isAdmin
+      ? new Set(lineItems.filter(li => li.admin_only && li.row_type === 'detail').map(li => li.id))
+      : null;
     const map = {};
     for (const li of lineItems) {
       if (li.row_type !== 'sub_line' || !li.parent_id) continue;
-      if (!isAdmin && li.admin_only) continue;
+      if (!isAdmin && (li.admin_only || hiddenParentIds.has(li.parent_id))) continue;
       if (!map[li.parent_id]) map[li.parent_id] = [];
       map[li.parent_id].push(li);
     }
@@ -755,19 +759,6 @@ export default function PnlTable({
         isSubTotal: true
       });
 
-      // Inject "+ Add sub-line" placeholder row
-      result.push({
-        item: {
-          account_name: null,
-          row_type: '_add_sub_line',
-          indent_level: (item.indent_level || 0) + 1,
-          id: null,
-          _parentId: item.id
-        },
-        refItem: null,
-        isRefOnly: false,
-        isAddSubLine: true
-      });
     }
 
     return result;
@@ -1178,8 +1169,8 @@ export default function PnlTable({
     // Build ordered list of IDs from displayRows (only real rows with IDs, excluding sub-lines)
     const orderedIds = [];
     const displayItems = [];
-    for (const { item, isRefOnly, isSubLine, isSubTotal, isAddSubLine } of displayRows) {
-      if (!isRefOnly && !isSubLine && !isSubTotal && !isAddSubLine && item.id) {
+    for (const { item, isRefOnly, isSubLine, isSubTotal } of displayRows) {
+      if (!isRefOnly && !isSubLine && !isSubTotal && item.id) {
         orderedIds.push(item.id);
         displayItems.push(item);
       }
@@ -1192,8 +1183,8 @@ export default function PnlTable({
     let toIdx = 0;
     let realCount = 0;
     for (let i = 0; i < displayRows.length && i <= dropIdx; i++) {
-      const { item: di, isRefOnly: ro, isSubLine: sl, isSubTotal: st, isAddSubLine: asl } = displayRows[i];
-      if (!ro && !sl && !st && !asl && di.id) {
+      const { item: di, isRefOnly: ro, isSubLine: sl, isSubTotal: st } = displayRows[i];
+      if (!ro && !sl && !st && di.id) {
         toIdx = realCount;
         realCount++;
       }
@@ -1350,28 +1341,7 @@ export default function PnlTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal, isAddSubLine }, idx) => {
-              // Render "+ Add sub-line" button row
-              if (isAddSubLine) {
-                if (!onAddSubLine || !isEditable || isLocked) return null;
-                const colSpan = 1 + 12 + 1 + (showComparison ? 3 : 0);
-                return (
-                  <tr key={`add-sub-${item._parentId}`} className="bg-yellow-50/60">
-                    <td
-                      colSpan={colSpan}
-                      className="py-0.5 px-1.5 sticky left-0 z-10"
-                      style={{ paddingLeft: `${6 + ((item.indent_level || 0) + 1) * 10}px` }}
-                    >
-                      <button
-                        onClick={() => onAddSubLine(item._parentId)}
-                        className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
-                      >
-                        + Add sub-line
-                      </button>
-                    </td>
-                  </tr>
-                );
-              }
+            {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal }, idx) => {
 
               const total = isRefOnly ? 0 : computeRowTotal(item);
               const refTotal = refItem ? computeRowTotal(refItem) : (showComparison && !isRefOnly ? 0 : null);
@@ -1775,7 +1745,17 @@ export default function PnlTable({
                         </span>
                       )
                     ) : isSubTotal ? (
-                      <span className="text-gray-500">{item.account_name}</span>
+                      <span className="text-gray-500">
+                        {item.account_name}
+                        {onAddSubLine && isEditable && !isLocked && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onAddSubLine(item._parentId); }}
+                            className="ml-2 text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                          >
+                            + Add
+                          </button>
+                        )}
+                      </span>
                     ) : (
                       <>
                         {item.account_name}

@@ -26,7 +26,16 @@ const DEPARTMENT_LABELS = {
   arbor: 'Arbor',
   enhancements: 'Enhancements',
   spray: 'Spray',
-  irrigation: 'Irrigation'
+  irrigation: 'Irrigation',
+  biz_dev_marketing: 'Business Development and Marketing',
+  equipment_fleet: 'Equipment & Fleet Operations',
+  facilities: 'Facilities',
+  finance_accounting: 'Finance and Accounting',
+  it_technology: 'IT/Technology',
+  insurance: 'Insurance',
+  owner_ops_benefits: 'Owner Operations & Benefits',
+  safety: 'Safety',
+  talent_culture: 'Talent & Culture'
 };
 
 export default function PnlSection({
@@ -256,18 +265,25 @@ export default function PnlSection({
 
   const handleToggleAdminOnly = useCallback(async (lineItemId, currentValue) => {
     try {
-      patchLineItem(lineItemId, { admin_only: !currentValue });
+      const newValue = !currentValue;
+      patchLineItem(lineItemId, { admin_only: newValue });
+      // Cascade to sub-line children optimistically
+      (pnlLineItems || []).forEach(li => {
+        if (li.row_type === 'sub_line' && li.parent_id === lineItemId) {
+          patchLineItem(li.id, { admin_only: newValue });
+        }
+      });
       const res = await fetch('/api/pnl/toggle-admin-only', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItemId, adminOnly: !currentValue })
+        body: JSON.stringify({ lineItemId, adminOnly: newValue })
       });
       const result = await res.json();
       if (!result.success) console.error('Failed to save admin_only:', result.error);
     } catch (err) {
       console.error('Failed to toggle admin_only:', err);
     }
-  }, [patchLineItem]);
+  }, [patchLineItem, pnlLineItems]);
 
   const handleTogglePctMode = useCallback(async (lineItemId, pctOfTotal, pctSource) => {
     try {

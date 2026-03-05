@@ -134,11 +134,13 @@ export async function POST(request) {
     }
 
     // 5. Build source lookups: by account_code, exact name, and normalized name
+    //    (exclude sub_line rows from main lookups — they match by parent+position)
     const sourceByCode = {};
     const sourceByName = {};
     const sourceByNormName = {};
 
     for (const row of sourceRows) {
+      if (row.row_type === 'sub_line') continue;
       if (row.account_code) {
         sourceByCode[row.account_code] = row;
       }
@@ -149,6 +151,18 @@ export async function POST(request) {
           sourceByNormName[norm] = row;
         }
       }
+    }
+
+    // Build source sub-lines grouped by parent_id, sorted by row_order
+    const sourceSubsByParent = {};
+    for (const row of sourceRows) {
+      if (row.row_type === 'sub_line' && row.parent_id) {
+        if (!sourceSubsByParent[row.parent_id]) sourceSubsByParent[row.parent_id] = [];
+        sourceSubsByParent[row.parent_id].push(row);
+      }
+    }
+    for (const key of Object.keys(sourceSubsByParent)) {
+      sourceSubsByParent[key].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
     }
 
     // 6. Build in-memory working copies with forecast months filled from source
@@ -182,6 +196,46 @@ export async function POST(request) {
       if (sourceRow.monthly_increment != null && row.monthly_increment == null) {
         row.monthly_increment = sourceRow.monthly_increment;
         row.increment_base_month = sourceRow.increment_base_month;
+      }
+    }
+
+    // 6b. Match sub-lines by parent + position
+    // Build target sub-lines grouped by parent_id
+    const targetSubsByParent = {};
+    for (const row of workingRows) {
+      if (row.row_type === 'sub_line' && row.parent_id) {
+        if (!targetSubsByParent[row.parent_id]) targetSubsByParent[row.parent_id] = [];
+        targetSubsByParent[row.parent_id].push(row);
+      }
+    }
+    for (const key of Object.keys(targetSubsByParent)) {
+      targetSubsByParent[key].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
+    }
+
+    // For each target parent that has a matched source parent, copy sub-line values
+    for (const targetRow of workingRows) {
+      if (targetRow.row_type === 'sub_line') continue;
+      if (!targetRow.id) continue;
+
+      // Find the source row this target matched to
+      const sourceRow =
+        (targetRow.account_code && sourceByCode[targetRow.account_code]) ||
+        (targetRow.account_name && sourceByName[targetRow.account_name.toLowerCase()]) ||
+        (targetRow.account_name && sourceByNormName[normalizeTotalName(targetRow.account_name)]) ||
+        null;
+      if (!sourceRow) continue;
+
+      const sourceSubs = sourceSubsByParent[sourceRow.id];
+      const targetSubs = targetSubsByParent[targetRow.id];
+      if (!sourceSubs?.length || !targetSubs?.length) continue;
+
+      // Match by position
+      const matchCount = Math.min(sourceSubs.length, targetSubs.length);
+      for (let si = 0; si < matchCount; si++) {
+        for (const month of forecastMonths) {
+          targetSubs[si][month] = sourceSubs[si][month] ?? 0;
+        }
+        matchedSourceIds.add(sourceSubs[si].id);
       }
     }
 
@@ -264,6 +318,7 @@ export async function POST(request) {
     const updatedCount = dbUpdates.length;
 
     // 9. Insert unmatched source DETAIL rows only into the correct position
+    //    (exclude sub_line rows — they don't get inserted as unmatched)
     const unmatchedRows = sourceRows.filter(
       r => !matchedSourceIds.has(r.id) && r.row_type === 'detail'
     );

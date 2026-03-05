@@ -1938,6 +1938,11 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
     }
   }, []);
 
+  // Add a line item locally (optimistic insert for sub-lines)
+  const addLineItem = useCallback((newItem) => {
+    setLineItems(prev => [...prev, newItem]);
+  }, []);
+
   // Reorder line items locally by a new array of IDs (avoids loading flash)
   const reorderLineItems = useCallback((newIdOrder) => {
     setLineItems(prev => {
@@ -1955,7 +1960,7 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
     });
   }, []);
 
-  return { lineItems, importInfo, loading, error, refetchPnlData: fetchPnlData, patchLineItem, reorderLineItems };
+  return { lineItems, importInfo, loading, error, refetchPnlData: fetchPnlData, patchLineItem, addLineItem, reorderLineItems };
 }
 
 /**

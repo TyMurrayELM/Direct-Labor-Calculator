@@ -131,7 +131,7 @@ export default function PnlSection({
   }, [isCombinedDepartment, selectedVersionId, pnlVersions, pnlAllRawVersions]);
 
   // Fetch line items
-  const { lineItems: pnlLineItems, importInfo: pnlImportInfo, loading: pnlLoading, refetchPnlData, patchLineItem, reorderLineItems } = usePnlLineItems(
+  const { lineItems: pnlLineItems, importInfo: pnlImportInfo, loading: pnlLoading, refetchPnlData, patchLineItem, addLineItem, reorderLineItems } = usePnlLineItems(
     branchId, department, year, pnlEffectiveVersionId
   );
 
@@ -439,6 +439,39 @@ export default function PnlSection({
     }
   }, [patchLineItem, refetchPnlData]);
 
+  const handleAddSubLine = useCallback(async (parentLineItemId) => {
+    try {
+      const res = await fetch('/api/pnl/add-sub-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentLineItemId, label: 'New sub-line' })
+      });
+      const result = await res.json();
+      if (result.success && result.lineItem) {
+        addLineItem(result.lineItem);
+      } else {
+        console.error('Failed to add sub-line:', result.error);
+      }
+    } catch (err) {
+      console.error('Failed to add sub-line:', err);
+    }
+  }, [addLineItem]);
+
+  const handleRenameSubLine = useCallback(async (lineItemId, label) => {
+    patchLineItem(lineItemId, { account_name: label, full_label: label });
+    try {
+      const res = await fetch('/api/pnl/rename-sub-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineItemId, label })
+      });
+      const result = await res.json();
+      if (!result.success) console.error('Failed to rename sub-line:', result.error);
+    } catch (err) {
+      console.error('Failed to rename sub-line:', err);
+    }
+  }, [patchLineItem]);
+
   // Close copy dropdown on click outside
   useEffect(() => {
     if (!showCopyDropdown) return;
@@ -623,6 +656,8 @@ export default function PnlSection({
         onAddRefRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddRefRow : undefined}
         onAddStructuralRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddStructuralRow : undefined}
         onDeleteLineItem={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleDeleteLineItem : undefined}
+        onAddSubLine={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddSubLine : undefined}
+        onRenameSubLine={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleRenameSubLine : undefined}
         onUpdateCellNote={isCombinedDepartment ? undefined : handleUpdateCellNote}
         crossDeptConfig={
           !['maintenance', 'maintenance_onsite', 'maintenance_wo', 'all_maintenance'].includes(department)

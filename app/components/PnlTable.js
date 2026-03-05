@@ -134,6 +134,8 @@ export default function PnlTable({
   onAddRefRow,
   onAddStructuralRow,
   onDeleteLineItem,
+  onAddSubLine,
+  onRenameSubLine,
   onUpdateCellNote,
   crossDeptConfig = null
 }) {
@@ -146,6 +148,11 @@ export default function PnlTable({
   const [incrPopover, setIncrPopover] = useState(null); // { id, baseMonth, baseValue, increment, x, y, hasExisting }
   const [crossDeptData, setCrossDeptData] = useState(null); // { maintenance: {revenue:{jan,...}, directLabor:{jan,...}, byBranch:{...}}, ... }
   const [crossDeptBranchNames, setCrossDeptBranchNames] = useState(null); // { branchId: name, ... }
+
+  // Sub-line expand/collapse state
+  const [expandedParents, setExpandedParents] = useState(new Set());
+  // Inline editing state for sub-line labels
+  const [editingSubLineLabel, setEditingSubLineLabel] = useState(null); // { id, value }
 
   // Multi-cell selection state
   const [selectedCells, setSelectedCells] = useState(new Set());
@@ -263,10 +270,12 @@ export default function PnlTable({
 
     // Work on sorted copies so totals see current detail values
     const sorted = [...lineItems].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
-    // Filter out admin-only rows for non-admin users (before computing totals)
-    const filtered = !isAdmin
-      ? sorted.filter(li => !li.admin_only)
-      : sorted;
+    // Filter out sub-line rows (they don't participate in totals) and admin-only rows for non-admin users
+    const filtered = sorted.filter(li => {
+      if (li.row_type === 'sub_line') return false;
+      if (!isAdmin && li.admin_only) return false;
+      return true;
+    });
     const items = filtered.map(li => ({ ...li }));
 
     // --- Recalculate intermediate totals from detail rows ---
@@ -467,14 +476,36 @@ export default function PnlTable({
     return result;
   }, [lineItems, isAdmin]);
 
+  // Group sub-lines by parent_id for injection into display rows
+  const subLinesByParent = useMemo(() => {
+    if (!lineItems?.length) return {};
+    const map = {};
+    for (const li of lineItems) {
+      if (li.row_type !== 'sub_line' || !li.parent_id) continue;
+      if (!isAdmin && li.admin_only) continue;
+      if (!map[li.parent_id]) map[li.parent_id] = [];
+      map[li.parent_id].push(li);
+    }
+    // Sort each group by row_order
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
+    }
+    return map;
+  }, [lineItems, isAdmin]);
+
+  const parentsWithSubLines = useMemo(() => {
+    return new Set(Object.keys(subLinesByParent).map(Number));
+  }, [subLinesByParent]);
+
   // Merge primary line items with reference items.
   // Each display row has: { item, refItem, isRefOnly }
   // Reference-only rows (accounts in the ref but not the primary) get inserted
   // into the correct section, just before the section total.
   const displayRows = useMemo(() => {
+    let baseRows;
     if (!referenceItems?.length) {
-      return computedLineItems.map(item => ({ item, refItem: null, isRefOnly: false }));
-    }
+      baseRows = computedLineItems.map(item => ({ item, refItem: null, isRefOnly: false }));
+    } else {
 
     // Filter admin-only detail rows from reference items for non-admin users
     const effectiveRefItems = !isAdmin
@@ -681,8 +712,66 @@ export default function PnlTable({
       }
     }
 
-    return merged;
-  }, [computedLineItems, referenceItems, isAdmin]);
+    baseRows = merged;
+    }
+
+    // Post-process: inject sub-line rows and sub-total rows after expanded parents
+    const result = [];
+    for (const row of baseRows) {
+      result.push(row);
+
+      const { item, isRefOnly } = row;
+      if (isRefOnly || item.row_type !== 'detail' || !item.id) continue;
+      if (!expandedParents.has(item.id)) continue;
+
+      const subs = subLinesByParent[item.id];
+      if (!subs?.length) continue;
+
+      // Inject sub-line rows
+      for (const sub of subs) {
+        result.push({ item: sub, refItem: null, isRefOnly: false, isSubLine: true });
+      }
+
+      // Inject computed sub-total row
+      const subTotalValues = {};
+      for (const mk of MONTH_KEYS) {
+        let sum = 0;
+        for (const sub of subs) {
+          sum += parseFloat(sub[mk]) || 0;
+        }
+        subTotalValues[mk] = Math.round(sum * 100) / 100;
+      }
+      result.push({
+        item: {
+          ...subTotalValues,
+          account_name: 'Sub-total',
+          row_type: 'sub_total',
+          indent_level: (item.indent_level || 0) + 1,
+          id: null,
+          _parentId: item.id
+        },
+        refItem: null,
+        isRefOnly: false,
+        isSubTotal: true
+      });
+
+      // Inject "+ Add sub-line" placeholder row
+      result.push({
+        item: {
+          account_name: null,
+          row_type: '_add_sub_line',
+          indent_level: (item.indent_level || 0) + 1,
+          id: null,
+          _parentId: item.id
+        },
+        refItem: null,
+        isRefOnly: false,
+        isAddSubLine: true
+      });
+    }
+
+    return result;
+  }, [computedLineItems, referenceItems, isAdmin, expandedParents, subLinesByParent]);
 
   // Collect available source rows for the pct-of-total picker, grouped by section
   const availableSources = useMemo(() => {
@@ -856,7 +945,7 @@ export default function PnlTable({
 
   const isCellEditable = useCallback((item, monthKey) => {
     if (!isEditable || isLocked) return false;
-    if (item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent') return false;
+    if (item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent' || item.row_type === 'sub_total') return false;
     if (importedMonthKeys.has(monthKey)) return false;
     return true;
   }, [isEditable, isLocked, importedMonthKeys]);
@@ -1047,8 +1136,9 @@ export default function PnlTable({
   // Drag-and-drop handlers
   // Allow dragging detail rows, account headers, and sub-totals (totals with account_code).
   // Top-level section headers and section totals (no account_code) stay fixed.
-  const isDraggableRow = useCallback((item, isRefOnly) => {
+  const isDraggableRow = useCallback((item, isRefOnly, isSubLine) => {
     if (!canDrag || isRefOnly || !item.id) return false;
+    if (isSubLine) return false; // Sub-lines don't participate in main drag-and-drop
     if (item.row_type === 'detail') return true;
     if (item.row_type === 'account_header') return true;
     if (item.row_type === 'total' && item.account_code) return true;
@@ -1085,11 +1175,11 @@ export default function PnlTable({
 
     if (!dragRowId || !onRowReorder) return;
 
-    // Build ordered list of IDs from displayRows (only real rows with IDs)
+    // Build ordered list of IDs from displayRows (only real rows with IDs, excluding sub-lines)
     const orderedIds = [];
     const displayItems = [];
-    for (const { item, isRefOnly } of displayRows) {
-      if (!isRefOnly && item.id) {
+    for (const { item, isRefOnly, isSubLine, isSubTotal, isAddSubLine } of displayRows) {
+      if (!isRefOnly && !isSubLine && !isSubTotal && !isAddSubLine && item.id) {
         orderedIds.push(item.id);
         displayItems.push(item);
       }
@@ -1102,8 +1192,8 @@ export default function PnlTable({
     let toIdx = 0;
     let realCount = 0;
     for (let i = 0; i < displayRows.length && i <= dropIdx; i++) {
-      const { item: di, isRefOnly: ro } = displayRows[i];
-      if (!ro && di.id) {
+      const { item: di, isRefOnly: ro, isSubLine: sl, isSubTotal: st, isAddSubLine: asl } = displayRows[i];
+      if (!ro && !sl && !st && !asl && di.id) {
         toIdx = realCount;
         realCount++;
       }
@@ -1260,7 +1350,29 @@ export default function PnlTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map(({ item, refItem, isRefOnly }, idx) => {
+            {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal, isAddSubLine }, idx) => {
+              // Render "+ Add sub-line" button row
+              if (isAddSubLine) {
+                if (!onAddSubLine || !isEditable || isLocked) return null;
+                const colSpan = 1 + 12 + 1 + (showComparison ? 3 : 0);
+                return (
+                  <tr key={`add-sub-${item._parentId}`} className="bg-yellow-50/60">
+                    <td
+                      colSpan={colSpan}
+                      className="py-0.5 px-1.5 sticky left-0 z-10"
+                      style={{ paddingLeft: `${6 + ((item.indent_level || 0) + 1) * 10}px` }}
+                    >
+                      <button
+                        onClick={() => onAddSubLine(item._parentId)}
+                        className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        + Add sub-line
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }
+
               const total = isRefOnly ? 0 : computeRowTotal(item);
               const refTotal = refItem ? computeRowTotal(refItem) : (showComparison && !isRefOnly ? 0 : null);
 
@@ -1363,7 +1475,7 @@ export default function PnlTable({
                 }
               }
 
-              const draggable = isDraggableRow(item, isRefOnly);
+              const draggable = isDraggableRow(item, isRefOnly, isSubLine);
               const isDragging = dragRowId === item.id;
               const isDropTarget = dropTargetIdx === idx;
 
@@ -1465,7 +1577,7 @@ export default function PnlTable({
 
               return (
                 <tr
-                  key={isRefOnly ? `ref-${item.account_code || idx}` : (item.id || item.row_order || `computed-${idx}`)}
+                  key={isSubTotal ? `subtotal-${item._parentId}` : isRefOnly ? `ref-${item.account_code || idx}` : (item.id || item.row_order || `computed-${idx}`)}
                   className={`${getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
                     isDragging ? 'opacity-40' : ''
                   } ${isDropTarget && dragRowId ? 'border-t-2 border-t-blue-500' : ''} ${
@@ -1478,7 +1590,7 @@ export default function PnlTable({
                   onDrop={dragRowId ? (e) => handleDrop(e, idx) : undefined}
                 >
                   <td
-                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} group`}
+                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
                     style={{ paddingLeft: `${(draggable ? 0 : 6) + (item.indent_level || 0) * 10}px`, width: accountColWidth, maxWidth: accountColWidth }}
                     title={item.cell_notes?._row ? `${item.account_name}\n📝 ${item.cell_notes._row}` : item.account_name}
                     onContextMenu={(e) => handleCellContextMenu(e, item, '_row')}
@@ -1488,7 +1600,7 @@ export default function PnlTable({
                         ⠿
                       </span>
                     )}
-                    {onToggleAdminOnly && (item.row_type === 'detail' || item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && !isRefOnly && item.id && (
+                    {onToggleAdminOnly && (item.row_type === 'detail' || item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && !isRefOnly && !isSubLine && !isSubTotal && item.id && (
                       <span
                         className={`inline-block w-4 text-center cursor-pointer select-none ${
                           item.admin_only
@@ -1502,7 +1614,7 @@ export default function PnlTable({
                         {item.admin_only ? '🔒' : '👁'}
                       </span>
                     )}
-                    {onTogglePctMode && item.row_type === 'detail' && !isRefOnly && item.id && (
+                    {onTogglePctMode && item.row_type === 'detail' && !isRefOnly && !isSubLine && !isSubTotal && item.id && (
                       <span
                         className={`inline-block w-4 text-center cursor-pointer select-none ${
                           item.pct_of_total != null
@@ -1551,7 +1663,7 @@ export default function PnlTable({
                         %
                       </span>
                     )}
-                    {onApplyIncrement && item.row_type === 'detail' && !isRefOnly && item.id && (
+                    {onApplyIncrement && item.row_type === 'detail' && !isRefOnly && !isSubLine && !isSubTotal && item.id && (
                       <span
                         className={`inline-block w-5 text-center cursor-pointer select-none ${
                           item.monthly_increment != null
@@ -1609,12 +1721,12 @@ export default function PnlTable({
                         +
                       </span>
                     )}
-                    {onDeleteLineItem && item.row_type === 'detail' && !isRefOnly && item.id && (
+                    {onDeleteLineItem && (item.row_type === 'detail' || isSubLine) && !isRefOnly && !isSubTotal && item.id && (
                       <span
                         className="inline-block w-4 text-center cursor-pointer select-none text-transparent group-hover:text-gray-300 hover:!text-red-500"
                         style={{ marginRight: '2px', fontSize: '11px' }}
                         title="Delete this row"
-                        onClick={(e) => { e.stopPropagation(); onDeleteLineItem(item.id); }}
+                        onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete "${item.account_name}"?`)) onDeleteLineItem(item.id); }}
                       >
                         ✕
                       </span>
@@ -1622,20 +1734,100 @@ export default function PnlTable({
                     {item.cell_notes?._row && (
                       <span className="text-amber-500 mr-0.5" style={{ fontSize: '9px' }} title={item.cell_notes._row}>●</span>
                     )}
-                    {item.account_name}
-                    {item.pct_of_total != null && (
-                      <span className="ml-1 text-purple-400 text-[10px] font-normal"
-                        title={`${item.pct_of_total}% of ${formatPctSources(parsePctSources(item.pct_source), computedLineItems)}`}
-                      >
-                        ({item.pct_of_total}% of {formatPctSources(parsePctSources(item.pct_source), computedLineItems)})
-                      </span>
-                    )}
-                    {item.monthly_increment != null && (
-                      <span className="ml-1 text-emerald-500 text-[10px] font-normal"
-                        title={`Monthly increment of $${Number(item.monthly_increment).toLocaleString()} from ${(item.increment_base_month || '').toUpperCase()}`}
-                      >
-                        (+${Number(item.monthly_increment).toLocaleString()}/mo)
-                      </span>
+                    {/* Sub-line: editable label */}
+                    {isSubLine && onRenameSubLine ? (
+                      editingSubLineLabel?.id === item.id ? (
+                        <input
+                          type="text"
+                          value={editingSubLineLabel.value}
+                          onChange={(e) => setEditingSubLineLabel({ id: item.id, value: e.target.value })}
+                          onBlur={() => {
+                            if (editingSubLineLabel.value.trim()) {
+                              onRenameSubLine(item.id, editingSubLineLabel.value.trim());
+                            }
+                            setEditingSubLineLabel(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (editingSubLineLabel.value.trim()) {
+                                onRenameSubLine(item.id, editingSubLineLabel.value.trim());
+                              }
+                              setEditingSubLineLabel(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingSubLineLabel(null);
+                            }
+                          }}
+                          autoFocus
+                          className="w-40 px-1 py-0 text-xs border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-blue-600 hover:underline text-gray-600 italic"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSubLineLabel({ id: item.id, value: item.account_name });
+                          }}
+                          title="Click to rename"
+                        >
+                          {item.account_name}
+                        </span>
+                      )
+                    ) : isSubTotal ? (
+                      <span className="text-gray-500">{item.account_name}</span>
+                    ) : (
+                      <>
+                        {item.account_name}
+                        {/* Expand/collapse chevron for detail rows with existing sub-lines */}
+                        {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (
+                          <span
+                            className="ml-1 inline-block cursor-pointer select-none text-gray-400 hover:text-gray-600"
+                            style={{ fontSize: '10px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedParents(prev => {
+                                const next = new Set(prev);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              });
+                            }}
+                            title={expandedParents.has(item.id) ? 'Collapse sub-lines' : 'Expand sub-lines'}
+                          >
+                            {expandedParents.has(item.id) ? '\u25BC' : '\u25B6'}
+                          </span>
+                        )}
+                        {/* "+" button to add first sub-line, shown on hover for detail rows */}
+                        {onAddSubLine && item.row_type === 'detail' && !isRefOnly && item.id && !parentsWithSubLines.has(item.id) && (
+                          <span
+                            className="ml-1 inline-block cursor-pointer select-none text-transparent group-hover:text-gray-300 hover:!text-blue-500"
+                            style={{ fontSize: '11px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedParents(prev => new Set(prev).add(item.id));
+                              onAddSubLine(item.id);
+                            }}
+                            title="Add sub-line"
+                          >
+                            +
+                          </span>
+                        )}
+                        {item.pct_of_total != null && (
+                          <span className="ml-1 text-purple-400 text-[10px] font-normal"
+                            title={`${item.pct_of_total}% of ${formatPctSources(parsePctSources(item.pct_source), computedLineItems)}`}
+                          >
+                            ({item.pct_of_total}% of {formatPctSources(parsePctSources(item.pct_source), computedLineItems)})
+                          </span>
+                        )}
+                        {item.monthly_increment != null && (
+                          <span className="ml-1 text-emerald-500 text-[10px] font-normal"
+                            title={`Monthly increment of $${Number(item.monthly_increment).toLocaleString()} from ${(item.increment_base_month || '').toUpperCase()}`}
+                          >
+                            (+${Number(item.monthly_increment).toLocaleString()}/mo)
+                          </span>
+                        )}
+                      </>
                     )}
                   </td>
 
@@ -2148,6 +2340,8 @@ function getRowClasses(rowType) {
     case 'total': return 'border-t border-gray-300';
     case 'calculated': return 'bg-slate-100';
     case 'percent': return 'bg-slate-100';
+    case 'sub_line': return 'bg-yellow-50';
+    case 'sub_total': return 'border-t border-yellow-200 bg-yellow-50';
     default: return '';
   }
 }
@@ -2158,6 +2352,8 @@ function getRowBg(rowType) {
     case 'account_header': return 'bg-gray-50';
     case 'calculated': return 'bg-slate-100';
     case 'percent': return 'bg-slate-100';
+    case 'sub_line': return 'bg-yellow-50';
+    case 'sub_total': return 'bg-yellow-50';
     default: return 'bg-white';
   }
 }
@@ -2168,6 +2364,7 @@ function getTextWeight(rowType) {
     case 'total':
     case 'calculated':
     case 'percent':
+    case 'sub_total':
       return 'font-bold';
     case 'account_header':
       return 'font-semibold';

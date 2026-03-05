@@ -96,43 +96,80 @@ export async function POST(request) {
     }
 
     // 3. Copy draft rows with the new version_id
+    // Two-pass insert: parent rows first, then sub-lines with remapped parent_id
     const BATCH_SIZE = 100;
-    const copies = draftRows.map(row => ({
-      branch_id: row.branch_id,
-      department: row.department,
-      year: row.year,
-      row_order: row.row_order,
-      account_code: row.account_code,
-      account_name: row.account_name,
-      full_label: row.full_label,
-      row_type: row.row_type,
-      indent_level: row.indent_level,
-      jan: row.jan,
-      feb: row.feb,
-      mar: row.mar,
-      apr: row.apr,
-      may: row.may,
-      jun: row.jun,
-      jul: row.jul,
-      aug: row.aug,
-      sep: row.sep,
-      oct: row.oct,
-      nov: row.nov,
-      dec: row.dec,
-      admin_only: row.admin_only || false,
-      pct_of_total: row.pct_of_total ?? null,
-      pct_source: row.pct_source ?? null,
-      cell_notes: row.cell_notes ?? {},
-      version_id: version.id
-    }));
 
-    for (let i = 0; i < copies.length; i += BATCH_SIZE) {
-      const batch = copies.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase
+    const parentRows = draftRows.filter(r => !r.parent_id);
+    const subLineRows = draftRows.filter(r => r.parent_id);
+
+    function buildCopy(row) {
+      return {
+        branch_id: row.branch_id,
+        department: row.department,
+        year: row.year,
+        row_order: row.row_order,
+        account_code: row.account_code,
+        account_name: row.account_name,
+        full_label: row.full_label,
+        row_type: row.row_type,
+        indent_level: row.indent_level,
+        jan: row.jan,
+        feb: row.feb,
+        mar: row.mar,
+        apr: row.apr,
+        may: row.may,
+        jun: row.jun,
+        jul: row.jul,
+        aug: row.aug,
+        sep: row.sep,
+        oct: row.oct,
+        nov: row.nov,
+        dec: row.dec,
+        admin_only: row.admin_only || false,
+        pct_of_total: row.pct_of_total ?? null,
+        pct_source: row.pct_source ?? null,
+        monthly_increment: row.monthly_increment ?? null,
+        increment_base_month: row.increment_base_month ?? null,
+        cell_notes: row.cell_notes ?? {},
+        version_id: version.id
+      };
+    }
+
+    // Pass 1: Insert parent rows (no parent_id) and collect new IDs
+    const parentCopies = parentRows.map(buildCopy);
+    const oldParentIds = parentRows.map(r => r.id);
+    const oldToNewId = {};
+
+    for (let i = 0; i < parentCopies.length; i += BATCH_SIZE) {
+      const batch = parentCopies.slice(i, i + BATCH_SIZE);
+      const { data: inserted, error: insertError } = await supabase
         .from('pnl_line_items')
-        .insert(batch);
+        .insert(batch)
+        .select('id');
 
       if (insertError) throw insertError;
+
+      // Map old IDs to new IDs by insert order
+      for (let j = 0; j < inserted.length; j++) {
+        oldToNewId[oldParentIds[i + j]] = inserted[j].id;
+      }
+    }
+
+    // Pass 2: Insert sub-lines with remapped parent_id
+    if (subLineRows.length > 0) {
+      const subCopies = subLineRows.map(row => ({
+        ...buildCopy(row),
+        parent_id: oldToNewId[row.parent_id] || null
+      }));
+
+      for (let i = 0; i < subCopies.length; i += BATCH_SIZE) {
+        const batch = subCopies.slice(i, i + BATCH_SIZE);
+        const { error: insertError } = await supabase
+          .from('pnl_line_items')
+          .insert(batch);
+
+        if (insertError) throw insertError;
+      }
     }
 
     return NextResponse.json({

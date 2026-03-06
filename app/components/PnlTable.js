@@ -1856,7 +1856,8 @@ export default function PnlTable({
                       <td
                         key={key}
                         className={`py-0.5 px-0.5 text-right tabular-nums relative ${
-                          val < 0 ? 'text-red-600' : ''
+                          refItem && !isRefOnly ? 'group/ref' : ''
+                        } ${val < 0 ? 'text-red-600' : ''
                         } ${getTextWeight(item.row_type)} ${
                           isSelected ? 'bg-blue-100' :
                           !cellBg && isImported && !isRefOnly ? 'bg-blue-50/70' : ''
@@ -1887,6 +1888,15 @@ export default function PnlTable({
                             onFocus={(e) => e.target.select()}
                             className="w-full text-right text-xs px-0.5 py-0 border border-blue-400 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
+                        ) : refItem && !isRefOnly ? (
+                          <>
+                            <span className={`group-hover/ref:hidden ${canEdit && val === 0 ? 'text-gray-300' : ''}`}>
+                              {item.row_type === 'percent' ? formatPercent(val) : formatCurrency(val)}
+                            </span>
+                            <span className="hidden group-hover/ref:inline text-amber-700">
+                              {item.row_type === 'percent' ? formatPercent(parseFloat(refItem[key]) || 0) : formatCurrency(parseFloat(refItem[key]) || 0)}
+                            </span>
+                          </>
                         ) : (
                           <span className={canEdit && val === 0 ? 'text-gray-300' : ''}>
                             {item.row_type === 'percent' ? formatPercent(val) : formatCurrency(val)}

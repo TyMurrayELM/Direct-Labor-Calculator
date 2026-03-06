@@ -44,7 +44,8 @@ export default function PnlSection({
   year,
   department,
   onDepartmentChange,
-  departmentOptions
+  departmentOptions,
+  onVersionStateChange
 }) {
   // --- Role detection ---
   const [userRole, setUserRole] = useState(null);
@@ -499,6 +500,21 @@ export default function PnlSection({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCopyDropdown]);
+
+  // Expose version state to parent (used by MaintenanceRevenuePanel)
+  const referenceVersion = referenceVersionId ? pnlVersions.find(v => v.id === referenceVersionId) : null;
+  const referenceVersionName = referenceVersionId === 'draft' ? 'draft' : (referenceVersion?.version_name || null);
+  useEffect(() => {
+    if (onVersionStateChange) {
+      onVersionStateChange({
+        selectedVersionId,
+        versionName: currentPnlVersion?.version_name || null,
+        actualMonths: currentPnlVersion?.actual_months || (pnlImportInfo?.months_included?.length || 0),
+        isLocked: isPnlLocked,
+        referenceVersionName
+      });
+    }
+  }, [selectedVersionId, currentPnlVersion, pnlImportInfo, isPnlLocked, referenceVersionName, onVersionStateChange]);
 
   const canImport = !isCombinedDepartment && isEditor && !isPnlLocked;
 

@@ -1316,9 +1316,11 @@ const DirectLaborCalculator = () => {
                     <Link href="/forecast/spray" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
                       <span>Spray</span>
                     </Link>
-                    <Link href="/forecast/overhead" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <span>Overhead</span>
-                    </Link>
+                    {userRole === 'admin' && (
+                      <Link href="/forecast/overhead" onClick={() => setShowForecast(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                        <span>Overhead</span>
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>

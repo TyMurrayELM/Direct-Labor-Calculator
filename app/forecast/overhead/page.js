@@ -6,6 +6,7 @@ import { useBranches } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import PnlSection from '../../components/PnlSection';
+import MaintenanceRevenuePanel from '../../components/MaintenanceRevenuePanel';
 
 const OVERHEAD_DEPARTMENTS = [
   { value: 'biz_dev_marketing', label: 'Business Development and Marketing' },
@@ -36,25 +37,39 @@ export default function OverheadForecastPage() {
 
   // State
   const [session, setSession] = useState(null);
+  const [authorized, setAuthorized] = useState(false);
   const [selectedBranchKey, setSelectedBranchKey] = useState('encore');
   const [selectedYear, setSelectedYear] = useState(2026);
   const [selectedDepartment, setSelectedDepartment] = useState('biz_dev_marketing');
   const [creatingCorporate, setCreatingCorporate] = useState(false);
+  const [pnlVersionState, setPnlVersionState] = useState(null);
 
   const { branches, loading: branchesLoading } = useBranches();
 
-  // Check authentication
+  // Check authentication + admin role
   useEffect(() => {
-    const getSession = async () => {
+    const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login');
-      } else {
-        setSession(session);
+        return;
       }
+      setSession(session);
+
+      const { data } = await supabase
+        .from('allowlist')
+        .select('role')
+        .eq('email', session.user.email.toLowerCase())
+        .single();
+
+      if (data?.role !== 'admin') {
+        router.push('/forecast');
+        return;
+      }
+      setAuthorized(true);
     };
-    getSession();
-  }, [router, supabase.auth]);
+    checkAuth();
+  }, [router, supabase]);
 
   // Resolve DB branch IDs from branch names
   const phoenixBranchId = branches.find(b => b.name === 'Phoenix')?.id || null;
@@ -104,7 +119,7 @@ export default function OverheadForecastPage() {
 
   const yearOptions = [2025, 2026, 2027];
 
-  if (branchesLoading) {
+  if (branchesLoading || !authorized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-green-50">
         <div className="w-full max-w-2xl px-6">
@@ -216,6 +231,14 @@ export default function OverheadForecastPage() {
         </div>
 
         {/* Encore roll-up view */}
+        {isEncoreView && selectedDepartment === 'biz_dev_marketing' && (
+          <MaintenanceRevenuePanel
+            branchId={null}
+            branchKey="encore"
+            year={selectedYear}
+            versionState={pnlVersionState}
+          />
+        )}
         {isEncoreView && (
           <div className="p-6">
             <div className="text-center text-gray-500 py-8">
@@ -250,6 +273,16 @@ export default function OverheadForecastPage() {
           </div>
         )}
 
+        {/* Maintenance Revenue Reference — biz_dev_marketing only */}
+        {!isEncoreView && activeBranchId && selectedDepartment === 'biz_dev_marketing' && (
+          <MaintenanceRevenuePanel
+            branchId={activeBranchId}
+            branchKey={selectedBranchKey}
+            year={selectedYear}
+            versionState={pnlVersionState}
+          />
+        )}
+
         {/* P&L Section — only for individual branches with valid IDs */}
         {!isEncoreView && activeBranchId && (
           <PnlSection
@@ -257,6 +290,7 @@ export default function OverheadForecastPage() {
             branchName={activeBranchName}
             year={selectedYear}
             department={selectedDepartment}
+            onVersionStateChange={selectedDepartment === 'biz_dev_marketing' ? setPnlVersionState : undefined}
           />
         )}
       </div>

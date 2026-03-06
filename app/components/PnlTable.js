@@ -166,6 +166,9 @@ export default function PnlTable({
   const [dragRowId, setDragRowId] = useState(null);
   const [dropTargetIdx, setDropTargetIdx] = useState(null);
   const canDrag = isEditable && !isLocked;
+  // Sub-line drag state (separate from main row drag)
+  const [subDragId, setSubDragId] = useState(null);
+  const [subDropIdx, setSubDropIdx] = useState(null);
   const resizeRef = useRef(null);
   const prevPctSourceSums = useRef({}); // { [rowId]: { [monthKey]: sourceSum } }
 
@@ -1201,6 +1204,64 @@ export default function PnlTable({
     setDragRowId(null);
   }, [dragRowId, onRowReorder, displayRows]);
 
+  // Sub-line drag-and-drop handlers
+  const handleSubDragStart = useCallback((e, sub) => {
+    setSubDragId(sub.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(sub.id));
+    if (e.target?.closest?.('tr')) {
+      e.target.closest('tr').style.opacity = '0.4';
+    }
+  }, []);
+
+  const handleSubDragEnd = useCallback((e) => {
+    if (e.target?.closest?.('tr')) {
+      e.target.closest('tr').style.opacity = '';
+    }
+    setSubDragId(null);
+    setSubDropIdx(null);
+  }, []);
+
+  const handleSubDragOver = useCallback((e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setSubDropIdx(idx);
+  }, []);
+
+  const handleSubDrop = useCallback((e, dropIdx, parentId) => {
+    e.preventDefault();
+    setSubDropIdx(null);
+    if (!subDragId || !onRowReorder) return;
+
+    const subs = subLinesByParent[parentId];
+    if (!subs?.length) return;
+
+    const subIds = subs.map(s => s.id);
+    const fromIdx = subIds.indexOf(subDragId);
+    if (fromIdx < 0) return;
+
+    // Find drop position within the sub-line list
+    // dropIdx is the displayRows index — find which sub-line position it maps to
+    let toSubIdx = 0;
+    let subCount = 0;
+    for (let i = 0; i < displayRows.length && i <= dropIdx; i++) {
+      const dr = displayRows[i];
+      if (dr.isSubLine && dr.item.parent_id === parentId) {
+        toSubIdx = subCount;
+        subCount++;
+      }
+    }
+
+    if (fromIdx === toSubIdx) { setSubDragId(null); return; }
+
+    const newOrder = [...subIds];
+    const [moved] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toSubIdx > fromIdx ? toSubIdx - 1 : toSubIdx, 0, moved);
+
+    onRowReorder(moved, newOrder);
+    setSubDragId(null);
+  }, [subDragId, onRowReorder, subLinesByParent, displayRows]);
+
   if (loading) {
     return (
       <div className="py-8 px-6">
@@ -1448,8 +1509,9 @@ export default function PnlTable({
               }
 
               const draggable = isDraggableRow(item, isRefOnly, isSubLine);
-              const isDragging = dragRowId === item.id;
-              const isDropTarget = dropTargetIdx === idx;
+              const subDraggable = isSubLine && canDrag && !!item.id;
+              const isDragging = dragRowId === item.id || (subDraggable && subDragId === item.id);
+              const isDropTarget = dropTargetIdx === idx || (subDraggable && subDropIdx === idx);
 
               const isAdminOnly = item.admin_only && isAdmin;
               const isDLPercent = item.row_type === 'percent' && item.account_name?.toLowerCase().trim() === 'direct labor %';
@@ -1552,22 +1614,22 @@ export default function PnlTable({
                   key={isSubTotal ? `subtotal-${item._parentId}` : isRefOnly ? `ref-${item.account_code || idx}` : (item.id || item.row_order || `computed-${idx}`)}
                   className={`${getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
                     isDragging ? 'opacity-40' : ''
-                  } ${isDropTarget && dragRowId ? 'border-t-2 border-t-blue-500' : ''} ${
+                  } ${isDropTarget && (dragRowId || subDragId) ? 'border-t-2 border-t-blue-500' : ''} ${
                     isAdminOnly ? 'bg-red-50/60' : ''
                   }`}
-                  draggable={draggable}
-                  onDragStart={draggable ? (e) => handleDragStart(e, item) : undefined}
-                  onDragEnd={draggable ? handleDragEnd : undefined}
-                  onDragOver={dragRowId ? (e) => handleDragOver(e, idx) : undefined}
-                  onDrop={dragRowId ? (e) => handleDrop(e, idx) : undefined}
+                  draggable={draggable || subDraggable}
+                  onDragStart={draggable ? (e) => handleDragStart(e, item) : subDraggable ? (e) => handleSubDragStart(e, item) : undefined}
+                  onDragEnd={draggable ? handleDragEnd : subDraggable ? handleSubDragEnd : undefined}
+                  onDragOver={dragRowId ? (e) => handleDragOver(e, idx) : subDragId && (isSubLine || isSubTotal) ? (e) => handleSubDragOver(e, idx) : undefined}
+                  onDrop={dragRowId ? (e) => handleDrop(e, idx) : subDragId && (isSubLine || isSubTotal) ? (e) => handleSubDrop(e, idx, item.parent_id || item._parentId) : undefined}
                 >
                   <td
                     className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
-                    style={{ paddingLeft: `${(draggable ? 0 : 6) + (item.indent_level || 0) * 10}px`, width: accountColWidth, maxWidth: accountColWidth }}
+                    style={{ paddingLeft: `${(draggable || subDraggable ? 0 : 6) + (item.indent_level || 0) * 10}px`, width: accountColWidth, maxWidth: accountColWidth }}
                     title={item.cell_notes?._row ? `${item.account_name}\n📝 ${item.cell_notes._row}` : item.account_name}
                     onContextMenu={(e) => handleCellContextMenu(e, item, '_row')}
                   >
-                    {draggable && (
+                    {(draggable || subDraggable) && (
                       <span className="inline-block w-5 text-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 select-none" style={{ marginRight: '2px' }}>
                         ⠿
                       </span>

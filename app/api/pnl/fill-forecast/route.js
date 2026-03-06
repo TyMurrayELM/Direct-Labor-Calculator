@@ -239,6 +239,27 @@ export async function POST(request) {
       }
     }
 
+    // 6c. Copy sub-lines from source when target parent has none
+    const newSubLines = []; // { parentTargetId, sourceSubRows[] }
+    for (const targetRow of workingRows) {
+      if (targetRow.row_type === 'sub_line') continue;
+      if (!targetRow.id) continue;
+
+      const sourceRow =
+        (targetRow.account_code && sourceByCode[targetRow.account_code]) ||
+        (targetRow.account_name && sourceByName[targetRow.account_name.toLowerCase()]) ||
+        (targetRow.account_name && sourceByNormName[normalizeTotalName(targetRow.account_name)]) ||
+        null;
+      if (!sourceRow) continue;
+
+      const sourceSubs = sourceSubsByParent[sourceRow.id];
+      const targetSubs = targetSubsByParent[targetRow.id];
+      if (!sourceSubs?.length) continue;
+      if (targetSubs?.length) continue; // already handled in 6b
+
+      newSubLines.push({ parentTargetId: targetRow.id, parentRow: targetRow, sourceSubs });
+    }
+
     // 7. Recalculate intermediate totals (bottom-up)
     workingRows.sort((a, b) => (a.row_order || 0) - (b.row_order || 0));
 
@@ -452,10 +473,57 @@ export async function POST(request) {
       insertedCount = toInsert.length;
     }
 
+    // 10. Insert sub-lines from source for target parents that had none
+    let subLinesCreated = 0;
+    if (newSubLines.length > 0) {
+      const forecastSet = new Set(forecastMonths);
+      const subInserts = [];
+
+      for (const { parentTargetId, parentRow, sourceSubs } of newSubLines) {
+        const baseOrder = parentRow.row_order || 0;
+        for (let si = 0; si < sourceSubs.length; si++) {
+          const src = sourceSubs[si];
+          const row = {
+            branch_id: branchId,
+            department,
+            year,
+            version_id: targetVersionId || null,
+            parent_id: parentTargetId,
+            account_code: null,
+            account_name: src.account_name,
+            full_label: src.full_label || src.account_name,
+            row_type: 'sub_line',
+            row_order: baseOrder + si + 1,
+            indent_level: (parentRow.indent_level || 0) + 1,
+            cell_notes: src.cell_notes ?? {},
+          };
+          for (const m of ALL_MONTHS) {
+            row[m] = forecastSet.has(m) ? (src[m] ?? 0) : 0;
+          }
+          subInserts.push(row);
+        }
+      }
+
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < subInserts.length; i += BATCH_SIZE) {
+        const batch = subInserts.slice(i, i + BATCH_SIZE);
+        const { error: subErr } = await supabase
+          .from('pnl_line_items')
+          .insert(batch);
+        if (subErr) {
+          console.error('[fill-forecast] Sub-line insert error:', subErr);
+        } else {
+          subLinesCreated += batch.length;
+        }
+      }
+      console.log(`[fill-forecast] Created ${subLinesCreated} sub-lines from source`);
+    }
+
     return NextResponse.json({
       success: true,
       updatedCount,
       insertedCount,
+      subLinesCreated,
       forecastMonths
     });
   } catch (error) {

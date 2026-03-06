@@ -239,7 +239,8 @@ export default function PnlTable({
     (async () => {
       try {
         const vParam = crossDeptConfig.versionName ? `&versionName=${encodeURIComponent(crossDeptConfig.versionName)}` : '';
-        const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}`);
+        const deptParam = crossDeptConfig.department ? `&department=${encodeURIComponent(crossDeptConfig.department)}` : '';
+        const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}${deptParam}`);
         const result = await res.json();
         if (!cancelled && result.success) {
           setCrossDeptData(result.departments);
@@ -250,7 +251,7 @@ export default function PnlTable({
       }
     })();
     return () => { cancelled = true; };
-  }, [crossDeptConfig?.branchId, crossDeptConfig?.year, crossDeptConfig?.versionName, hasXdeptSources]);
+  }, [crossDeptConfig?.branchId, crossDeptConfig?.year, crossDeptConfig?.versionName, crossDeptConfig?.department, hasXdeptSources]);
 
   // Normalize imported month keys to lowercase 3-letter keys
   const importedMonthKeys = useMemo(() => {
@@ -682,12 +683,12 @@ export default function PnlTable({
     // Second pass: compute Net Operating Income / Net Income reference from
     // recalculated section totals. These summary rows don't have a matching
     // section header, so the first pass skips them.
+    // Always recalculate (even if refItem exists) since stored values may be stale.
     for (let i = 0; i < merged.length; i++) {
       const { item } = merged[i];
       const name = item.account_name?.toLowerCase().trim();
       if (!isNOI(name) && name !== 'net income') continue;
       if (item.row_type !== 'total' && item.row_type !== 'calculated' && item.row_type !== 'section_header') continue;
-      if (merged[i].refItem) continue; // already has reference data
 
       const recalcRef = {};
       let hasAnyRef = false;
@@ -1344,7 +1345,8 @@ export default function PnlTable({
             {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal }, idx) => {
 
               const total = isRefOnly ? 0 : computeRowTotal(item);
-              const refTotal = refItem ? computeRowTotal(refItem) : (showComparison && !isRefOnly ? 0 : null);
+              const isHeaderRow = item.row_type === 'section_header' || item.row_type === 'account_header';
+              const refTotal = refItem && !isHeaderRow ? computeRowTotal(refItem) : (showComparison && !isRefOnly && !isHeaderRow ? 0 : null);
 
               // Determine variance sign: expense/COGS rows invert (spending more = unfavorable)
               const sectionName = rowSectionNames[idx];
@@ -1608,7 +1610,8 @@ export default function PnlTable({
                           if (isIncomeRow && crossDeptConfig && !crossDeptData) {
                             try {
                               const vParam = crossDeptConfig.versionName ? `&versionName=${encodeURIComponent(crossDeptConfig.versionName)}` : '';
-                              const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}`);
+                              const deptParam = crossDeptConfig.department ? `&department=${encodeURIComponent(crossDeptConfig.department)}` : '';
+                              const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}${deptParam}`);
                               const result = await res.json();
                               console.log('[cross-dept] API response:', result);
                               if (result.success) {
@@ -1856,7 +1859,7 @@ export default function PnlTable({
                       <td
                         key={key}
                         className={`py-0.5 px-0.5 text-right tabular-nums relative ${
-                          refItem && !isRefOnly ? 'group/ref' : ''
+                          refItem && !isRefOnly && !isHeaderRow ? 'group/ref' : ''
                         } ${val < 0 ? 'text-red-600' : ''
                         } ${getTextWeight(item.row_type)} ${
                           isSelected ? 'bg-blue-100' :
@@ -1888,7 +1891,7 @@ export default function PnlTable({
                             onFocus={(e) => e.target.select()}
                             className="w-full text-right text-xs px-0.5 py-0 border border-blue-400 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                        ) : refItem && !isRefOnly ? (
+                        ) : refItem && !isRefOnly && !isHeaderRow ? (
                           <>
                             <span className={`group-hover/ref:hidden ${canEdit && val === 0 ? 'text-gray-300' : ''}`}>
                               {item.row_type === 'percent' ? formatPercent(val) : formatCurrency(val)}
@@ -2109,7 +2112,9 @@ export default function PnlTable({
                 ))}
                 {pctPopover.isIncomeRow && crossDeptConfig && (
                   <div>
-                    <div className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide px-1 pt-2 pb-0.5 border-t border-gray-200 mt-1">Cross-Department Revenue</div>
+                    <div className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide px-1 pt-2 pb-0.5 border-t border-gray-200 mt-1">
+                      {crossDeptConfig.department === 'irrigation' ? 'Branch Maintenance Revenue' : 'Cross-Department Revenue'}
+                    </div>
                     {[
                       { label: 'Maintenance — Revenue', value: 'xdept:maintenance:total income' },
                       { label: 'Maintenance Onsite — Revenue', value: 'xdept:maintenance_onsite:total income' }

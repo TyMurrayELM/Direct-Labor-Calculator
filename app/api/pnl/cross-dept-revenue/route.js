@@ -134,29 +134,33 @@ export async function GET(request) {
     }
 
     const versionName = searchParams.get('versionName');
+    const callingDepartment = searchParams.get('department'); // e.g. 'irrigation'
     const branchIdInt = parseInt(branchId);
 
     // For Phoenix parent branch, aggregate maintenance data across sub-branches
+    // Exception: irrigation only uses the current branch's own maintenance data
     let targetBranchIds = [branchIdInt];
-    const { data: branchRecord } = await supabase
-      .from('branches')
-      .select('name')
-      .eq('id', branchIdInt)
-      .single();
-
-    if (branchRecord?.name === 'Phoenix') {
-      // Find all Phoenix sub-branches (Phx - North, etc.)
-      const { data: subBranches } = await supabase
+    if (callingDepartment !== 'irrigation') {
+      const { data: branchRecord } = await supabase
         .from('branches')
-        .select('id, name')
-        .neq('id', branchIdInt);
+        .select('name')
+        .eq('id', branchIdInt)
+        .single();
 
-      const phxSubs = (subBranches || []).filter(b =>
-        b.name.toLowerCase().includes('phx') ||
-        (b.name.toLowerCase().includes('phoenix') && b.id !== branchIdInt)
-      );
-      if (phxSubs.length > 0) {
-        targetBranchIds = phxSubs.map(b => b.id);
+      if (branchRecord?.name === 'Phoenix') {
+        // Find all Phoenix sub-branches (Phx - North, etc.)
+        const { data: subBranches } = await supabase
+          .from('branches')
+          .select('id, name')
+          .neq('id', branchIdInt);
+
+        const phxSubs = (subBranches || []).filter(b =>
+          b.name.toLowerCase().includes('phx') ||
+          (b.name.toLowerCase().includes('phoenix') && b.id !== branchIdInt)
+        );
+        if (phxSubs.length > 0) {
+          targetBranchIds = phxSubs.map(b => b.id);
+        }
       }
     }
 

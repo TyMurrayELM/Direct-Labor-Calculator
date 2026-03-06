@@ -693,7 +693,7 @@ export default function PnlSection({
         onUpdateCellNote={isCombinedDepartment ? undefined : handleUpdateCellNote}
         crossDeptConfig={
           !['maintenance', 'maintenance_onsite', 'maintenance_wo', 'all_maintenance'].includes(department)
-            ? { branchId, year, versionName: currentPnlVersion?.version_name || null }
+            ? { branchId, year, versionName: currentPnlVersion?.version_name || null, department }
             : null
         }
       />

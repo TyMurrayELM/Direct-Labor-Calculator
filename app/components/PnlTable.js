@@ -1684,12 +1684,17 @@ export default function PnlTable({
                               console.error('Failed to fetch cross-dept revenue:', err);
                             }
                           }
+                          const popoverHeight = 350; // approximate max height of popover
+                          const spaceBelow = window.innerHeight - rect.bottom - 8;
+                          const popY = spaceBelow >= popoverHeight
+                            ? rect.bottom + 4
+                            : Math.max(8, rect.top - popoverHeight - 4);
                           setPctPopover({
                             id: item.id,
                             pctOfTotal: item.pct_of_total != null ? String(item.pct_of_total) : '',
                             pctSources: existingSources.length ? existingSources : [],
                             x: rect.left,
-                            y: rect.bottom + 4,
+                            y: popY,
                             hasExisting: item.pct_of_total != null,
                             isIncomeRow
                           });
@@ -1721,13 +1726,18 @@ export default function PnlTable({
                           const lastActualMonth = actualMonths.length > 0 ? actualMonths[actualMonths.length - 1] : null;
                           const baseMonth = item.increment_base_month || lastActualMonth || 'jan';
                           const baseValue = parseFloat(item[baseMonth]) || 0;
+                          const incrHeight = 200;
+                          const incrSpaceBelow = window.innerHeight - rect.bottom - 8;
+                          const incrY = incrSpaceBelow >= incrHeight
+                            ? rect.bottom + 4
+                            : Math.max(8, rect.top - incrHeight - 4);
                           setIncrPopover({
                             id: item.id,
                             baseMonth,
                             baseValue,
                             increment: item.monthly_increment != null ? String(item.monthly_increment) : '',
                             x: rect.left,
-                            y: rect.bottom + 4,
+                            y: incrY,
                             hasExisting: item.monthly_increment != null
                           });
                         }}
@@ -2140,8 +2150,8 @@ export default function PnlTable({
         <>
           <div className="fixed inset-0 z-[99]" onClick={() => setPctPopover(null)} />
           <div
-            className="fixed z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-xs"
-            style={{ left: pctPopover.x, top: pctPopover.y, width: '260px' }}
+            className="fixed z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-xs overflow-y-auto"
+            style={{ left: pctPopover.x, top: pctPopover.y, width: '260px', maxHeight: 'calc(100vh - 16px)' }}
           >
             <div className="mb-2 font-semibold text-gray-700 text-sm">Seed as % of Source Rows</div>
             <div className="mb-2">
@@ -2259,7 +2269,7 @@ export default function PnlTable({
           <div className="fixed inset-0 z-[99]" onClick={() => setIncrPopover(null)} />
           <div
             className="fixed z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-xs"
-            style={{ left: incrPopover.x, top: incrPopover.y, width: '260px' }}
+            style={{ left: incrPopover.x, top: incrPopover.y, width: '260px', maxHeight: 'calc(100vh - 16px)' }}
           >
             <div className="mb-2 font-semibold text-gray-700 text-sm">Monthly Increment</div>
             <div className="mb-2">

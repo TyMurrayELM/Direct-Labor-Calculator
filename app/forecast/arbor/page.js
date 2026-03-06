@@ -328,7 +328,7 @@ export default function ArborForecastPage() {
                 {/* Phoenix Combined Button */}
                 <button
                   onClick={() => setSelectedBranchId('phoenix')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                     selectedBranchId === 'phoenix'
                       ? 'bg-green-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -341,7 +341,7 @@ export default function ArborForecastPage() {
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                       selectedBranchId === branch.id
                         ? 'text-white shadow-md'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'

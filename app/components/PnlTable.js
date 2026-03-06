@@ -938,7 +938,7 @@ export default function PnlTable({
   const isCellEditable = useCallback((item, monthKey) => {
     if (!isEditable || isLocked) return false;
     if (item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent' || item.row_type === 'sub_total') return false;
-    if (importedMonthKeys.has(monthKey)) return false;
+    if (importedMonthKeys.has(monthKey) && item.row_type !== 'sub_line') return false;
     return true;
   }, [isEditable, isLocked, importedMonthKeys]);
 

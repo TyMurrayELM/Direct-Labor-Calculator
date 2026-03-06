@@ -79,7 +79,46 @@ export async function POST(request) {
       }
     }
 
-    // 1b. Delete existing line items for the target version
+    // 1c. Save existing sub-lines (keyed by parent account_code) before deleting
+    const savedSubLines = new Map(); // parentAccountCode -> subLine rows[]
+    {
+      let subQuery = supabase
+        .from('pnl_line_items')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('department', department)
+        .eq('year', year)
+        .eq('row_type', 'sub_line')
+        .not('parent_id', 'is', null);
+      subQuery = versionId
+        ? subQuery.eq('version_id', versionId)
+        : subQuery.is('version_id', null);
+      const { data: subRows } = await subQuery;
+
+      if (subRows?.length) {
+        // Look up parent account_codes for each sub-line
+        const parentIds = [...new Set(subRows.map(s => s.parent_id))];
+        let parentQuery = supabase
+          .from('pnl_line_items')
+          .select('id, account_code')
+          .in('id', parentIds);
+        const { data: parentRows } = await parentQuery;
+        const parentCodeById = new Map();
+        for (const p of (parentRows || [])) {
+          if (p.account_code) parentCodeById.set(p.id, p.account_code);
+        }
+
+        for (const sub of subRows) {
+          const parentCode = parentCodeById.get(sub.parent_id);
+          if (!parentCode) continue;
+          if (!savedSubLines.has(parentCode)) savedSubLines.set(parentCode, []);
+          savedSubLines.get(parentCode).push(sub);
+        }
+        console.log(`[import] Preserved ${subRows.length} sub-lines across ${savedSubLines.size} parent rows`);
+      }
+    }
+
+    // 1d. Delete existing line items for the target version
     let deleteQuery = supabase
       .from('pnl_line_items')
       .delete()
@@ -181,11 +220,61 @@ export async function POST(request) {
       if (insertError) throw insertError;
     }
 
+    // 4. Re-insert preserved sub-lines with updated parent_id references
+    let subLinesRestored = 0;
+    if (savedSubLines.size > 0) {
+      // Look up new parent IDs by account_code
+      const parentCodes = [...savedSubLines.keys()];
+      let lookupQuery = supabase
+        .from('pnl_line_items')
+        .select('id, account_code')
+        .eq('branch_id', branchId)
+        .eq('department', department)
+        .eq('year', year)
+        .eq('row_type', 'detail')
+        .in('account_code', parentCodes);
+      lookupQuery = versionId
+        ? lookupQuery.eq('version_id', versionId)
+        : lookupQuery.is('version_id', null);
+      const { data: newParents } = await lookupQuery;
+
+      const newParentIdByCode = new Map();
+      for (const p of (newParents || [])) {
+        if (p.account_code) newParentIdByCode.set(p.account_code, p.id);
+      }
+
+      const subRows = [];
+      for (const [parentCode, subs] of savedSubLines) {
+        const newParentId = newParentIdByCode.get(parentCode);
+        if (!newParentId) continue;
+        for (const sub of subs) {
+          const { id, parent_id, created_at, ...rest } = sub;
+          subRows.push({ ...rest, parent_id: newParentId });
+        }
+      }
+
+      if (subRows.length > 0) {
+        for (let i = 0; i < subRows.length; i += BATCH_SIZE) {
+          const batch = subRows.slice(i, i + BATCH_SIZE);
+          const { error: subErr } = await supabase
+            .from('pnl_line_items')
+            .insert(batch);
+          if (subErr) {
+            console.error('[import] Sub-line restore error:', subErr);
+          } else {
+            subLinesRestored += batch.length;
+          }
+        }
+        console.log(`[import] Restored ${subLinesRestored} sub-lines`);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       rowCount: rows.length,
       months: months,
-      forecastPreserved: savedForecast.size
+      forecastPreserved: savedForecast.size,
+      subLinesRestored
     });
   } catch (error) {
     console.error('P&L import error:', error);

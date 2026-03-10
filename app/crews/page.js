@@ -967,9 +967,9 @@ if (false) { // Always continue with deletion for now
                       onClick={() => router.push(`/properties?crew=${crew.id}`)}
                       title={`Click to view properties assigned to ${crew.name}`}
                     >
-                      <td className="px-2 py-2 whitespace-nowrap">
+                      <td className="px-2 py-2">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-semibold text-black truncate">{crew.name}</span>
+                          <span className="text-xs font-semibold text-black">{crew.name}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

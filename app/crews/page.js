@@ -969,13 +969,13 @@ if (false) { // Always continue with deletion for now
                     >
                       <td className="px-2 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-semibold text-black">{crew.name}</span>
+                          <span className="text-xs font-semibold text-black truncate">{crew.name}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEditCrew(crew);
                             }}
-                            className="flex items-center justify-center p-1 w-6 h-6 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                            className="flex-shrink-0 flex items-center justify-center p-1 w-6 h-6 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
                             title="Edit Crew"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

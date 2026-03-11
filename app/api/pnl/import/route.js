@@ -26,18 +26,21 @@ export async function POST(request) {
       );
     }
 
-    // 1a. Save existing draft forecast values and admin_only flags before deleting
+    // 1a. Save ALL existing detail rows before deleting — preserves forecast values,
+    // admin_only flags, pct modes, cell notes, AND full row data for forecast-only rows
+    // (rows that exist in forecast but not in the actuals import)
     const allMonths = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
     const forecastMonths = allMonths.filter(m => !(months || []).includes(m));
     const savedForecast = new Map();
     const adminOnlyFlags = new Map();
     const pctModeFlags = new Map();
     const cellNotesMap = new Map();
+    const savedFullRows = new Map(); // account_code -> full row data (for forecast-only rows)
 
     {
       let fetchQuery = supabase
         .from('pnl_line_items')
-        .select(`account_code, admin_only, pct_of_total, pct_source, cell_notes${forecastMonths.length > 0 ? ', ' + forecastMonths.join(', ') : ''}`)
+        .select('*')
         .eq('branch_id', branchId)
         .eq('department', department)
         .eq('year', year)
@@ -50,6 +53,9 @@ export async function POST(request) {
 
       if (existingRows) {
         for (const row of existingRows) {
+          // Save the full row (for re-inserting forecast-only rows later)
+          savedFullRows.set(row.account_code, row);
+
           // Preserve admin_only flags
           if (row.admin_only) {
             adminOnlyFlags.set(row.account_code, true);
@@ -220,6 +226,58 @@ export async function POST(request) {
       if (insertError) throw insertError;
     }
 
+    // 3b. Re-insert forecast-only rows (existed before import but not in the actuals file)
+    // These are rows that were added via "Fill Forecast" from a comparison version.
+    // Zero out the actual months (they weren't in the import) and keep forecast values.
+    let forecastOnlyRestored = 0;
+    if (months?.length > 0 && savedFullRows.size > 0) {
+      const importedCodes = new Set(lineItems.map(i => i.account_code).filter(Boolean));
+      const forecastOnlyRows = [];
+
+      for (const [code, fullRow] of savedFullRows) {
+        if (importedCodes.has(code)) continue; // already in import, skip
+
+        // Check if this row has any forecast values worth keeping
+        const hasForecastValues = forecastMonths.some(m => fullRow[m] !== 0 && fullRow[m] != null);
+        if (!hasForecastValues) continue;
+
+        // Find the right row_order — place after the last imported row
+        const maxOrder = rows.length > 0 ? Math.max(...rows.map(r => r.row_order)) : 0;
+
+        const { id, created_at, ...rest } = fullRow;
+        const restoredRow = {
+          ...rest,
+          branch_id: branchId,
+          department: department,
+          year: year,
+          version_id: versionId || null,
+          row_order: maxOrder + 1 + forecastOnlyRows.length,
+        };
+
+        // Zero out actual months (not in import = no actuals)
+        for (const m of (months || [])) {
+          restoredRow[m] = 0;
+        }
+
+        forecastOnlyRows.push(restoredRow);
+      }
+
+      if (forecastOnlyRows.length > 0) {
+        for (let i = 0; i < forecastOnlyRows.length; i += BATCH_SIZE) {
+          const batch = forecastOnlyRows.slice(i, i + BATCH_SIZE);
+          const { error: restoreErr } = await supabase
+            .from('pnl_line_items')
+            .insert(batch);
+          if (restoreErr) {
+            console.error('[import] Forecast-only row restore error:', restoreErr);
+          } else {
+            forecastOnlyRestored += batch.length;
+          }
+        }
+        console.log(`[import] Restored ${forecastOnlyRestored} forecast-only rows not in actuals import`);
+      }
+    }
+
     // 4. Re-insert preserved sub-lines with updated parent_id references
     let subLinesRestored = 0;
     if (savedSubLines.size > 0) {
@@ -274,6 +332,7 @@ export async function POST(request) {
       rowCount: rows.length,
       months: months,
       forecastPreserved: savedForecast.size,
+      forecastOnlyRestored,
       subLinesRestored
     });
   } catch (error) {

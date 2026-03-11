@@ -1243,6 +1243,18 @@ const DirectLaborCalculator = () => {
                 <span>Scheduling</span>
               </Link>
 
+              {userRole === 'admin' && (
+                <Link
+                  href="/routes"
+                  className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium flex items-center space-x-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                  </svg>
+                  <span>Route Optimizer</span>
+                </Link>
+              )}
+
               <div className="relative" ref={qsRoutesRef}>
                 <button
                   onClick={() => setShowQsRoutes(!showQsRoutes)}

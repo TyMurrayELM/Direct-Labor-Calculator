@@ -805,7 +805,7 @@ export default function PnlTable({
     rows.splice(insertIdx, 0, {
       item: {
         account_code: null, account_name: '% of Maintenance Revenue', full_label: '% of Maintenance Revenue',
-        row_type: 'percent', indent_level: 0, admin_only: niItem.admin_only, ...maintRevPctValues
+        row_type: 'percent', indent_level: 0, admin_only: niItem.admin_only, _isKpi: true, ...maintRevPctValues
       },
       refItem: null,
       isRefOnly: false
@@ -1767,7 +1767,7 @@ export default function PnlTable({
               return (
                 <tr
                   key={isSubTotal ? `subtotal-${item._parentId}` : isRefOnly ? `ref-${item.account_code || idx}` : (item.id || item.row_order || `computed-${idx}`)}
-                  className={`${getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
+                  className={`${item._isKpi ? 'bg-amber-100 border-t border-b border-amber-300' : getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
                     isDragging ? 'opacity-40' : ''
                   } ${isDropTarget && (dragRowId || subDragId) ? 'border-t-2 border-t-blue-500' : ''} ${
                     isAdminOnly ? 'bg-red-50/60' : ''
@@ -1779,7 +1779,7 @@ export default function PnlTable({
                   onDrop={dragRowId ? (e) => handleDrop(e, idx) : subDragId && (isSubLine || isSubTotal) ? (e) => handleSubDrop(e, idx, item.parent_id || item._parentId) : undefined}
                 >
                   <td
-                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
+                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : item._isKpi ? 'bg-amber-100' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
                     style={{ paddingLeft: `${(draggable || subDraggable ? 0 : 6) + (item.indent_level || 0) * 10}px`, width: accountColWidth, maxWidth: accountColWidth }}
                     title={item.cell_notes?._row ? `${item.account_name}\n📝 ${item.cell_notes._row}` : item.account_name}
                     onContextMenu={(e) => handleCellContextMenu(e, item, '_row')}
@@ -2012,6 +2012,7 @@ export default function PnlTable({
                             </span>
                           );
                         })()}
+                        {item._isKpi && <span className="text-amber-600 mr-1" style={{ fontSize: '12px' }}>&#9733;</span>}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
                         {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (

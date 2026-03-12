@@ -696,6 +696,7 @@ export default function PnlSection({
             ? { branchId, year, versionName: currentPnlVersion?.version_name || null, department }
             : null
         }
+        department={department}
       />
 
       {!pnlLoading && !pnlLineItems?.length && (

@@ -137,7 +137,8 @@ export default function PnlTable({
   onAddSubLine,
   onRenameSubLine,
   onUpdateCellNote,
-  crossDeptConfig = null
+  crossDeptConfig = null,
+  department = null
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -151,6 +152,8 @@ export default function PnlTable({
 
   // Sub-line expand/collapse state
   const [expandedParents, setExpandedParents] = useState(new Set());
+  // Section/header collapse state (stores row_order or account_name keys)
+  const [collapsedSections, setCollapsedSections] = useState(new Set());
   // Inline editing state for sub-line labels
   const [editingSubLineLabel, setEditingSubLineLabel] = useState(null); // { id, value }
 
@@ -224,13 +227,16 @@ export default function PnlTable({
   }, [structuralPopover, structuralSearch]);
 
   // Fetch cross-dept data eagerly when any line items use xdept: sources,
+  // or when department needs cross-dept data (e.g. biz_dev_marketing for % of Maintenance Revenue),
   // and clear/re-fetch when config changes (branch/year/version switch)
+  const needsCrossDeptForMetrics = department === 'biz_dev_marketing';
   const hasXdeptSources = useMemo(() => {
     if (!lineItems?.length || !crossDeptConfig) return false;
+    if (needsCrossDeptForMetrics) return true;
     return lineItems.some(li =>
       li.pct_source && li.pct_source.includes('xdept:')
     );
-  }, [lineItems, crossDeptConfig]);
+  }, [lineItems, crossDeptConfig, needsCrossDeptForMetrics]);
 
   useEffect(() => {
     setCrossDeptData(null);
@@ -474,6 +480,7 @@ export default function PnlTable({
           account_code: null, account_name: 'Net Income %', full_label: 'Net Income %',
           row_type: 'percent', indent_level: 0, admin_only: li.admin_only, ...niPctValues
         });
+
       }
     }
 
@@ -509,7 +516,7 @@ export default function PnlTable({
   // Each display row has: { item, refItem, isRefOnly }
   // Reference-only rows (accounts in the ref but not the primary) get inserted
   // into the correct section, just before the section total.
-  const displayRows = useMemo(() => {
+  const _baseDisplayRows = useMemo(() => {
     let baseRows;
     if (!referenceItems?.length) {
       baseRows = computedLineItems.map(item => ({ item, refItem: null, isRefOnly: false }));
@@ -767,6 +774,126 @@ export default function PnlTable({
 
     return result;
   }, [computedLineItems, referenceItems, isAdmin, expandedParents, subLinesByParent]);
+
+  // Inject % of Maintenance Revenue row for biz_dev_marketing department
+  const _allDisplayRows = useMemo(() => {
+    if (department !== 'biz_dev_marketing' || !crossDeptData) return _baseDisplayRows;
+    const maintRev = crossDeptData['maintenance']?.revenue;
+    const maintOnsiteRev = crossDeptData['maintenance_onsite']?.revenue;
+    if (!maintRev && !maintOnsiteRev) return _baseDisplayRows;
+
+    const niIdx = _baseDisplayRows.findIndex(({ item }) =>
+      (item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') &&
+      item.account_name?.toLowerCase().trim() === 'net income'
+    );
+    if (niIdx === -1) return _baseDisplayRows;
+
+    const niItem = _baseDisplayRows[niIdx].item;
+    let insertIdx = niIdx + 1;
+    if (insertIdx < _baseDisplayRows.length && _baseDisplayRows[insertIdx].item.account_name?.toLowerCase().trim() === 'net income %') {
+      insertIdx++;
+    }
+
+    const maintRevPctValues = {};
+    for (const mk of MONTH_KEYS) {
+      const totalMaintRev = (parseFloat(maintRev?.[mk]) || 0) + (parseFloat(maintOnsiteRev?.[mk]) || 0);
+      const ni = Math.abs(parseFloat(niItem[mk]) || 0);
+      maintRevPctValues[mk] = totalMaintRev !== 0 ? Math.round((ni / totalMaintRev) * 1000) / 10 : 0;
+    }
+
+    const rows = [..._baseDisplayRows];
+    rows.splice(insertIdx, 0, {
+      item: {
+        account_code: null, account_name: '% of Maintenance Revenue', full_label: '% of Maintenance Revenue',
+        row_type: 'percent', indent_level: 0, admin_only: niItem.admin_only, ...maintRevPctValues
+      },
+      refItem: null,
+      isRefOnly: false
+    });
+    return rows;
+  }, [_baseDisplayRows, department, crossDeptData]);
+
+  // Filter out rows hidden by collapsed section/account headers
+  const displayRows = useMemo(() => {
+    if (collapsedSections.size === 0) return _allDisplayRows;
+    const result = [];
+    let hiddenBySection = false;
+    let accountCollapseDepth = 0; // depth > 0 means we're inside a collapsed account_header
+    let collapsedHeaderIdx = -1; // index in result[] of the collapsed header row
+
+    for (const row of _allDisplayRows) {
+      const rt = row.item.row_type;
+      const key = row.item.id || row.item.row_order || row.item.account_name;
+
+      // Section headers always show and reset account-level collapse
+      if (rt === 'section_header') {
+        accountCollapseDepth = 0;
+        collapsedHeaderIdx = -1;
+        hiddenBySection = collapsedSections.has(`section:${key}`);
+        if (hiddenBySection) {
+          collapsedHeaderIdx = result.length;
+          result.push({ ...row, item: { ...row.item }, _collapsed: true });
+        } else {
+          result.push(row);
+        }
+        continue;
+      }
+
+      // If hidden by a collapsed section_header, capture the last total's values
+      if (hiddenBySection) {
+        if (rt === 'total' || rt === 'calculated') {
+          if (collapsedHeaderIdx >= 0) {
+            const headerItem = result[collapsedHeaderIdx].item;
+            for (const mk of MONTH_KEYS) {
+              headerItem[mk] = row.item[mk];
+            }
+            if (row.refItem) {
+              result[collapsedHeaderIdx] = { ...result[collapsedHeaderIdx], refItem: row.refItem };
+            }
+          }
+        }
+        continue;
+      }
+
+      // Inside a collapsed account_header — track nested headers/totals by depth
+      if (accountCollapseDepth > 0) {
+        if (rt === 'account_header') {
+          accountCollapseDepth++;
+        } else if (rt === 'total') {
+          accountCollapseDepth--;
+          if (accountCollapseDepth === 0) {
+            // This is the matching total for the collapsed account_header — merge values
+            if (collapsedHeaderIdx >= 0) {
+              const headerItem = result[collapsedHeaderIdx].item;
+              for (const mk of MONTH_KEYS) {
+                headerItem[mk] = row.item[mk];
+              }
+              if (row.refItem) {
+                result[collapsedHeaderIdx] = { ...result[collapsedHeaderIdx], refItem: row.refItem };
+              }
+            }
+            collapsedHeaderIdx = -1;
+          }
+        }
+        continue;
+      }
+
+      // Account headers show and may start their own collapse
+      if (rt === 'account_header') {
+        if (collapsedSections.has(`account:${key}`)) {
+          accountCollapseDepth = 1;
+          collapsedHeaderIdx = result.length;
+          result.push({ ...row, item: { ...row.item }, _collapsed: true });
+        } else {
+          result.push(row);
+        }
+        continue;
+      }
+
+      result.push(row);
+    }
+    return result;
+  }, [_allDisplayRows, collapsedSections]);
 
   // Collect available source rows for the pct-of-total picker, grouped by section
   const availableSources = useMemo(() => {
@@ -1403,10 +1530,10 @@ export default function PnlTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal }, idx) => {
+            {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal, _collapsed }, idx) => {
 
               const total = isRefOnly ? 0 : computeRowTotal(item);
-              const isHeaderRow = item.row_type === 'section_header' || item.row_type === 'account_header';
+              const isHeaderRow = (item.row_type === 'section_header' || item.row_type === 'account_header') && !_collapsed;
               const refTotal = refItem && !isHeaderRow ? computeRowTotal(refItem) : (showComparison && !isRefOnly && !isHeaderRow ? 0 : null);
 
               // Determine variance sign: expense/COGS rows invert (spending more = unfavorable)
@@ -1462,6 +1589,18 @@ export default function PnlTable({
                   if (niItem && incAnnual !== 0) {
                     percentAnnual = (computeRowTotal(niItem) / incAnnual) * 100;
                   } else { percentAnnual = 0; }
+                } else if (percentName === '% of maintenance revenue' && crossDeptData) {
+                  const maintRev = crossDeptData['maintenance']?.revenue;
+                  const maintOnsiteRev = crossDeptData['maintenance_onsite']?.revenue;
+                  const totalMaintRevAnnual = MONTH_KEYS.reduce((sum, mk) =>
+                    sum + (parseFloat(maintRev?.[mk]) || 0) + (parseFloat(maintOnsiteRev?.[mk]) || 0), 0);
+                  const niItem = computedLineItems.find(li =>
+                    (li.row_type === 'total' || li.row_type === 'calculated' || li.row_type === 'section_header') &&
+                    li.account_name?.toLowerCase().trim() === 'net income'
+                  );
+                  if (niItem && totalMaintRevAnnual !== 0) {
+                    percentAnnual = (Math.abs(computeRowTotal(niItem)) / totalMaintRevAnnual) * 100;
+                  } else { percentAnnual = 0; }
                 }
 
                 // Compute reference percent from recalculated displayRows ref totals
@@ -1492,6 +1631,22 @@ export default function PnlTable({
                     if (refDlRow?.refItem && refIncAnnual !== 0) {
                       refPercentAnnual = (computeRowTotal(refDlRow.refItem) / refIncAnnual) * 100;
                     } else { refPercentAnnual = 0; }
+                  } else if (percentName === '% of maintenance revenue' && crossDeptData) {
+                    // Reference version: same formula using ref Net Income over maintenance revenue
+                    const refNiRow = displayRows.find(dr =>
+                      !dr.isRefOnly && dr.refItem &&
+                      (dr.item.row_type === 'total' || dr.item.row_type === 'calculated' || dr.item.row_type === 'section_header') &&
+                      dr.item.account_name?.toLowerCase().trim() === 'net income'
+                    );
+                    if (refNiRow?.refItem) {
+                      const maintRev2 = crossDeptData['maintenance']?.revenue;
+                      const maintOnsiteRev2 = crossDeptData['maintenance_onsite']?.revenue;
+                      const totalMaintRevAnnual2 = MONTH_KEYS.reduce((sum, mk) =>
+                        sum + (parseFloat(maintRev2?.[mk]) || 0) + (parseFloat(maintOnsiteRev2?.[mk]) || 0), 0);
+                      if (totalMaintRevAnnual2 !== 0) {
+                        refPercentAnnual = (Math.abs(computeRowTotal(refNiRow.refItem)) / totalMaintRevAnnual2) * 100;
+                      } else { refPercentAnnual = 0; }
+                    }
                   } else if (isNOIPct(percentName) || percentName === 'net income %') {
                     // Find the reference dollar row from displayRows
                     const dollarRow = displayRows.find(dr => {
@@ -1675,7 +1830,6 @@ export default function PnlTable({
                               const deptParam = crossDeptConfig.department ? `&department=${encodeURIComponent(crossDeptConfig.department)}` : '';
                               const res = await fetch(`/api/pnl/cross-dept-revenue?branchId=${crossDeptConfig.branchId}&year=${crossDeptConfig.year}${vParam}${deptParam}`);
                               const result = await res.json();
-                              console.log('[cross-dept] API response:', result);
                               if (result.success) {
                                 setCrossDeptData(result.departments);
                                 if (result.branchNames) setCrossDeptBranchNames(result.branchNames);
@@ -1833,6 +1987,31 @@ export default function PnlTable({
                       </span>
                     ) : (
                       <>
+                        {/* Collapse/expand chevron for section and account headers */}
+                        {(item.row_type === 'section_header' || item.row_type === 'account_header') && !isRefOnly && (() => {
+                          const collapseKey = item.row_type === 'section_header'
+                            ? `section:${item.id || item.row_order || item.account_name}`
+                            : `account:${item.id || item.row_order || item.account_name}`;
+                          const isCollapsed = collapsedSections.has(collapseKey);
+                          return (
+                            <span
+                              className="inline-block cursor-pointer select-none text-gray-400 hover:text-gray-600"
+                              style={{ fontSize: '10px', marginRight: '4px', width: '12px', textAlign: 'center' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCollapsedSections(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(collapseKey)) next.delete(collapseKey);
+                                  else next.add(collapseKey);
+                                  return next;
+                                });
+                              }}
+                              title={isCollapsed ? 'Expand section' : 'Collapse section'}
+                            >
+                              {isCollapsed ? '\u25B6' : '\u25BC'}
+                            </span>
+                          );
+                        })()}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
                         {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (

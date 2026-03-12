@@ -147,7 +147,7 @@ export async function GET(request) {
         .eq('id', branchIdInt)
         .single();
 
-      if (branchRecord?.name === 'Phoenix') {
+      if (branchRecord?.name === 'Phoenix' || branchRecord?.name === 'Corporate') {
         // Find all Phoenix sub-branches (Phx - North, etc.)
         const { data: subBranches } = await supabase
           .from('branches')

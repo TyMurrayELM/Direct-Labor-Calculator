@@ -810,6 +810,30 @@ export default function PnlTable({
       refItem: null,
       isRefOnly: false
     });
+
+    // Inject BD Spend % of Maint Rev after Total - Advertising & Marketing
+    const amIdx = rows.findIndex(({ item }) =>
+      item.row_type === 'total' &&
+      item.account_name?.toLowerCase().trim() === 'total - advertising & marketing'
+    );
+    if (amIdx !== -1) {
+      const amItem = rows[amIdx].item;
+      const bdPctValues = {};
+      for (const mk of MONTH_KEYS) {
+        const totalMaintRev = (parseFloat(maintRev?.[mk]) || 0) + (parseFloat(maintOnsiteRev?.[mk]) || 0);
+        const amVal = Math.abs(parseFloat(amItem[mk]) || 0);
+        bdPctValues[mk] = totalMaintRev !== 0 ? Math.round((amVal / totalMaintRev) * 1000) / 10 : 0;
+      }
+      rows.splice(amIdx + 1, 0, {
+        item: {
+          account_code: null, account_name: 'BD Spend % of Maint Rev', full_label: 'BD Spend % of Maint Rev',
+          row_type: 'percent', indent_level: 0, admin_only: amItem.admin_only, _isKpi: true, ...bdPctValues
+        },
+        refItem: null,
+        isRefOnly: false
+      });
+    }
+
     return rows;
   }, [_baseDisplayRows, department, crossDeptData]);
 
@@ -1601,6 +1625,18 @@ export default function PnlTable({
                   if (niItem && totalMaintRevAnnual !== 0) {
                     percentAnnual = (Math.abs(computeRowTotal(niItem)) / totalMaintRevAnnual) * 100;
                   } else { percentAnnual = 0; }
+                } else if (percentName === 'bd spend % of maint rev' && crossDeptData) {
+                  const maintRev = crossDeptData['maintenance']?.revenue;
+                  const maintOnsiteRev = crossDeptData['maintenance_onsite']?.revenue;
+                  const totalMaintRevAnnual = MONTH_KEYS.reduce((sum, mk) =>
+                    sum + (parseFloat(maintRev?.[mk]) || 0) + (parseFloat(maintOnsiteRev?.[mk]) || 0), 0);
+                  const amItem = computedLineItems.find(li =>
+                    li.row_type === 'total' &&
+                    normalizeTotalName(li.account_name) === 'total advertising & marketing'
+                  );
+                  if (amItem && totalMaintRevAnnual !== 0) {
+                    percentAnnual = (Math.abs(computeRowTotal(amItem)) / totalMaintRevAnnual) * 100;
+                  } else { percentAnnual = 0; }
                 }
 
                 // Compute reference percent from recalculated displayRows ref totals
@@ -1635,7 +1671,7 @@ export default function PnlTable({
                     // Reference version: same formula using ref Net Income over maintenance revenue
                     const refNiRow = displayRows.find(dr =>
                       !dr.isRefOnly && dr.refItem &&
-                      (dr.item.row_type === 'total' || dr.item.row_type === 'calculated' || dr.item.row_type === 'section_header') &&
+                      (dr.item.row_type === 'total' || dr.row_type === 'calculated' || dr.item.row_type === 'section_header') &&
                       dr.item.account_name?.toLowerCase().trim() === 'net income'
                     );
                     if (refNiRow?.refItem) {
@@ -1645,6 +1681,21 @@ export default function PnlTable({
                         sum + (parseFloat(maintRev2?.[mk]) || 0) + (parseFloat(maintOnsiteRev2?.[mk]) || 0), 0);
                       if (totalMaintRevAnnual2 !== 0) {
                         refPercentAnnual = (Math.abs(computeRowTotal(refNiRow.refItem)) / totalMaintRevAnnual2) * 100;
+                      } else { refPercentAnnual = 0; }
+                    }
+                  } else if (percentName === 'bd spend % of maint rev' && crossDeptData) {
+                    const refAmRow = displayRows.find(dr =>
+                      !dr.isRefOnly && dr.refItem &&
+                      dr.item.row_type === 'total' &&
+                      normalizeTotalName(dr.item.account_name) === 'total advertising & marketing'
+                    );
+                    if (refAmRow?.refItem) {
+                      const maintRev2 = crossDeptData['maintenance']?.revenue;
+                      const maintOnsiteRev2 = crossDeptData['maintenance_onsite']?.revenue;
+                      const totalMaintRevAnnual2 = MONTH_KEYS.reduce((sum, mk) =>
+                        sum + (parseFloat(maintRev2?.[mk]) || 0) + (parseFloat(maintOnsiteRev2?.[mk]) || 0), 0);
+                      if (totalMaintRevAnnual2 !== 0) {
+                        refPercentAnnual = (Math.abs(computeRowTotal(refAmRow.refItem)) / totalMaintRevAnnual2) * 100;
                       } else { refPercentAnnual = 0; }
                     }
                   } else if (isNOIPct(percentName) || percentName === 'net income %') {

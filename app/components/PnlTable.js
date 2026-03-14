@@ -2128,6 +2128,7 @@ export default function PnlTable({
                         })()}
                         {item._isCrews ? <span className="mr-1" style={{ fontSize: '13px' }}>&#128666;</span> : item._isHeadcount && <span className="mr-1" style={{ fontSize: '13px' }}>&#128101;</span>}
                         {item._isKpi && <span className="text-amber-600 mr-1" style={{ fontSize: '12px' }}>&#9733;</span>}
+                        {item.row_type === 'detail' && item.account_name?.toLowerCase().trim() === 'maintenance recurring' && <span className="mr-1" style={{ fontSize: '13px' }}>&#128176;</span>}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
                         {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (

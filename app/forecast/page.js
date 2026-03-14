@@ -319,7 +319,7 @@ export default function ForecastPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">Branch:</label>
               <div className="flex flex-wrap gap-2">
-                {branches.filter(b => b.name !== 'Phoenix').map(branch => {
+                {branches.filter(b => b.name !== 'Phoenix' && b.name !== 'Corporate').map(branch => {
                   // Define colors based on branch name
                   const branchName = branch.name.toLowerCase();
                   let lightBg, darkBg, lightText, darkText, hoverBg;

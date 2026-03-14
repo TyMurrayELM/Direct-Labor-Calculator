@@ -45,7 +45,8 @@ export default function PnlSection({
   department,
   onDepartmentChange,
   departmentOptions,
-  onVersionStateChange
+  onVersionStateChange,
+  scheduledHC = null
 }) {
   // --- Role detection ---
   const [userRole, setUserRole] = useState(null);
@@ -697,6 +698,8 @@ export default function PnlSection({
             : null
         }
         department={department}
+        branchName={branchName}
+        scheduledHC={scheduledHC}
       />
 
       {!pnlLoading && !pnlLineItems?.length && (

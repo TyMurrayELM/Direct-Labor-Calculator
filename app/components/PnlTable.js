@@ -27,6 +27,19 @@ function formatPercent(val) {
   return formatted;
 }
 
+function formatHeadcount(val) {
+  if (val === 0 || val === null || val === undefined) return '\u2014';
+  const num = parseInt(val, 10);
+  if (isNaN(num)) return '\u2014';
+  return String(num);
+}
+
+function formatCell(item, val) {
+  if (item.row_type === 'headcount') return formatHeadcount(val);
+  if (item.row_type === 'percent') return formatPercent(val);
+  return formatCurrency(val);
+}
+
 /** Normalize total-row names so "Total - Income" and "Total Income" both become "total income" */
 function normalizeTotalName(name) {
   if (!name) return '';
@@ -101,6 +114,18 @@ function getDLPercentBg(value) {
   return null;
 }
 
+/** Get branch-specific hourly rate for FTE headcount calculation */
+function getHourlyRateForBranch(branchName) {
+  if (!branchName) return 25.00;
+  const n = branchName.toLowerCase();
+  if (n.includes('las vegas') || n.includes('vegas')) return 24.50;
+  if (n.includes('phoenix') || n.includes('southeast') || n.includes('southwest') || n.includes('north') || n.includes('phx')) return 25.50;
+  return 25.00;
+}
+
+const HOURS_PER_MONTH = 173.33;
+const DL_TARGET = 0.40;
+
 /**
  * P&L Table with editable cells and comparison columns
  *
@@ -138,7 +163,9 @@ export default function PnlTable({
   onRenameSubLine,
   onUpdateCellNote,
   crossDeptConfig = null,
-  department = null
+  department = null,
+  branchName = null,
+  scheduledHC = null
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -450,8 +477,44 @@ export default function PnlTable({
         }
         result.push({
           account_code: null, account_name: 'Direct Labor %', full_label: 'Direct Labor %',
-          row_type: 'percent', indent_level: 0, admin_only: li.admin_only, ...dlPctValues
+          row_type: 'percent', indent_level: 0, admin_only: li.admin_only, _isKpi: true, ...dlPctValues
         });
+
+        // Inject Headcount (FTEs to hit 40% DL) for maintenance departments
+        if (department === 'maintenance' || department === 'maintenance_onsite' || department === 'all_maintenance') {
+          const hourlyRate = getHourlyRateForBranch(branchName);
+          const hcValues = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            const laborBudget = income * DL_TARGET;
+            hcValues[mk] = income > 0 ? Math.floor(laborBudget / hourlyRate / HOURS_PER_MONTH) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'Headcount @ 40% DL', full_label: 'Headcount @ 40% DL',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, ...hcValues
+          });
+
+          // Inject Scheduled HC (from crews table)
+          if (scheduledHC != null) {
+            const shcValues = {};
+            for (const mk of MONTH_KEYS) shcValues[mk] = scheduledHC;
+            result.push({
+              account_code: null, account_name: 'Scheduled HC', full_label: 'Scheduled HC (crews)',
+              row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, _isScheduledHC: true, ...shcValues
+            });
+          }
+
+          // Inject Crews Needed (headcount / 4, highlight month-over-month changes)
+          const crewValues = {};
+          for (const mk of MONTH_KEYS) {
+            const hc = hcValues[mk] || 0;
+            crewValues[mk] = hc > 0 ? Math.ceil(hc / 4) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'Crews Needed (4m)', full_label: 'Crews Needed (4m)',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, _isCrews: true, ...crewValues
+          });
+        }
       }
 
       // Inject Net Operating Income % after Net Operating Income
@@ -485,7 +548,7 @@ export default function PnlTable({
     }
 
     return result;
-  }, [lineItems, isAdmin]);
+  }, [lineItems, isAdmin, department, branchName, scheduledHC]);
 
   // Group sub-lines by parent_id for injection into display rows
   const subLinesByParent = useMemo(() => {
@@ -1068,7 +1131,7 @@ export default function PnlTable({
 
   // Cell/row note right-click handler (monthKey '_row' for row-level notes)
   const handleCellContextMenu = useCallback((e, item, monthKey) => {
-    if (!item.id || item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent') return;
+    if (!item.id || item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent' || item.row_type === 'headcount') return;
     if (!onUpdateCellNote) return;
     e.preventDefault();
     const notes = item.cell_notes || {};
@@ -1091,7 +1154,7 @@ export default function PnlTable({
 
   const isCellEditable = useCallback((item, monthKey) => {
     if (!isEditable || isLocked) return false;
-    if (item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent' || item.row_type === 'sub_total') return false;
+    if (item.row_type === 'section_header' || item.row_type === 'account_header' || item.row_type === 'percent' || item.row_type === 'headcount' || item.row_type === 'sub_total') return false;
     if (importedMonthKeys.has(monthKey) && item.row_type !== 'sub_line') return false;
     return true;
   }, [isEditable, isLocked, importedMonthKeys]);
@@ -1818,7 +1881,7 @@ export default function PnlTable({
               return (
                 <tr
                   key={isSubTotal ? `subtotal-${item._parentId}` : isRefOnly ? `ref-${item.account_code || idx}` : (item.id || item.row_order || `computed-${idx}`)}
-                  className={`${item._isKpi ? 'bg-amber-100 border-t border-b border-amber-300' : getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
+                  className={`${item._isHeadcount ? 'bg-emerald-50 border-t border-b border-emerald-300' : item._isKpi ? 'bg-amber-100 border-t border-b border-amber-300' : getRowClasses(item.row_type)} ${isRefOnly ? 'opacity-60' : ''} ${
                     isDragging ? 'opacity-40' : ''
                   } ${isDropTarget && (dragRowId || subDragId) ? 'border-t-2 border-t-blue-500' : ''} ${
                     isAdminOnly ? 'bg-red-50/60' : ''
@@ -1830,7 +1893,7 @@ export default function PnlTable({
                   onDrop={dragRowId ? (e) => handleDrop(e, idx) : subDragId && (isSubLine || isSubTotal) ? (e) => handleSubDrop(e, idx, item.parent_id || item._parentId) : undefined}
                 >
                   <td
-                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : item._isKpi ? 'bg-amber-100' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
+                    className={`py-0.5 px-1.5 sticky left-0 z-10 truncate ${isAdminOnly ? 'bg-red-50/60' : item._isHeadcount ? 'bg-emerald-50' : item._isKpi ? 'bg-amber-100' : getRowBg(item.row_type)} ${getTextWeight(item.row_type)} ${isRefOnly ? 'italic' : ''} ${isSubLine || isSubTotal ? 'text-right' : ''} group`}
                     style={{ paddingLeft: `${(draggable || subDraggable ? 0 : 6) + (item.indent_level || 0) * 10}px`, width: accountColWidth, maxWidth: accountColWidth }}
                     title={item.cell_notes?._row ? `${item.account_name}\n📝 ${item.cell_notes._row}` : item.account_name}
                     onContextMenu={(e) => handleCellContextMenu(e, item, '_row')}
@@ -2063,6 +2126,7 @@ export default function PnlTable({
                             </span>
                           );
                         })()}
+                        {item._isCrews ? <span className="mr-1" style={{ fontSize: '13px' }}>&#128666;</span> : item._isHeadcount && <span className="mr-1" style={{ fontSize: '13px' }}>&#128101;</span>}
                         {item._isKpi && <span className="text-amber-600 mr-1" style={{ fontSize: '12px' }}>&#9733;</span>}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
@@ -2128,7 +2192,13 @@ export default function PnlTable({
                     const isIncrMatch = incrExpected && key in incrExpected && val === incrExpected[key];
                     const dlBg = isDLPercent && !isRefOnly ? getDLPercentBg(val) : null;
                     const varBg = !dlBg && refMonthPcts ? getVariancePercentBg(val, refMonthPcts[key], 10) : null;
-                    const cellBg = dlBg || varBg || (isPctMatch ? 'rgba(147, 51, 234, 0.08)' : isIncrMatch ? 'rgba(16, 185, 129, 0.08)' : null);
+                    // Highlight crew changes month-over-month
+                    const crewChanged = item._isCrews && keyIdx > 0 && val > 0 && (() => {
+                      const priorVal = parseFloat(item[MONTH_KEYS[keyIdx - 1]]) || 0;
+                      return priorVal > 0 && val !== priorVal;
+                    })();
+                    const crewBg = crewChanged ? 'rgba(245, 158, 11, 0.25)' : null;
+                    const cellBg = dlBg || crewBg || varBg || (isPctMatch ? 'rgba(147, 51, 234, 0.08)' : isIncrMatch ? 'rgba(16, 185, 129, 0.08)' : null);
                     const cellNote = !isRefOnly && item.cell_notes?.[key];
                     const deptBreakdown = item._deptBreakdown?.[key];
                     const cellTitle = (() => {
@@ -2161,9 +2231,9 @@ export default function PnlTable({
                     return (
                       <td
                         key={key}
-                        className={`py-0.5 px-0.5 text-right tabular-nums relative ${
+                        className={`py-0.5 px-0.5 ${item._isHeadcount ? 'text-center' : 'text-right'} tabular-nums relative ${
                           refItem && !isRefOnly && !isHeaderRow ? 'group/ref' : ''
-                        } ${val < 0 ? 'text-red-600' : ''
+                        } ${val < 0 ? 'text-red-600' : item._isHeadcount ? 'text-emerald-700 font-semibold' : ''
                         } ${getTextWeight(item.row_type)} ${
                           isSelected ? 'bg-blue-100' :
                           !cellBg && isImported && !isRefOnly ? 'bg-blue-50/70' : ''
@@ -2197,15 +2267,15 @@ export default function PnlTable({
                         ) : refItem && !isRefOnly && !isHeaderRow ? (
                           <>
                             <span className={`group-hover/ref:hidden ${canEdit && val === 0 ? 'text-gray-300' : ''}`}>
-                              {item.row_type === 'percent' ? formatPercent(val) : formatCurrency(val)}
+                              {formatCell(item, val)}
                             </span>
                             <span className="hidden group-hover/ref:inline text-amber-700">
-                              {item.row_type === 'percent' ? formatPercent(parseFloat(refItem[key]) || 0) : formatCurrency(parseFloat(refItem[key]) || 0)}
+                              {formatCell(item, parseFloat(refItem[key]) || 0)}
                             </span>
                           </>
                         ) : (
                           <span className={canEdit && val === 0 ? 'text-gray-300' : ''}>
-                            {item.row_type === 'percent' ? formatPercent(val) : formatCurrency(val)}
+                            {formatCell(item, val)}
                           </span>
                         )}
                       </td>
@@ -2213,8 +2283,8 @@ export default function PnlTable({
                   })}
 
                   <td
-                    className={`py-0.5 px-1.5 text-right tabular-nums border-l-2 border-r-2 border-gray-400 font-semibold ${
-                      total < 0 ? 'text-red-600' : ''
+                    className={`py-0.5 px-1.5 ${item._isHeadcount ? 'text-center' : 'text-right'} tabular-nums border-l-2 border-r-2 border-gray-400 font-semibold ${
+                      total < 0 ? 'text-red-600' : item._isHeadcount ? 'text-emerald-700' : ''
                     } ${getTextWeight(item.row_type)}`}
                     style={
                       isDLPercent && percentAnnual !== null
@@ -2241,6 +2311,11 @@ export default function PnlTable({
                   >
                     {item.row_type === 'percent'
                       ? (percentAnnual !== null ? formatPercent(percentAnnual) : '\u2014')
+                      : item.row_type === 'headcount'
+                      ? (() => {
+                          const active = MONTH_KEYS.filter(k => (parseFloat(item[k]) || 0) > 0).length;
+                          return active > 0 ? formatHeadcount(Math.round(total / active)) : '\u2014';
+                        })()
                       : formatCurrency(total)}
                   </td>
 

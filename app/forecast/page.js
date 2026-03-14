@@ -466,7 +466,7 @@ export default function ForecastPage() {
                   return (
                     <div className="px-4 py-3">
                       <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalRev)}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-900">
                         <span>{formatCurrency(maintRev)} maint</span>
                         <span className="text-gray-300">|</span>
                         <span>{formatCurrency(onsiteRev)} onsite</span>
@@ -479,13 +479,13 @@ export default function ForecastPage() {
                             {delta > 0 ? '\u2191' : '\u2193'} {formatCurrency(Math.abs(delta))}
                             {pctChange !== null && <span className="font-normal ml-0.5">({formatNumber(Math.abs(pctChange), 1)}%)</span>}
                           </span>
-                          <span className="text-[10px] text-gray-400">vs Original Forecast</span>
+                          <span className="text-[10px] text-gray-900">vs Original Forecast</span>
                         </div>
                       )}
                     </div>
                   );
                 })()}
-                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-900">
                   {selectedBranch.name}{pnlVersionName ? ` \u00b7 ${pnlVersionName}` : ''}
                 </div>
               </div>
@@ -508,7 +508,7 @@ export default function ForecastPage() {
                   return (
                     <div className="px-4 py-3">
                       <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalDL)}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-900">
                         <span>{formatCurrency(maintDL)} maint</span>
                         <span className="text-gray-300">|</span>
                         <span>{formatCurrency(onsiteDL)} onsite</span>
@@ -521,13 +521,13 @@ export default function ForecastPage() {
                             {delta > 0 ? '\u2191' : '\u2193'} {formatCurrency(Math.abs(delta))}
                             {pctChange !== null && <span className="font-normal ml-0.5">({formatNumber(Math.abs(pctChange), 1)}%)</span>}
                           </span>
-                          <span className="text-[10px] text-gray-400">vs Original Forecast</span>
+                          <span className="text-[10px] text-gray-900">vs Original Forecast</span>
                         </div>
                       )}
                     </div>
                   );
                 })()}
-                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-900">
                   {selectedBranch.name}{pnlVersionName ? ` \u00b7 ${pnlVersionName}` : ''}
                 </div>
               </div>
@@ -597,10 +597,10 @@ export default function ForecastPage() {
                           {combinedDL !== null ? formatNumber(combinedDL, 1) + '%' : '\u2014'}
                         </div>
                         {combinedDLTarget !== null && (
-                          <span className="text-sm text-gray-400 font-normal">/ {formatNumber(combinedDLTarget, 1)}%</span>
+                          <span className="text-sm text-gray-900 font-normal">/ {formatNumber(combinedDLTarget, 1)}%</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-900">
                         <span>{maintDL !== null ? formatNumber(maintDL, 1) + '%' : '\u2014'} maint</span>
                         <span className="text-gray-300">|</span>
                         <span>{onsiteDL !== null ? formatNumber(onsiteDL, 1) + '%' : '\u2014'} onsite</span>
@@ -617,7 +617,7 @@ export default function ForecastPage() {
                                 }`}>
                                   {dlDelta > 0 ? '\u2191' : dlDelta < 0 ? '\u2193' : ''} {formatNumber(Math.abs(dlDelta), 1)}pp
                                 </span>
-                                <span className="text-[10px] text-gray-400">vs Original Forecast</span>
+                                <span className="text-[10px] text-gray-900">vs Original Forecast</span>
                               </>
                             );
                           })()}
@@ -626,7 +626,7 @@ export default function ForecastPage() {
                     </div>
                   );
                 })()}
-                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-900">
                   {selectedBranch.name} &middot; thru {months[Math.max(0, new Date().getMonth() === 0 ? 0 : new Date().getMonth() - 1)]}
                 </div>
               </div>
@@ -660,7 +660,7 @@ export default function ForecastPage() {
                   return (
                     <div className="px-4 py-3">
                       <div className="text-2xl font-bold text-gray-900">{totalFtes}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-900">
                         <span>{avgFtes} maint</span>
                         <span className="text-gray-300">|</span>
                         <span>{avgOnsiteFtes} onsite</span>
@@ -672,13 +672,13 @@ export default function ForecastPage() {
                           }`}>
                             {delta > 0 ? '\u2191' : '\u2193'} {Math.abs(delta)}
                           </span>
-                          <span className="text-[10px] text-gray-400">vs Original Forecast</span>
+                          <span className="text-[10px] text-gray-900">vs Original Forecast</span>
                         </div>
                       )}
                     </div>
                   );
                 })()}
-                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-900">
                   {selectedBranch.name}{pnlVersionName ? ` \u00b7 ${pnlVersionName}` : ''}
                 </div>
               </div>

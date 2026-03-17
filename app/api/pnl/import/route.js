@@ -36,23 +36,35 @@ export async function POST(request) {
     const pctModeFlags = new Map();
     const cellNotesMap = new Map();
     const savedFullRows = new Map(); // account_code -> full row data (for forecast-only rows)
+    const savedRowOrder = new Map(); // account_code -> row_order (preserve user's manual ordering)
 
     {
-      let fetchQuery = supabase
+      // Fetch ALL existing rows to preserve row_order for every row type
+      let allRowsQuery = supabase
         .from('pnl_line_items')
         .select('*')
         .eq('branch_id', branchId)
         .eq('department', department)
-        .eq('year', year)
-        .eq('row_type', 'detail')
-        .not('account_code', 'is', null);
-      fetchQuery = versionId
-        ? fetchQuery.eq('version_id', versionId)
-        : fetchQuery.is('version_id', null);
-      const { data: existingRows } = await fetchQuery;
+        .eq('year', year);
+      allRowsQuery = versionId
+        ? allRowsQuery.eq('version_id', versionId)
+        : allRowsQuery.is('version_id', null);
+      const { data: allExistingRows } = await allRowsQuery;
 
-      if (existingRows) {
-        for (const row of existingRows) {
+      if (allExistingRows) {
+        // Save row_order for all rows — keyed by account_code for detail rows,
+        // or by full_label for non-detail rows (headers, totals, etc.)
+        for (const row of allExistingRows) {
+          const orderKey = row.account_code || row.full_label;
+          if (orderKey) {
+            savedRowOrder.set(orderKey, row.row_order);
+          }
+        }
+
+        // Save detail-row-specific data (forecast, flags, etc.)
+        for (const row of allExistingRows) {
+          if (row.row_type !== 'detail' || !row.account_code) continue;
+
           // Save the full row (for re-inserting forecast-only rows later)
           savedFullRows.set(row.account_code, row);
 
@@ -160,6 +172,8 @@ export async function POST(request) {
     if (importError) throw importError;
 
     // 3. Insert line items in batches (Supabase has row limits per insert)
+    // Preserve existing row_order when updating actuals (only for actuals imports, not budget)
+    const isActualsImport = months?.length > 0 && savedRowOrder.size > 0;
     const BATCH_SIZE = 100;
     const rows = lineItems.map(item => {
       const row = {
@@ -167,7 +181,7 @@ export async function POST(request) {
         department: department,
         year: year,
         version_id: versionId || null,
-        row_order: item.row_order,
+        row_order: item.row_order, // temporary — will be fixed up below for actuals imports
         account_code: item.account_code || null,
         account_name: item.account_name,
         full_label: item.full_label,
@@ -216,6 +230,60 @@ export async function POST(request) {
 
       return row;
     });
+
+    // For actuals imports, preserve the user's manual row ordering.
+    // Matched rows keep their saved position; new rows are interleaved
+    // at the position indicated by their neighbors in the import file.
+    // Finally, renumber sequentially to eliminate gaps and collisions.
+    if (isActualsImport) {
+      // Tag each row with its preserved order (if any) and original parser index
+      const tagged = rows.map((row, parserIdx) => {
+        const orderKey = row.account_code || row.full_label;
+        const preserved = orderKey ? savedRowOrder.get(orderKey) : undefined;
+        return { row, parserIdx, preserved };
+      });
+
+      // For new rows (no preserved order), assign a synthetic order based on
+      // the nearest preceding row that DOES have a preserved order.
+      // This keeps new rows near where the import file placed them relative
+      // to existing rows, without colliding with preserved positions.
+      for (let i = 0; i < tagged.length; i++) {
+        if (tagged[i].preserved != null) continue;
+        // Find the nearest preceding row with a preserved order
+        let precOrder = -1;
+        let newAfterPrev = 0; // how many new rows since last preserved
+        for (let j = i - 1; j >= 0; j--) {
+          if (tagged[j].preserved != null) {
+            precOrder = tagged[j].preserved;
+            // Count how many unmatched rows are between j and i
+            for (let k = j + 1; k <= i; k++) {
+              if (tagged[k].preserved == null) newAfterPrev++;
+            }
+            break;
+          }
+          // Keep looking further back
+        }
+        // Place new row just after the preceding preserved row (with fractional offset)
+        tagged[i].sortKey = precOrder + newAfterPrev * 0.001;
+      }
+
+      // Assign sortKey for preserved rows
+      for (const t of tagged) {
+        if (t.preserved != null) t.sortKey = t.preserved;
+      }
+
+      // Sort by sortKey (stable: parser order breaks ties)
+      tagged.sort((a, b) => a.sortKey - b.sortKey || a.parserIdx - b.parserIdx);
+
+      // Renumber sequentially
+      for (let i = 0; i < tagged.length; i++) {
+        tagged[i].row.row_order = i + 1;
+      }
+
+      // Put rows back in the renumbered order
+      rows.length = 0;
+      rows.push(...tagged.map(t => t.row));
+    }
 
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);

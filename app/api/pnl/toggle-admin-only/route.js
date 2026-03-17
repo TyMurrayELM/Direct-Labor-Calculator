@@ -41,26 +41,7 @@ export async function POST(request) {
       );
     }
 
-    const row = existing[0];
-
-    // If it belongs to a version, check lock status
-    if (row.version_id !== null) {
-      const { data: version, error: vError } = await supabase
-        .from('pnl_versions')
-        .select('is_locked')
-        .eq('id', row.version_id)
-        .limit(1);
-
-      if (vError) throw vError;
-      if (version?.[0]?.is_locked) {
-        return NextResponse.json(
-          { success: false, error: 'Cannot edit a locked version' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Update the admin_only flag
+    // Update the admin_only flag (allowed even on locked versions — metadata only)
     const { error: updateError } = await supabase
       .from('pnl_line_items')
       .update({ admin_only: adminOnly })

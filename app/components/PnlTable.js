@@ -1157,6 +1157,122 @@ export default function PnlTable({
     return result;
   }, [_allDisplayRows, collapsedSections]);
 
+  // --- Build summary rows: special/KPI rows for the compact view above the P&L ---
+  const MONEY_BAG_NAMES = new Set(['maintenance recurring', 'arbor', 'spray', 'enhancements', 'irrigation']);
+  const summaryRows = useMemo(() => {
+    if (!_allDisplayRows?.length) return [];
+
+    // Compute controllable NOI: recalculate section totals excluding admin_only detail rows
+    const computeControllableNOI = (items, noiIdx) => {
+      const controllable = {};
+      for (const mk of MONTH_KEYS) {
+        let sum = 0;
+        for (let j = 0; j < noiIdx; j++) {
+          if (items[j].row_type !== 'total' || (items[j].indent_level || 0) > 0) continue;
+          const tn = normalizeTotalName(items[j].account_name);
+          if (!tn.startsWith('total ')) continue;
+          const sn = tn.replace(/^total\s*/, '');
+          const isIncome = sn === 'income' || sn.startsWith('other income');
+
+          // Find matching header and re-sum detail rows excluding admin_only
+          let headerIdx = -1;
+          for (let k = j - 1; k >= 0; k--) {
+            if ((items[k].row_type === 'section_header' || items[k].row_type === 'account_header') &&
+                items[k].account_name?.toLowerCase().trim() === sn) { headerIdx = k; break; }
+          }
+          if (headerIdx < 0) continue;
+          let sectionVal = 0;
+          for (let k = headerIdx + 1; k < j; k++) {
+            if (items[k].row_type === 'detail' && !items[k].admin_only) {
+              sectionVal += parseFloat(items[k][mk]) || 0;
+            }
+          }
+          sum += isIncome ? sectionVal : -sectionVal;
+        }
+        controllable[mk] = Math.round(sum * 100) / 100;
+      }
+      return controllable;
+    };
+
+    // Find NOI index in computedLineItems for controllable calculation
+    const noiIdx = computedLineItems.findIndex(li => isNOI(li.account_name));
+    const controllableValues = noiIdx >= 0 ? computeControllableNOI(computedLineItems, noiIdx) : null;
+
+    // Also compute controllable values from reference items for comparison
+    let refControllableValues = null;
+    if (controllableValues && referenceItems?.length) {
+      // Build a simple recalculated reference set
+      const refItems = referenceItems.map(ri => ({ ...ri }));
+      // Recalculate ref totals from detail rows
+      for (let i = 0; i < refItems.length; i++) {
+        if (refItems[i].row_type !== 'total') continue;
+        const sn = normalizeTotalName(refItems[i].account_name).replace(/^total\s*/, '').trim();
+        if (!sn) continue;
+        let hIdx = -1;
+        for (let j = i - 1; j >= 0; j--) {
+          if ((refItems[j].row_type === 'section_header' || refItems[j].row_type === 'account_header') &&
+              refItems[j].account_name?.toLowerCase().trim() === sn) { hIdx = j; break; }
+        }
+        if (hIdx < 0) continue;
+        for (const mk of MONTH_KEYS) {
+          let s = 0;
+          for (let j = hIdx + 1; j < i; j++) {
+            if (refItems[j].row_type === 'detail') s += parseFloat(refItems[j][mk]) || 0;
+          }
+          refItems[i][mk] = Math.round(s * 100) / 100;
+        }
+      }
+      const refNoiIdx = refItems.findIndex(ri => isNOI(ri.account_name));
+      if (refNoiIdx >= 0) refControllableValues = computeControllableNOI(refItems, refNoiIdx);
+    }
+
+    const result = [];
+    for (const row of _allDisplayRows) {
+      const { item, refItem, isRefOnly } = row;
+      if (isRefOnly) continue;
+      const isKeyItem = item._isKpi || item._isHeadcount ||
+        (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
+        (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
+        (item.row_type === 'percent' && isNOIPct(item.account_name)) ||
+        ((item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && isNOI(item.account_name)) ||
+        (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim()));
+      if (!isKeyItem) continue;
+
+      // For NOI rows, substitute controllable values
+      if (isNOI(item.account_name) && controllableValues) {
+        const incomeRow = computedLineItems.find(li => li.row_type === 'total' && normalizeTotalName(li.account_name) === 'total income');
+        const controllableItem = { ...item, ...controllableValues };
+        const controllableRef = refControllableValues ? { ...item, ...refControllableValues } : refItem;
+        result.push({ item: controllableItem, refItem: controllableRef, isRefOnly: false });
+        // Also inject controllable NOI %
+        if (incomeRow) {
+          const pctItem = { ...item, account_name: 'Net Operating Income %', row_type: 'percent' };
+          const pctRef = controllableRef ? { ...pctItem } : null;
+          for (const mk of MONTH_KEYS) {
+            const inc = parseFloat(incomeRow[mk]) || 0;
+            pctItem[mk] = inc !== 0 ? Math.round((controllableValues[mk] / inc) * 1000) / 10 : 0;
+            if (pctRef && refControllableValues) {
+              // Find ref income for %
+              const refInc = refItem ? (() => {
+                const ri = _allDisplayRows.find(r => !r.isRefOnly && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total income');
+                return ri?.refItem;
+              })() : null;
+              const refIncVal = refInc ? (parseFloat(refInc[mk]) || 0) : inc;
+              pctRef[mk] = refIncVal !== 0 ? Math.round((refControllableValues[mk] / refIncVal) * 1000) / 10 : 0;
+            }
+          }
+          result.push({ item: pctItem, refItem: pctRef, isRefOnly: false });
+        }
+        continue;
+      }
+      // Skip the original NOI% row since we inject our own above
+      if (isNOIPct(item.account_name)) continue;
+
+      result.push(row);
+    }
+    return result;
+  }, [_allDisplayRows, computedLineItems, referenceItems]);
+
   // Collect available source rows for the pct-of-total picker, grouped by section
   const availableSources = useMemo(() => {
     if (!computedLineItems?.length) return [];
@@ -1694,6 +1810,141 @@ export default function PnlTable({
 
   return (
     <div className="mt-4">
+      {/* KPI Summary Strip */}
+      {summaryRows.length > 0 && (
+        <div className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto" style={{ scrollbarGutter: 'stable' }}>
+            <table className="text-xs" style={{ tableLayout: 'fixed' }}>
+              <thead>
+                <tr className="bg-gray-700 text-white">
+                  <th className="px-1.5 py-1.5 text-left font-semibold sticky left-0 bg-gray-700 z-10" style={{ width: accountColWidth, minWidth: 120 }}>Key Items</th>
+                  {MONTH_KEYS.map((mk, i) => {
+                    const isActual = importedMonthKeys.has(mk);
+                    const isBoundary = actualCount > 0 && actualCount < 12 && i === actualCount;
+                    return (
+                      <th key={mk}
+                        className={`text-right py-1.5 px-1 font-medium ${isActual ? 'bg-gray-800' : ''} ${isBoundary ? 'border-l-2 border-l-blue-300' : ''}`}
+                        style={{ width: monthColWidth, minWidth: 36 }}
+                      >{MONTH_LABELS[i]}</th>
+                    );
+                  })}
+                  <th className="text-right py-1.5 px-1.5 font-semibold bg-gray-800 min-w-[65px] border-l-2 border-r-2 border-gray-600">Total</th>
+                  {showComparison && (
+                    <>
+                      <th className="text-right py-1.5 px-1.5 font-semibold min-w-[65px] border-l border-gray-500">Ref</th>
+                      <th className="text-right py-1.5 px-1 font-semibold min-w-[58px]">$ Var</th>
+                      <th className="text-right py-1.5 px-1 font-semibold min-w-[42px]">%</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {summaryRows.map(({ item, refItem }, idx) => {
+                  const isMoneyBag = item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim());
+                  const isGP = item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit';
+                  const isPercent = item.row_type === 'percent' || item._isKpi;
+                  const isHeadcount = item._isHeadcount;
+                  const isDLPct = item._isKpi && item.account_name === 'Direct Labor %';
+
+                  // Row background
+                  let rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                  if (isMoneyBag) rowBg = 'bg-amber-50';
+                  else if (isGP) rowBg = 'bg-green-50';
+                  else if (isDLPct) rowBg = 'bg-amber-50';
+                  else if (isHeadcount) rowBg = 'bg-emerald-50';
+
+                  // Icon
+                  let icon = null;
+                  if (isMoneyBag) icon = <span style={{ fontSize: '11px' }}>&#128176;</span>;
+                  else if (item._isCrews) icon = <span style={{ fontSize: '11px' }}>&#128666;</span>;
+                  else if (item._isHeadcount) icon = <span style={{ fontSize: '11px' }}>&#128101;</span>;
+                  else if (item._isKpi) icon = <span className="text-amber-600" style={{ fontSize: '10px' }}>&#9733;</span>;
+
+                  // Format helper
+                  const fmtVal = (val) => {
+                    if (isPercent && !isHeadcount) return val !== 0 ? val.toFixed(1) + '%' : '\u2014';
+                    if (isHeadcount) return val !== 0 ? (Number.isInteger(val) ? String(val) : val.toFixed(1)) : '\u2014';
+                    return val !== 0 ? formatCurrency(val) : '\u2014';
+                  };
+
+                  // Annual values
+                  const annualRaw = computeRowTotal(item);
+                  const refAnnualRaw = refItem ? computeRowTotal(refItem) : null;
+                  let annualDisplay, refAnnualDisplay;
+                  if (isPercent && !isHeadcount) {
+                    annualDisplay = (annualRaw / 12).toFixed(1) + '%';
+                    refAnnualDisplay = refAnnualRaw !== null ? (refAnnualRaw / 12).toFixed(1) + '%' : null;
+                  } else if (isHeadcount) {
+                    annualDisplay = (annualRaw / 12).toFixed(1);
+                    refAnnualDisplay = refAnnualRaw !== null ? (refAnnualRaw / 12).toFixed(1) : null;
+                  } else {
+                    annualDisplay = formatCurrency(annualRaw);
+                    refAnnualDisplay = refAnnualRaw !== null ? formatCurrency(refAnnualRaw) : null;
+                  }
+
+                  // Variance
+                  const dollarVar = refAnnualRaw !== null ? annualRaw - refAnnualRaw : null;
+                  const pctVar = refAnnualRaw !== null && refAnnualRaw !== 0 ? (dollarVar / Math.abs(refAnnualRaw)) * 100 : null;
+                  // Income/GP rows: positive variance = good. Expense rows: negative variance = good.
+                  const isIncomeRow = isMoneyBag || isGP || (isPercent && !isHeadcount);
+                  const varColor = dollarVar !== null && dollarVar !== 0
+                    ? ((isIncomeRow ? dollarVar > 0 : dollarVar < 0) ? 'text-green-600' : 'text-red-600')
+                    : '';
+
+                  return (
+                    <tr key={`summary-${idx}`} className={`${rowBg} border-t border-gray-100`}>
+                      <td className={`px-1.5 py-1 font-medium text-gray-700 sticky left-0 z-10 ${rowBg} whitespace-nowrap overflow-hidden text-ellipsis`}
+                        style={{ width: accountColWidth, maxWidth: accountColWidth }}>
+                        <span className="flex items-center gap-1">
+                          {icon}
+                          {isNOI(item.account_name) ? 'Net Controllable Income' : isNOIPct(item.account_name) ? 'Net Controllable Income %' : item.account_name}
+                        </span>
+                      </td>
+                      {MONTH_KEYS.map((mk, mi) => {
+                        const val = parseFloat(item[mk]) || 0;
+                        const isImported = importedMonthKeys.has(mk);
+                        const isBoundary = actualCount > 0 && actualCount < 12 && mi === actualCount;
+                        const cellBg = isDLPct ? getDLPercentBg(val) : null;
+                        return (
+                          <td key={mk}
+                            className={`py-1 px-1 text-right tabular-nums ${val < 0 ? 'text-red-600' : isHeadcount ? 'text-emerald-700 font-semibold' : ''} ${!cellBg && isImported ? 'bg-blue-50/70' : ''} ${isBoundary ? 'border-l-2 border-l-blue-300' : ''}`}
+                            style={{ width: monthColWidth, minWidth: 36, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+                            title={item._effTooltips?.[mk] || undefined}
+                          >
+                            {fmtVal(val)}
+                          </td>
+                        );
+                      })}
+                      <td className={`py-1 px-1.5 text-right font-semibold tabular-nums border-l-2 border-r-2 border-gray-200 min-w-[65px] ${isHeadcount ? 'text-emerald-700' : ''}`}>
+                        {annualDisplay}
+                      </td>
+                      {showComparison && (
+                        <>
+                          <td className="py-1 px-1.5 text-right tabular-nums text-amber-700 border-l border-gray-200 min-w-[65px]">
+                            {refAnnualDisplay || '\u2014'}
+                          </td>
+                          <td className={`py-1 px-1 text-right tabular-nums min-w-[58px] ${varColor}`}>
+                            {dollarVar !== null && dollarVar !== 0
+                              ? (isPercent && !isHeadcount
+                                ? (dollarVar / 12).toFixed(1) + '%'
+                                : formatCurrency(dollarVar))
+                              : '\u2014'}
+                          </td>
+                          <td className={`py-1 px-1 text-right tabular-nums min-w-[42px] ${varColor}`}>
+                            {pctVar !== null && Math.abs(pctVar) >= 0.1
+                              ? (pctVar > 0 ? '+' : '') + pctVar.toFixed(1) + '%'
+                              : '\u2014'}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {forecastLabel && (
         <div className="mb-1.5 flex items-center gap-3 text-xs text-gray-500">
           <span className="font-semibold text-gray-700">{forecastLabel}</span>
@@ -1705,7 +1956,7 @@ export default function PnlTable({
           )}
         </div>
       )}
-      <div className="overflow-x-auto overflow-y-auto max-h-[85vh] border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto overflow-y-auto max-h-[85vh] border border-gray-200 rounded-lg" style={{ scrollbarGutter: 'stable' }}>
         {showBulkInput && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border-b border-blue-200 text-xs">
             <span className="text-blue-700 font-medium">{selectedCells.size} cells selected</span>
@@ -1793,6 +2044,8 @@ export default function PnlTable({
           </thead>
           <tbody>
             {displayRows.map(({ item, refItem, isRefOnly, isSubLine, isSubTotal, _collapsed }, idx) => {
+              // Ref-only rows (suggestions from comparison version) are admin-only
+              if (isRefOnly && !isAdmin) return null;
 
               const total = isRefOnly ? 0 : computeRowTotal(item);
               const isHeaderRow = (item.row_type === 'section_header' || item.row_type === 'account_header') && !_collapsed;

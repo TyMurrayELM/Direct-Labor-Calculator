@@ -183,7 +183,7 @@ export default function OverheadForecastPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">Branch:</label>
               <div className="flex flex-wrap gap-2">
-                {OVERHEAD_BRANCHES.map(branch => (
+                {OVERHEAD_BRANCHES.filter(b => !(b.key === 'phoenix' && selectedDepartment === 'biz_dev_marketing')).map(branch => (
                   <button
                     key={branch.key}
                     onClick={() => setSelectedBranchKey(branch.key)}

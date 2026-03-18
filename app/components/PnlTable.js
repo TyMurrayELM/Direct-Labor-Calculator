@@ -669,16 +669,6 @@ export default function PnlTable({
             row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, ...hcValues
           });
 
-          // Inject Scheduled HC (from crews table)
-          if (scheduledHC != null) {
-            const shcValues = {};
-            for (const mk of MONTH_KEYS) shcValues[mk] = scheduledHC;
-            result.push({
-              account_code: null, account_name: 'Scheduled HC', full_label: 'Scheduled HC (crews)',
-              row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, _isScheduledHC: true, ...shcValues
-            });
-          }
-
           // Inject Crews Needed (headcount / 4, highlight month-over-month changes)
           const crewValues = {};
           for (const mk of MONTH_KEYS) {
@@ -1258,7 +1248,6 @@ export default function PnlTable({
     for (const row of _allDisplayRows) {
       const { item, refItem, isRefOnly } = row;
       if (isRefOnly) continue;
-      if (item._isScheduledHC) continue;
       const isKeyItem = item._isKpi || item._isHeadcount ||
         (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
         (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
@@ -1856,7 +1845,7 @@ export default function PnlTable({
     <div className="mt-4">
       {/* KPI Summary Strip */}
       {summaryRows.length > 0 && (
-        <div className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="mb-3 border border-gray-400 rounded-lg overflow-hidden">
           <div className="overflow-x-auto" style={{ scrollbarGutter: 'stable' }}>
             <table className="text-xs" style={{ tableLayout: 'fixed' }}>
               <thead>
@@ -1907,7 +1896,7 @@ export default function PnlTable({
                   // Format helper
                   const fmtVal = (val) => {
                     if (isPercent && !isHeadcount) return val !== 0 ? val.toFixed(1) + '%' : '\u2014';
-                    if (isHeadcount) return val !== 0 ? (Number.isInteger(val) ? String(val) : val.toFixed(1)) : '\u2014';
+                    if (isHeadcount) return formatHeadcount(val);
                     return val !== 0 ? formatCurrency(val) : '\u2014';
                   };
 
@@ -1919,8 +1908,8 @@ export default function PnlTable({
                     annualDisplay = (annualRaw / 12).toFixed(1) + '%';
                     refAnnualDisplay = refAnnualRaw !== null ? (refAnnualRaw / 12).toFixed(1) + '%' : null;
                   } else if (isHeadcount) {
-                    annualDisplay = (annualRaw / 12).toFixed(1);
-                    refAnnualDisplay = refAnnualRaw !== null ? (refAnnualRaw / 12).toFixed(1) : null;
+                    annualDisplay = formatHeadcount(annualRaw / 12);
+                    refAnnualDisplay = refAnnualRaw !== null ? formatHeadcount(refAnnualRaw / 12) : null;
                   } else {
                     annualDisplay = formatCurrency(annualRaw);
                     refAnnualDisplay = refAnnualRaw !== null ? formatCurrency(refAnnualRaw) : null;
@@ -2006,7 +1995,7 @@ export default function PnlTable({
           )}
         </div>
       )}
-      <div className="overflow-x-auto overflow-y-auto max-h-[85vh] border border-gray-200 rounded-lg" style={{ scrollbarGutter: 'stable' }}>
+      <div className="overflow-x-auto overflow-y-auto max-h-[85vh] border border-gray-400 rounded-lg" style={{ scrollbarGutter: 'stable' }}>
         {showBulkInput && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border-b border-blue-200 text-xs">
             <span className="text-blue-700 font-medium">{selectedCells.size} cells selected</span>

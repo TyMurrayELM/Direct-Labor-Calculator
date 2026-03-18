@@ -351,7 +351,7 @@ export default function IrrigationForecastPage() {
                   Phoenix
                 </button>
                 {/* All individual branches including sub-branches */}
-                {branches.filter(b => b.name !== 'Phoenix').map(branch => (
+                {branches.filter(b => b.name !== 'Phoenix' && b.name !== 'Corporate').map(branch => (
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}

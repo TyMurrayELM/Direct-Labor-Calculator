@@ -356,7 +356,7 @@ export default function SprayForecastPage() {
                   Phoenix
                 </button>
                 {/* Individual branches (exclude Phoenix parent and sub-branches) */}
-                {branches.filter(b => b.name !== 'Phoenix' && !b.name.toLowerCase().includes('phx')).map(branch => (
+                {branches.filter(b => b.name !== 'Phoenix' && b.name !== 'Corporate' && !b.name.toLowerCase().includes('phx')).map(branch => (
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}

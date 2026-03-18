@@ -75,62 +75,107 @@ export default function ArborForecastPage() {
       if (versionId && versionId !== 'draft') query = query.eq('version_id', versionId);
       else query = query.is('version_id', null);
 
-      const { data } = await query;
-      if (!data?.length) return null;
+      const { data: items } = await query;
+      if (!items?.length) return null;
 
-      // Recalculate section totals from detail rows (same as PnlTable)
-      // Only section_headers define top-level sections (account_headers are sub-sections within)
-      let currentSection = null;
-      const sectionTotals = {};      // full totals by section name
-      const controllableTotals = {}; // excluding admin_only rows
+      // --- Recalculate total rows from detail rows (mirrors PnlTable logic exactly) ---
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].row_type !== 'total') continue;
+        const sectionName = normalize(items[i].account_name).replace(/^total\s*/, '').trim();
+        if (!sectionName) continue;
 
-      for (const row of data) {
-        const name = normalize(row.account_name);
-
-        if (row.row_type === 'section_header') {
-          currentSection = name;
-          if (!sectionTotals[currentSection]) {
-            sectionTotals[currentSection] = 0;
-            controllableTotals[currentSection] = 0;
-          }
-          continue;
-        }
-
-        if (row.row_type === 'detail' && currentSection) {
-          const rowSum = MONTH_KEYS.reduce((s, mk) => s + (parseFloat(row[mk]) || 0), 0);
-          sectionTotals[currentSection] += rowSum;
-          if (!row.admin_only) {
-            controllableTotals[currentSection] += rowSum;
+        let headerIdx = -1;
+        for (let j = i - 1; j >= 0; j--) {
+          if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+              items[j].account_name?.toLowerCase().trim() === sectionName) {
+            headerIdx = j; break;
           }
         }
+        if (headerIdx < 0) {
+          for (let j = 0; j < items.length; j++) {
+            if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+                items[j].account_name?.toLowerCase().trim() === sectionName) {
+              headerIdx = j; break;
+            }
+          }
+        }
+        if (headerIdx < 0) continue;
 
-        // Top-level total resets section (indent_level 0 totals end sections)
-        if (row.row_type === 'total' && (row.indent_level || 0) === 0) {
-          currentSection = null;
+        const sumEnd = i > headerIdx ? i : items.length;
+        for (const mk of MONTH_KEYS) {
+          let sum = 0;
+          for (let j = headerIdx + 1; j < sumEnd; j++) {
+            if (items[j].row_type === 'detail') sum += parseFloat(items[j][mk]) || 0;
+          }
+          items[i][mk] = Math.round(sum * 100) / 100;
         }
       }
 
-      // Revenue = income sections
-      let revenue = 0;
-      let cogs = 0;
-      for (const [section, total] of Object.entries(sectionTotals)) {
-        if (section === 'income' || section === 'revenue' || section.startsWith('other income')) {
-          revenue += total;
-        } else if (section.startsWith('cost of')) {
-          cogs += total;
-        }
-      }
+      // --- Revenue and Gross Profit ---
+      const incomeRow = items.find(r => r.row_type === 'total' && normalize(r.account_name) === 'total income');
+      const revenue = incomeRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(incomeRow[mk]) || 0), 0) : 0;
 
-      const grossProfit = revenue - cogs;
+      // Use stored Gross Profit row if it exists (matches what PnlTable displays), otherwise compute from income - cogs
+      const gpRow = items.find(r => r.row_type === 'calculated' && r.account_name?.toLowerCase().trim() === 'gross profit');
+      let grossProfit;
+      if (gpRow) {
+        grossProfit = MONTH_KEYS.reduce((s, mk) => s + (parseFloat(gpRow[mk]) || 0), 0);
+      } else {
+        const cogsRow = items.find(r => r.row_type === 'total' && normalize(r.account_name).startsWith('total cost of'));
+        const cogs = cogsRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(cogsRow[mk]) || 0), 0) : 0;
+        grossProfit = Math.round((revenue - cogs) * 100) / 100;
+      }
       const grossMargin = revenue !== 0 ? Math.round((grossProfit / revenue) * 1000) / 10 : 0;
 
-      // NOI = income totals - expense totals (same logic as PnlTable)
+      // --- NOI from indent-level-0 totals (mirrors PnlTable) ---
+      const noiRow = items.find(r =>
+        (r.row_type === 'total' || r.row_type === 'calculated' || r.row_type === 'section_header') &&
+        (normalize(r.account_name) === 'net ordinary income' || normalize(r.account_name) === 'net operating income')
+      );
       let noi = 0;
+      if (noiRow) {
+        const noiIdx = items.indexOf(noiRow);
+        for (let j = 0; j < noiIdx; j++) {
+          if (items[j].row_type !== 'total' || (items[j].indent_level || 0) > 0) continue;
+          const tn = normalize(items[j].account_name);
+          if (!tn.startsWith('total ')) continue;
+          const sn = tn.replace(/^total\s*/, '');
+          const isIncome = sn === 'income' || sn.startsWith('other income');
+          noi += MONTH_KEYS.reduce((s, mk) => {
+            const v = parseFloat(items[j][mk]) || 0;
+            return s + (isIncome ? v : -v);
+          }, 0);
+        }
+      }
+
+      // --- Controllable NOI: re-sum excluding admin_only detail rows ---
       let controllableNoi = 0;
-      for (const [section, total] of Object.entries(sectionTotals)) {
-        const isIncome = section === 'income' || section === 'revenue' || section.startsWith('other income');
-        noi += isIncome ? total : -total;
-        controllableNoi += isIncome ? controllableTotals[section] : -controllableTotals[section];
+      if (noiRow) {
+        const noiIdx = items.indexOf(noiRow);
+        for (let i = 0; i < noiIdx; i++) {
+          if (items[i].row_type !== 'total' || (items[i].indent_level || 0) > 0) continue;
+          const tn = normalize(items[i].account_name);
+          if (!tn.startsWith('total ')) continue;
+          const sectionName = tn.replace(/^total\s*/, '').trim();
+
+          let headerIdx = -1;
+          for (let j = i - 1; j >= 0; j--) {
+            if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+                items[j].account_name?.toLowerCase().trim() === sectionName) {
+              headerIdx = j; break;
+            }
+          }
+          if (headerIdx < 0) continue;
+
+          const isIncome = sectionName === 'income' || sectionName.startsWith('other income');
+          let sectionSum = 0;
+          for (let j = headerIdx + 1; j < i; j++) {
+            if (items[j].row_type === 'detail' && !items[j].admin_only) {
+              sectionSum += MONTH_KEYS.reduce((s, mk) => s + (parseFloat(items[j][mk]) || 0), 0);
+            }
+          }
+          controllableNoi += isIncome ? sectionSum : -sectionSum;
+        }
       }
 
       return { revenue, grossProfit, grossMargin, noi, controllableNoi };
@@ -158,7 +203,8 @@ export default function ArborForecastPage() {
       setBaselineMetrics(baseline);
     };
     run();
-  }, [pnlBranchId, selectedYear, pnlVersionState, supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pnlBranchId, selectedYear, pnlVersionState?.selectedVersionId]);
 
   // Helper functions
   const formatCurrency = (value) => {

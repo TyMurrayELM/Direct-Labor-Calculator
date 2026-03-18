@@ -1226,10 +1226,39 @@ export default function PnlTable({
       if (refNoiIdx >= 0) refControllableValues = computeControllableNOI(refItems, refNoiIdx);
     }
 
+    // Pre-compute reference totals for building synthetic ref values for computed % rows
+    const refIncomeRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total income')?.refItem;
+    const refCogsRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name).startsWith('total cost of'))?.refItem;
+    const refDlRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total direct labor')?.refItem;
+
+    // Build synthetic refItem for computed rows (GP, GP%, DL%)
+    const buildSynthRef = (item) => {
+      if (!refIncomeRow) return null;
+      const name = item.account_name?.toLowerCase().trim();
+      const synth = { ...item };
+      for (const mk of MONTH_KEYS) {
+        const refInc = parseFloat(refIncomeRow[mk]) || 0;
+        if (name === 'gross profit') {
+          const refCogs = refCogsRow ? (parseFloat(refCogsRow[mk]) || 0) : 0;
+          synth[mk] = Math.round((refInc - refCogs) * 100) / 100;
+        } else if (name === 'gross profit %') {
+          const refCogs = refCogsRow ? (parseFloat(refCogsRow[mk]) || 0) : 0;
+          synth[mk] = refInc !== 0 ? Math.round(((refInc - refCogs) / refInc) * 1000) / 10 : 0;
+        } else if (name === 'direct labor %') {
+          const refDl = refDlRow ? (parseFloat(refDlRow[mk]) || 0) : 0;
+          synth[mk] = refInc !== 0 ? Math.round((refDl / refInc) * 1000) / 10 : 0;
+        } else {
+          return null; // Don't synthesize for unknown rows
+        }
+      }
+      return synth;
+    };
+
     const result = [];
     for (const row of _allDisplayRows) {
       const { item, refItem, isRefOnly } = row;
       if (isRefOnly) continue;
+      if (item._isScheduledHC) continue;
       const isKeyItem = item._isKpi || item._isHeadcount ||
         (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
         (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
@@ -1247,18 +1276,24 @@ export default function PnlTable({
         // Also inject controllable NOI %
         if (incomeRow) {
           const pctItem = { ...item, account_name: 'Net Operating Income %', row_type: 'percent' };
-          const pctRef = controllableRef ? { ...pctItem } : null;
+          // Find ref income row for % calculation
+          const refIncRowForPct = (() => {
+            const ri = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total income');
+            return ri?.refItem;
+          })();
+          // Use controllable ref values if available, otherwise fall back to regular ref NOI
+          const refNoiValues = refControllableValues || (refItem ? (() => {
+            const vals = {};
+            for (const mk of MONTH_KEYS) vals[mk] = parseFloat(refItem[mk]) || 0;
+            return vals;
+          })() : null);
+          const pctRef = (refNoiValues && refIncRowForPct) ? { ...item, account_name: 'Net Operating Income %', row_type: 'percent' } : null;
           for (const mk of MONTH_KEYS) {
             const inc = parseFloat(incomeRow[mk]) || 0;
             pctItem[mk] = inc !== 0 ? Math.round((controllableValues[mk] / inc) * 1000) / 10 : 0;
-            if (pctRef && refControllableValues) {
-              // Find ref income for %
-              const refInc = refItem ? (() => {
-                const ri = _allDisplayRows.find(r => !r.isRefOnly && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total income');
-                return ri?.refItem;
-              })() : null;
-              const refIncVal = refInc ? (parseFloat(refInc[mk]) || 0) : inc;
-              pctRef[mk] = refIncVal !== 0 ? Math.round((refControllableValues[mk] / refIncVal) * 1000) / 10 : 0;
+            if (pctRef && refNoiValues) {
+              const refIncVal = parseFloat(refIncRowForPct[mk]) || 0;
+              pctRef[mk] = refIncVal !== 0 ? Math.round((refNoiValues[mk] / refIncVal) * 1000) / 10 : 0;
             }
           }
           result.push({ item: pctItem, refItem: pctRef, isRefOnly: false });
@@ -1267,6 +1302,15 @@ export default function PnlTable({
       }
       // Skip the original NOI% row since we inject our own above
       if (isNOIPct(item.account_name)) continue;
+
+      // For computed rows without refItem, build synthetic reference from ref totals
+      if (!refItem && referenceItems?.length > 0 && (item.row_type === 'percent' || item.row_type === 'calculated') && !item._isHeadcount) {
+        const synthRef = buildSynthRef(item);
+        if (synthRef) {
+          result.push({ ...row, refItem: synthRef });
+          continue;
+        }
+      }
 
       result.push(row);
     }
@@ -1850,7 +1894,7 @@ export default function PnlTable({
                   let rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                   if (isMoneyBag) rowBg = 'bg-amber-50';
                   else if (isGP) rowBg = 'bg-green-50';
-                  else if (isDLPct) rowBg = 'bg-amber-50';
+                  else if (item._isKpi) rowBg = 'bg-amber-50';
                   else if (isHeadcount) rowBg = 'bg-emerald-50';
 
                   // Icon
@@ -1904,7 +1948,13 @@ export default function PnlTable({
                         const val = parseFloat(item[mk]) || 0;
                         const isImported = importedMonthKeys.has(mk);
                         const isBoundary = actualCount > 0 && actualCount < 12 && mi === actualCount;
-                        const cellBg = isDLPct ? getDLPercentBg(val) : null;
+                        const crewChanged = item._isCrews && mi > 0 && val > 0 && (() => {
+                          const priorVal = parseFloat(item[MONTH_KEYS[mi - 1]]) || 0;
+                          return priorVal > 0 && val !== priorVal;
+                        })();
+                        const crewBg = crewChanged ? 'rgba(245, 158, 11, 0.25)' : null;
+                        const dlBg = isDLPct ? getDLPercentBg(val) : null;
+                        const cellBg = dlBg || crewBg || null;
                         return (
                           <td key={mk}
                             className={`py-1 px-1 text-right tabular-nums ${val < 0 ? 'text-red-600' : isHeadcount ? 'text-emerald-700 font-semibold' : ''} ${!cellBg && isImported ? 'bg-blue-50/70' : ''} ${isBoundary ? 'border-l-2 border-l-blue-300' : ''}`}

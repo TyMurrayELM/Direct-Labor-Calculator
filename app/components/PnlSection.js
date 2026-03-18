@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { usePnlLineItems, usePnlVersions, mergeAllDepartments } from '../hooks/useSupabase';
+import { usePnlLineItems, usePnlVersions, mergeAllDepartments, mergeBranches } from '../hooks/useSupabase';
 import PnlTable from './PnlTable';
 import PnlVersionBar from './PnlVersionBar';
 import PnlImport from './PnlImport';
@@ -101,8 +101,10 @@ export default function PnlSection({
     defaultsAppliedKey.current = null;
   }, [branchId, year, department]);
 
-  // --- Combined department logic ---
+  // --- Combined department / combined branch logic ---
   const isCombinedDepartment = department === 'all_maintenance';
+  const isCombinedBranch = Array.isArray(branchId);
+  const isReadOnly = isCombinedDepartment || isCombinedBranch;
 
   // Fetch versions
   const { versions: pnlVersions, allRawVersions: pnlAllRawVersions, refetchVersions: refetchPnlVersions } = usePnlVersions(
@@ -113,11 +115,14 @@ export default function PnlSection({
   useEffect(() => {
     if (!pnlVersions || pnlVersions.length === 0 || !pnlDefaults) return;
     // Guard against stale versions from a previous branch/department/year
-    // (the clear effect and fetch are async, so pnlVersions may still hold old data)
     const sample = pnlVersions[0];
-    if (sample?.branch_id !== branchId || sample?.year !== year) return;
+    if (isCombinedBranch) {
+      if (!branchId.includes(sample?.branch_id) || sample?.year !== year) return;
+    } else {
+      if (sample?.branch_id !== branchId || sample?.year !== year) return;
+    }
     if (!isCombinedDepartment && sample?.department !== department) return;
-    const key = `${branchId}-${year}-${department}`;
+    const key = `${JSON.stringify(branchId)}-${year}-${department}`;
     if (defaultsAppliedKey.current === key) return;
     defaultsAppliedKey.current = key;
 
@@ -131,15 +136,15 @@ export default function PnlSection({
     }
   }, [pnlVersions, pnlDefaults, branchId, year, department]);
 
-  // For all_maintenance: map selected version ID to array of version IDs across all 3 departments
+  // For combined views: map selected version ID to array of version IDs across all departments/branches
   const pnlEffectiveVersionId = useMemo(() => {
-    if (!isCombinedDepartment || selectedVersionId === null) return selectedVersionId;
+    if (!isReadOnly || selectedVersionId === null) return selectedVersionId;
     const selectedVersion = pnlVersions.find(v => v.id === selectedVersionId);
     if (!selectedVersion) return selectedVersionId;
     return pnlAllRawVersions
       .filter(v => v.version_name === selectedVersion.version_name)
       .map(v => v.id);
-  }, [isCombinedDepartment, selectedVersionId, pnlVersions, pnlAllRawVersions]);
+  }, [isReadOnly, selectedVersionId, pnlVersions, pnlAllRawVersions]);
 
   // Fetch line items
   const { lineItems: pnlLineItems, importInfo: pnlImportInfo, loading: pnlLoading, refetchPnlData, patchLineItem, addLineItem, reorderLineItems } = usePnlLineItems(
@@ -148,8 +153,8 @@ export default function PnlSection({
 
   // Version helpers
   const currentPnlVersion = selectedVersionId ? pnlVersions.find(v => v.id === selectedVersionId) : null;
-  const isPnlLocked = isCombinedDepartment ? true : (currentPnlVersion?.is_locked || false);
-  const isPnlEditable = isCombinedDepartment ? false : (selectedVersionId === null || !isPnlLocked);
+  const isPnlLocked = isReadOnly ? true : (currentPnlVersion?.is_locked || false);
+  const isPnlEditable = isReadOnly ? false : (selectedVersionId === null || !isPnlLocked);
 
   // Derive imported months
   const importedMonths = useMemo(() => {
@@ -165,33 +170,47 @@ export default function PnlSection({
   // --- Fetch reference items when referenceVersionId changes ---
   useEffect(() => {
     async function fetchRef() {
-      if (!referenceVersionId || !branchId) {
+      if (!referenceVersionId || !branchId || (isCombinedBranch && branchId.length === 0)) {
         setReferenceItems(null);
         return;
       }
       const { createClient } = await import('@supabase/supabase-js');
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
+      // Helper to resolve version IDs for combined views
+      const resolveVersionIds = (refVerIdOrDraft) => {
+        if (refVerIdOrDraft === 'draft') return null; // signals .is('version_id', null)
+        if (!isReadOnly) return refVerIdOrDraft;
+        const refVersion = pnlVersions.find(v => v.id === refVerIdOrDraft);
+        if (refVersion) {
+          return pnlAllRawVersions
+            .filter(v => v.version_name === refVersion.version_name)
+            .map(v => v.id);
+        }
+        return refVerIdOrDraft;
+      };
+
+      const resolvedIds = resolveVersionIds(referenceVersionId);
+
       if (isCombinedDepartment) {
         const ALL_DEPTS = ['maintenance', 'maintenance_onsite', 'maintenance_wo'];
         let q = sb.from('pnl_line_items').select('*')
           .eq('branch_id', branchId).in('department', ALL_DEPTS).eq('year', year)
           .order('row_order');
-        if (referenceVersionId === 'draft') {
-          q = q.is('version_id', null);
-        } else {
-          const refVersion = pnlVersions.find(v => v.id === referenceVersionId);
-          if (refVersion) {
-            const refIds = pnlAllRawVersions
-              .filter(v => v.version_name === refVersion.version_name)
-              .map(v => v.id);
-            q = q.in('version_id', refIds);
-          } else {
-            q = q.eq('version_id', referenceVersionId);
-          }
-        }
+        if (resolvedIds === null) q = q.is('version_id', null);
+        else if (Array.isArray(resolvedIds)) q = q.in('version_id', resolvedIds);
+        else q = q.eq('version_id', resolvedIds);
         const { data } = await q;
         setReferenceItems(mergeAllDepartments(data || []));
+      } else if (isCombinedBranch) {
+        let q = sb.from('pnl_line_items').select('*')
+          .in('branch_id', branchId).eq('department', department).eq('year', year)
+          .order('row_order');
+        if (resolvedIds === null) q = q.is('version_id', null);
+        else if (Array.isArray(resolvedIds)) q = q.in('version_id', resolvedIds);
+        else q = q.eq('version_id', resolvedIds);
+        const { data } = await q;
+        setReferenceItems(mergeBranches(data || []));
       } else {
         let q = sb.from('pnl_line_items').select('*')
           .eq('branch_id', branchId).eq('department', department).eq('year', year)
@@ -206,7 +225,7 @@ export default function PnlSection({
       }
     }
     fetchRef();
-  }, [referenceVersionId, branchId, department, year, isCombinedDepartment, pnlVersions, pnlAllRawVersions]);
+  }, [referenceVersionId, branchId, department, year, isReadOnly, isCombinedDepartment, isCombinedBranch, pnlVersions, pnlAllRawVersions]);
 
   // --- Handlers ---
 
@@ -517,7 +536,7 @@ export default function PnlSection({
     }
   }, [selectedVersionId, currentPnlVersion, pnlImportInfo, isPnlLocked, referenceVersionName, onVersionStateChange]);
 
-  const canImport = !isCombinedDepartment && isEditor && !isPnlLocked;
+  const canImport = !isReadOnly && isEditor && !isPnlLocked;
 
   // --- Render ---
   return (
@@ -528,8 +547,8 @@ export default function PnlSection({
             ? `P&L — ${currentPnlVersion?.version_name || 'Version'}`
             : 'P&L — Working Draft'
           }
-          {isCombinedDepartment && <span className="ml-2 text-sm font-normal text-gray-500">(Read-only)</span>}
-          {!isCombinedDepartment && isPnlLocked && <span className="ml-2 text-sm font-normal text-red-600">(Locked)</span>}
+          {isReadOnly && <span className="ml-2 text-sm font-normal text-gray-500">(Read-only)</span>}
+          {!isReadOnly && isPnlLocked && <span className="ml-2 text-sm font-normal text-red-600">(Locked)</span>}
         </h2>
         {onDepartmentChange && departmentOptions && (
           <select
@@ -659,16 +678,16 @@ export default function PnlSection({
         referenceVersionId={referenceVersionId}
         onSelectReference={setReferenceVersionId}
         importInfo={pnlImportInfo}
-        onVersionSaved={isCombinedDepartment || !isEditor ? undefined : refetchPnlVersions}
+        onVersionSaved={isReadOnly || !isEditor ? undefined : refetchPnlVersions}
         currentVersionLocked={isPnlLocked}
-        onToggleLock={!isCombinedDepartment && isAdmin ? handlePnlToggleLock : undefined}
+        onToggleLock={!isReadOnly && isAdmin ? handlePnlToggleLock : undefined}
         versionNote={currentPnlVersion?.notes || null}
-        onUpdateVersionNote={isCombinedDepartment || !isEditor ? undefined : handleUpdateVersionNote}
+        onUpdateVersionNote={isReadOnly || !isEditor ? undefined : handleUpdateVersionNote}
         hasLineItems={pnlLineItems?.length > 0}
-        onImportComplete={isCombinedDepartment || !isEditor ? undefined : refetchPnlData}
-        readOnly={isCombinedDepartment || !isEditor}
+        onImportComplete={isReadOnly || !isEditor ? undefined : refetchPnlData}
+        readOnly={isReadOnly || !isEditor}
         canDelete={isAdmin}
-        onClearDraft={!isCombinedDepartment && isEditor ? handleClearDraft : undefined}
+        onClearDraft={!isReadOnly && isEditor ? handleClearDraft : undefined}
       />
 
       <PnlTable
@@ -677,25 +696,25 @@ export default function PnlSection({
         loading={pnlLoading}
         year={year}
         importedMonths={importedMonths}
-        onCellChange={isCombinedDepartment || !isEditor ? undefined : handlePnlCellChange}
-        onRowReorder={isCombinedDepartment || !isEditor ? undefined : handlePnlRowReorder}
+        onCellChange={isReadOnly || !isEditor ? undefined : handlePnlCellChange}
+        onRowReorder={isReadOnly || !isEditor ? undefined : handlePnlRowReorder}
         isEditable={isPnlEditable && isEditor}
         isLocked={isPnlLocked}
         referenceItems={referenceItems}
         isAdmin={isAdmin}
-        onToggleAdminOnly={!isCombinedDepartment && isAdmin ? handleToggleAdminOnly : undefined}
-        onTogglePctMode={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleTogglePctMode : undefined}
-        onApplyIncrement={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleApplyIncrement : undefined}
-        onAddRefRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddRefRow : undefined}
-        onAddStructuralRow={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddStructuralRow : undefined}
-        onDeleteLineItem={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleDeleteLineItem : undefined}
-        onAddSubLine={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleAddSubLine : undefined}
-        onRenameSubLine={!isCombinedDepartment && isEditor && isPnlEditable && !isPnlLocked ? handleRenameSubLine : undefined}
-        onUpdateCellNote={isCombinedDepartment ? undefined : handleUpdateCellNote}
+        onToggleAdminOnly={!isReadOnly && isAdmin ? handleToggleAdminOnly : undefined}
+        onTogglePctMode={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleTogglePctMode : undefined}
+        onApplyIncrement={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleApplyIncrement : undefined}
+        onAddRefRow={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleAddRefRow : undefined}
+        onAddStructuralRow={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleAddStructuralRow : undefined}
+        onDeleteLineItem={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleDeleteLineItem : undefined}
+        onAddSubLine={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleAddSubLine : undefined}
+        onRenameSubLine={!isReadOnly && isEditor && isPnlEditable && !isPnlLocked ? handleRenameSubLine : undefined}
+        onUpdateCellNote={isReadOnly ? undefined : handleUpdateCellNote}
         crossDeptConfig={
-          !['maintenance', 'maintenance_onsite', 'maintenance_wo', 'all_maintenance'].includes(department)
-            ? { branchId, year, versionName: currentPnlVersion?.version_name || null, department }
-            : null
+          isReadOnly || ['maintenance', 'maintenance_onsite', 'maintenance_wo', 'all_maintenance'].includes(department)
+            ? null
+            : { branchId, year, versionName: currentPnlVersion?.version_name || null, department }
         }
         department={department}
         branchName={branchName}
@@ -705,8 +724,8 @@ export default function PnlSection({
       {!pnlLoading && !pnlLineItems?.length && (
         <div className="text-center py-8 text-gray-500">
           <p className="text-sm">
-            {isCombinedDepartment
-              ? 'No P&L data across maintenance departments for this branch/year.'
+            {isReadOnly
+              ? 'No P&L data for this combined view.'
               : 'No P&L data. Import a NetSuite Income Statement XLS to get started.'}
           </p>
         </div>

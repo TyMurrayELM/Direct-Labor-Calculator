@@ -1248,12 +1248,16 @@ export default function PnlTable({
     for (const row of _allDisplayRows) {
       const { item, refItem, isRefOnly } = row;
       if (isRefOnly) continue;
-      const isKeyItem = item._isKpi || item._isHeadcount ||
-        (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
-        (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
-        (item.row_type === 'percent' && isNOIPct(item.account_name)) ||
-        ((item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && isNOI(item.account_name)) ||
-        (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim()));
+      // For biz_dev_marketing, only show the two cross-dept KPI rows
+      const isBizDev = department === 'biz_dev_marketing';
+      const isKeyItem = isBizDev
+        ? (item._isKpi && (item.account_name === 'BD Spend % of Maint Rev' || item.account_name === '% of Maintenance Revenue'))
+        : (item._isKpi || item._isHeadcount ||
+          (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
+          (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
+          (item.row_type === 'percent' && isNOIPct(item.account_name)) ||
+          ((item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && isNOI(item.account_name)) ||
+          (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim())));
       if (!isKeyItem) continue;
 
       // For NOI rows, substitute controllable values

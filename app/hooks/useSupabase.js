@@ -1808,8 +1808,118 @@ export function mergeAllDepartments(allItems) {
 }
 
 /**
+ * Merge P&L line items from same department across multiple branches into a single combined view.
+ * Same logic as mergeAllDepartments but groups by branch_id instead of department.
+ */
+export function mergeBranches(allItems) {
+  const byBranch = {};
+  for (const item of allItems) {
+    if (!byBranch[item.branch_id]) byBranch[item.branch_id] = [];
+    byBranch[item.branch_id].push(item);
+  }
+
+  const branchKeys = Object.keys(byBranch);
+  if (branchKeys.length === 0) return [];
+
+  // Use branch with most rows as template
+  const templateKey = branchKeys.reduce((a, b) => byBranch[a].length >= byBranch[b].length ? a : b);
+  const templateRows = byBranch[templateKey];
+  const otherBranches = branchKeys.filter(bk => bk !== templateKey);
+
+  const otherBranchData = otherBranches.map(bk => {
+    const rows = byBranch[bk];
+    const detailsByCode = new Map();
+    for (const row of rows) {
+      if (row.row_type === 'detail' && row.account_code) {
+        detailsByCode.set(row.account_code, row);
+      }
+    }
+    // Index total/calculated rows by normalized name for summing
+    const totalsByName = new Map();
+    for (const row of rows) {
+      if (row.row_type === 'total' || row.row_type === 'calculated') {
+        totalsByName.set(normalizeTotalName(row.account_name), row);
+      }
+    }
+    const totalByCode = buildTotalMembership(rows);
+    return { bk, detailsByCode, totalsByName, totalByCode };
+  });
+
+  const consumedCodes = new Set();
+  const merged = [];
+
+  // Helper to sum month values from other branches into a row
+  const sumRowAcrossBranches = (row, matchFn) => {
+    const summed = { ...row };
+    for (const mk of MONTH_KEYS) {
+      let val = parseFloat(row[mk]) || 0;
+      for (const other of otherBranchData) {
+        const match = matchFn(other);
+        if (match) val += parseFloat(match[mk]) || 0;
+      }
+      summed[mk] = val;
+    }
+    return summed;
+  };
+
+  for (const row of templateRows) {
+    if (row.row_type === 'detail' && row.account_code) {
+      const summed = { ...row };
+      const breakdown = {};
+      for (const mk of MONTH_KEYS) {
+        breakdown[mk] = { [templateKey]: parseFloat(row[mk]) || 0 };
+        let val = parseFloat(row[mk]) || 0;
+        for (const { bk, detailsByCode } of otherBranchData) {
+          const match = detailsByCode.get(row.account_code);
+          const bVal = match ? (parseFloat(match[mk]) || 0) : 0;
+          breakdown[mk][bk] = bVal;
+          val += bVal;
+        }
+        summed[mk] = val;
+      }
+      summed._deptBreakdown = breakdown;
+      merged.push(summed);
+      consumedCodes.add(row.account_code);
+    } else if (row.row_type === 'total' || row.row_type === 'calculated') {
+      if (row.row_type === 'total') {
+        // Insert orphaned detail rows before this total
+        const thisTotalName = normalizeTotalName(row.account_name);
+        for (const { detailsByCode, totalByCode } of otherBranchData) {
+          for (const [code, item] of detailsByCode) {
+            if (!consumedCodes.has(code) && totalByCode.get(code) === thisTotalName) {
+              merged.push({ ...item });
+              consumedCodes.add(code);
+            }
+          }
+        }
+      }
+      // Sum total/calculated row values across branches
+      const rowName = normalizeTotalName(row.account_name);
+      merged.push(sumRowAcrossBranches(row, (o) => o.totalsByName.get(rowName)));
+    } else {
+      merged.push({ ...row });
+    }
+  }
+
+  for (const { detailsByCode } of otherBranchData) {
+    for (const [code, item] of detailsByCode) {
+      if (!consumedCodes.has(code)) {
+        merged.push({ ...item });
+        consumedCodes.add(code);
+      }
+    }
+  }
+
+  for (let i = 0; i < merged.length; i++) {
+    merged[i].row_order = i + 1;
+  }
+
+  return merged;
+}
+
+/**
  * Hook to fetch P&L line items and import metadata
- * @param {number} branchId - The branch ID
+ * @param {number|number[]} branchId - The branch ID or array of branch IDs for combined view
  * @param {string} department - The department name (e.g. 'maintenance') or 'all_maintenance'
  * @param {number} year - The year
  * @param {number|null} versionId - null = working draft, number = saved version
@@ -1827,8 +1937,10 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
     setImportInfo(null);
   }, [branchId, department, year, versionId]);
 
+  const isCombinedBranch = Array.isArray(branchId);
+
   const fetchPnlData = useCallback(async () => {
-    if (!branchId || !department || !year) {
+    if ((!branchId || (isCombinedBranch && branchId.length === 0)) || !department || !year) {
       setLineItems([]);
       setImportInfo(null);
       setLoading(false);
@@ -1842,7 +1954,33 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
 
       const supabaseClient = getSupabaseClient();
 
-      if (isAllMaintenance) {
+      if (isCombinedBranch) {
+        // Combined branch view: fetch from all branches and merge
+        let query = supabaseClient
+          .from('pnl_line_items')
+          .select('*')
+          .in('branch_id', branchId)
+          .eq('department', department)
+          .eq('year', year)
+          .order('row_order');
+
+        if (versionId === null) {
+          query = query.is('version_id', null);
+        } else {
+          query = query.in('version_id', Array.isArray(versionId) ? versionId : [versionId]);
+        }
+
+        const { data: items, error: itemsError } = await query;
+        if (itemsError) {
+          if (itemsError.code === '42P01' || itemsError.message?.includes('does not exist')) {
+            setLineItems([]); setImportInfo(null); setLoading(false); return;
+          }
+          throw itemsError;
+        }
+
+        setLineItems(mergeBranches(items || []));
+        setImportInfo(null);
+      } else if (isAllMaintenance) {
         // Combined view: fetch from all 3 maintenance departments
         // For combined view, versionId is a version name string or null (draft)
         let query = supabaseClient
@@ -1965,7 +2103,7 @@ export function usePnlLineItems(branchId, department, year, versionId = null) {
 
 /**
  * Hook to fetch saved P&L versions
- * @param {number} branchId
+ * @param {number|number[]} branchId
  * @param {string} department
  * @param {number} year
  */
@@ -1974,6 +2112,8 @@ export function usePnlVersions(branchId, department, year) {
   const [allRawVersions, setAllRawVersions] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isCombinedBranch = Array.isArray(branchId);
+
   // Clear stale versions immediately when inputs change (before async fetch)
   useEffect(() => {
     setVersions([]);
@@ -1981,7 +2121,7 @@ export function usePnlVersions(branchId, department, year) {
   }, [branchId, department, year]);
 
   const fetchVersions = useCallback(async () => {
-    if (!branchId || !department || !year) {
+    if ((!branchId || (isCombinedBranch && branchId.length === 0)) || !department || !year) {
       setVersions([]);
       setAllRawVersions([]);
       setLoading(false);
@@ -1989,6 +2129,7 @@ export function usePnlVersions(branchId, department, year) {
     }
 
     const isAllMaintenance = department === 'all_maintenance';
+    const needsDedup = isAllMaintenance || isCombinedBranch;
 
     try {
       setLoading(true);
@@ -1997,10 +2138,17 @@ export function usePnlVersions(branchId, department, year) {
       let query = supabaseClient
         .from('pnl_versions')
         .select('*')
-        .eq('branch_id', branchId)
         .eq('year', year)
         .order('created_at', { ascending: false });
 
+      // Branch filter
+      if (isCombinedBranch) {
+        query = query.in('branch_id', branchId);
+      } else {
+        query = query.eq('branch_id', branchId);
+      }
+
+      // Department filter
       if (isAllMaintenance) {
         query = query.in('department', ALL_MAINTENANCE_DEPARTMENTS);
       } else {
@@ -2019,7 +2167,7 @@ export function usePnlVersions(branchId, department, year) {
         throw error;
       }
 
-      if (isAllMaintenance && data) {
+      if (needsDedup && data) {
         setAllRawVersions(data);
         // Deduplicate by version_name — keep first occurrence (most recent created_at)
         const seen = new Set();

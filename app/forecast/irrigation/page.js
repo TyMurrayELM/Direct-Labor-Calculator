@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  useBranches
+  useBranches,
+  mergeBranches
 } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
@@ -17,6 +18,7 @@ export default function IrrigationForecastPage() {
   );
 
   const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const BRANCH_ICONS = { 'phx - north': '/n.png', 'phx - southeast': '/se.png', 'phx - southwest': '/sw.png', 'las vegas': '/lv.png' };
 
   // State
   const [session, setSession] = useState(null);
@@ -51,32 +53,30 @@ export default function IrrigationForecastPage() {
   // Check if Phoenix (combined) view is selected
   const isPhoenixView = selectedBranchId === 'phoenix';
 
+  // Resolve Phoenix sub-branch IDs for combined view (memoized to avoid infinite re-renders)
+  const phoenixSubBranchIds = useMemo(() =>
+    branches.filter(b => b.name.toLowerCase().includes('phx')).map(b => b.id),
+    [branches]
+  );
+
   // Fetch irrigation P&L metrics for current version and Original Forecast baseline
-  // Only for individual branches (not Phoenix combined view)
   const pnlBranchId = isPhoenixView ? null : selectedBranchId;
+  // Metrics branch IDs: single branch or all Phoenix sub-branches
+  const metricsBranchIds = isPhoenixView ? phoenixSubBranchIds : (pnlBranchId ? [pnlBranchId] : []);
   useEffect(() => {
-    if (!pnlBranchId || !pnlVersionState) { setCurrentMetrics(null); setBaselineMetrics(null); return; }
+    if (metricsBranchIds.length === 0 || !pnlVersionState) { setCurrentMetrics(null); setBaselineMetrics(null); return; }
 
     const normalize = (name) => (name || '').toLowerCase().replace(/^total\s*-\s*/, 'total ').trim();
 
-    const fetchMetrics = async (versionId) => {
-      let query = supabase
-        .from('pnl_line_items')
-        .select('account_name,row_type,row_order,admin_only,indent_level,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec')
-        .eq('branch_id', pnlBranchId)
-        .eq('department', 'irrigation')
-        .eq('year', selectedYear)
-        .is('parent_id', null)
-        .in('row_type', ['section_header', 'account_header', 'detail', 'total', 'calculated'])
-        .order('row_order', { ascending: true });
-      if (versionId && versionId !== 'draft') query = query.eq('version_id', versionId);
-      else query = query.is('version_id', null);
-
-      const { data: items } = await query;
+    // Compute metrics from a list of items (already merged if combined view)
+    // recalcTotals: true for current/draft data (totals may be stale after edits),
+    //               false for saved reference versions (use stored totals to match PnlTable reference display)
+    const computeMetrics = (items, recalcTotals = true) => {
       if (!items?.length) return null;
 
-      // --- Recalculate total rows from detail rows (mirrors PnlTable logic exactly) ---
-      for (let i = 0; i < items.length; i++) {
+      // --- Optionally recalculate total rows from detail rows ---
+      if (!recalcTotals) { /* skip — use stored total values */ }
+      else for (let i = 0; i < items.length; i++) {
         if (items[i].row_type !== 'total') continue;
         const sectionName = normalize(items[i].account_name).replace(/^total\s*/, '').trim();
         if (!sectionName) continue;
@@ -112,7 +112,6 @@ export default function IrrigationForecastPage() {
       const incomeRow = items.find(r => r.row_type === 'total' && normalize(r.account_name) === 'total income');
       const revenue = incomeRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(incomeRow[mk]) || 0), 0) : 0;
 
-      // Always recalculate GP from income - cogs (stored GP row can be stale after edits)
       let cogsRow = items.find(r => r.row_type === 'total' && normalize(r.account_name).startsWith('total cost of'));
       if (!cogsRow && incomeRow) {
         const incIdx = items.indexOf(incomeRow);
@@ -129,7 +128,7 @@ export default function IrrigationForecastPage() {
       const grossProfit = Math.round((revenue - cogs) * 100) / 100;
       const grossMargin = revenue !== 0 ? Math.round((grossProfit / revenue) * 1000) / 10 : 0;
 
-      // --- NOI from indent-level-0 totals (mirrors PnlTable) ---
+      // --- NOI from indent-level-0 totals ---
       const noiRow = items.find(r =>
         (r.row_type === 'total' || r.row_type === 'calculated' || r.row_type === 'section_header') &&
         (normalize(r.account_name) === 'net ordinary income' || normalize(r.account_name) === 'net operating income')
@@ -150,7 +149,7 @@ export default function IrrigationForecastPage() {
         }
       }
 
-      // --- Controllable NOI: re-sum excluding admin_only detail rows ---
+      // --- Controllable NOI ---
       let controllableNoi = 0;
       if (noiRow) {
         const noiIdx = items.indexOf(noiRow);
@@ -183,30 +182,79 @@ export default function IrrigationForecastPage() {
       return { revenue, grossProfit, grossMargin, noi, controllableNoi };
     };
 
-    const fetchBaselineVersionId = async () => {
-      const { data } = await supabase
-        .from('pnl_versions')
-        .select('id')
-        .eq('branch_id', pnlBranchId)
+    // Fetch items for a set of version IDs (multi-branch combined or single branch)
+    const fetchItems = async (branchIds, versionIds) => {
+      let query = supabase
+        .from('pnl_line_items')
+        .select('branch_id,account_code,account_name,row_type,row_order,admin_only,indent_level,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec')
+        .in('branch_id', branchIds)
         .eq('department', 'irrigation')
         .eq('year', selectedYear)
-        .eq('version_name', 'Original Forecast')
-        .limit(1);
-      return data?.[0]?.id || null;
+        .is('parent_id', null)
+        .in('row_type', ['section_header', 'account_header', 'detail', 'total', 'calculated'])
+        .order('row_order', { ascending: true });
+      if (versionIds === null) {
+        query = query.is('version_id', null);
+      } else if (Array.isArray(versionIds)) {
+        query = query.in('version_id', versionIds);
+      } else {
+        query = query.eq('version_id', versionIds);
+      }
+      const { data } = await query;
+      return data || [];
+    };
+
+    // Fetch version IDs by name across branches (one per branch, most recent)
+    const fetchVersionIdsByName = async (branchIds, versionName) => {
+      const { data } = await supabase
+        .from('pnl_versions')
+        .select('id,branch_id')
+        .in('branch_id', branchIds)
+        .eq('department', 'irrigation')
+        .eq('year', selectedYear)
+        .eq('version_name', versionName)
+        .order('created_at', { ascending: false });
+      // Deduplicate: keep only the most recent version per branch
+      const perBranch = new Map();
+      for (const v of (data || [])) {
+        if (!perBranch.has(v.branch_id)) perBranch.set(v.branch_id, v.id);
+      }
+      return [...perBranch.values()];
     };
 
     const run = async () => {
-      const baselineVersionId = await fetchBaselineVersionId();
-      const [current, baseline] = await Promise.all([
-        fetchMetrics(pnlVersionState.selectedVersionId),
-        baselineVersionId ? fetchMetrics(baselineVersionId) : Promise.resolve(null)
-      ]);
-      setCurrentMetrics(current);
-      setBaselineMetrics(baseline);
+      // Resolve current version IDs
+      let currentVersionIds = null; // null = draft
+      if (isPhoenixView && pnlVersionState.versionName) {
+        currentVersionIds = await fetchVersionIdsByName(metricsBranchIds, pnlVersionState.versionName);
+        if (currentVersionIds.length === 0) currentVersionIds = null;
+      } else if (!isPhoenixView) {
+        currentVersionIds = pnlVersionState.selectedVersionId; // single ID or null for draft
+      }
+
+      // Resolve baseline version IDs
+      const baselineVersionIds = await fetchVersionIdsByName(metricsBranchIds, 'Original Forecast');
+
+      // Fetch items and compute metrics
+      const currentItems = await fetchItems(metricsBranchIds, currentVersionIds);
+      const baselineItems = baselineVersionIds.length > 0
+        ? await fetchItems(metricsBranchIds, baselineVersionIds)
+        : [];
+
+      // For combined view, merge across branches first; for single branch, use as-is
+      const mergedCurrent = isPhoenixView && metricsBranchIds.length > 1
+        ? mergeBranches(currentItems)
+        : currentItems;
+      const mergedBaseline = isPhoenixView && metricsBranchIds.length > 1
+        ? mergeBranches(baselineItems)
+        : baselineItems;
+
+      setCurrentMetrics(computeMetrics(mergedCurrent, true));
+      setBaselineMetrics(mergedBaseline.length > 0 ? computeMetrics(mergedBaseline, false) : null);
     };
     run();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pnlBranchId, selectedYear, pnlVersionState?.selectedVersionId]);
+  }, [JSON.stringify(metricsBranchIds), selectedYear, pnlVersionState?.selectedVersionId, pnlVersionState?.versionName]);
 
   // Helper functions
   const formatCurrency = (value) => {
@@ -344,10 +392,11 @@ export default function IrrigationForecastPage() {
                   onClick={() => setSelectedBranchId('phoenix')}
                   className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                     selectedBranchId === 'phoenix'
-                      ? 'bg-blue-600 text-white shadow-md'
+                      ? 'bg-orange-700 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
+                  <img src="/az.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Phoenix
                 </button>
                 {/* All individual branches including sub-branches */}
@@ -361,9 +410,12 @@ export default function IrrigationForecastPage() {
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                     style={{
-                      backgroundColor: selectedBranchId === branch.id ? (branch.color || '#2563EB') : undefined
+                      backgroundColor: selectedBranchId === branch.id ? (branch.name.toLowerCase().includes('vegas') ? '#B8860B' : (branch.color || '#2563EB')) : undefined
                     }}
                   >
+                    {BRANCH_ICONS[branch.name.toLowerCase()] && (
+                      <img src={BRANCH_ICONS[branch.name.toLowerCase()]} alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+                    )}
                     {branch.name}
                   </button>
                 ))}
@@ -386,8 +438,8 @@ export default function IrrigationForecastPage() {
 
           </div>
 
-        {/* Summary Cards (only for individual branches with P&L data) */}
-        {currentMetrics && !isPhoenixView && (
+        {/* Summary Cards */}
+        {currentMetrics && (
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Annual Revenue */}
@@ -425,10 +477,14 @@ export default function IrrigationForecastPage() {
           />
         )}
 
-        {isPhoenixView && (
-          <div className="p-8 text-center text-gray-500">
-            <p className="text-sm">Select an individual branch to view the Irrigation P&L forecast.</p>
-          </div>
+        {isPhoenixView && phoenixSubBranchIds.length > 0 && (
+          <PnlSection
+            branchId={phoenixSubBranchIds}
+            branchName="Phoenix (Combined)"
+            year={selectedYear}
+            department="irrigation"
+            onVersionStateChange={setPnlVersionState}
+          />
         )}
 
       </div>

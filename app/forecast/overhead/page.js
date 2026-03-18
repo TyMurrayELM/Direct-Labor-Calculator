@@ -23,8 +23,8 @@ const OVERHEAD_DEPARTMENTS = [
 // Fixed branch options for overhead departments
 const OVERHEAD_BRANCHES = [
   { key: 'encore', label: 'Encore', color: '#2563EB', dbName: null },
-  { key: 'phoenix', label: 'Phoenix', color: '#EA580C', dbName: 'Phoenix' },
-  { key: 'las_vegas', label: 'Las Vegas', color: '#D97706', dbName: 'Las Vegas' },
+  { key: 'phoenix', label: 'Phoenix', color: '#C2410C', dbName: 'Phoenix' },
+  { key: 'las_vegas', label: 'Las Vegas', color: '#B8860B', dbName: 'Las Vegas' },
   { key: 'corporate', label: 'Corporate', color: '#6B7280', dbName: 'Corporate' },
 ];
 
@@ -196,6 +196,9 @@ export default function OverheadForecastPage() {
                       backgroundColor: selectedBranchKey === branch.key ? branch.color : undefined
                     }}
                   >
+                    {branch.key === 'encore' && <img src="/agave.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />}
+                    {branch.key === 'phoenix' && <img src="/az.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />}
+                    {branch.key === 'las_vegas' && <img src="/lv.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />}
                     {branch.label}
                   </button>
                 ))}

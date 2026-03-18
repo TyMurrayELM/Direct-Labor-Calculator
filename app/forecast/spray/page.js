@@ -17,6 +17,7 @@ export default function SprayForecastPage() {
   );
 
   const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const BRANCH_ICONS = { 'phx - north': '/n.png', 'phx - southeast': '/se.png', 'phx - southwest': '/sw.png', 'las vegas': '/lv.png' };
 
   // State
   const [session, setSession] = useState(null);
@@ -62,7 +63,7 @@ export default function SprayForecastPage() {
 
     const normalize = (name) => (name || '').toLowerCase().replace(/^total\s*-\s*/, 'total ').trim();
 
-    const fetchMetrics = async (versionId) => {
+    const fetchMetrics = async (versionId, recalcTotals = true) => {
       let query = supabase
         .from('pnl_line_items')
         .select('account_name,row_type,row_order,admin_only,indent_level,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec')
@@ -78,8 +79,8 @@ export default function SprayForecastPage() {
       const { data: items } = await query;
       if (!items?.length) return null;
 
-      // --- Recalculate total rows from detail rows (mirrors PnlTable logic exactly) ---
-      for (let i = 0; i < items.length; i++) {
+      // --- Optionally recalculate total rows from detail rows ---
+      if (recalcTotals) for (let i = 0; i < items.length; i++) {
         if (items[i].row_type !== 'total') continue;
         const sectionName = normalize(items[i].account_name).replace(/^total\s*/, '').trim();
         if (!sectionName) continue;
@@ -202,7 +203,7 @@ export default function SprayForecastPage() {
       const baselineVersionId = await fetchBaselineVersionId();
       const [current, baseline] = await Promise.all([
         fetchMetrics(pnlVersionState.selectedVersionId),
-        baselineVersionId ? fetchMetrics(baselineVersionId) : Promise.resolve(null)
+        baselineVersionId ? fetchMetrics(baselineVersionId, false) : Promise.resolve(null)
       ]);
       setCurrentMetrics(current);
       setBaselineMetrics(baseline);
@@ -349,10 +350,11 @@ export default function SprayForecastPage() {
                   onClick={() => setSelectedBranchId('phoenix')}
                   className={`px-2.5 py-1 rounded-md text-sm font-medium transition-all ${
                     selectedBranchId === 'phoenix'
-                      ? 'bg-orange-600 text-white shadow-md'
+                      ? 'bg-orange-700 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
+                  <img src="/az.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Phoenix
                 </button>
                 {/* Individual branches (exclude Phoenix parent and sub-branches) */}
@@ -366,9 +368,12 @@ export default function SprayForecastPage() {
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                     style={{
-                      backgroundColor: selectedBranchId === branch.id ? (branch.color || '#DC2626') : undefined
+                      backgroundColor: selectedBranchId === branch.id ? (branch.name.toLowerCase().includes('vegas') ? '#B8860B' : (branch.color || '#DC2626')) : undefined
                     }}
                   >
+                    {BRANCH_ICONS[branch.name.toLowerCase()] && (
+                      <img src={BRANCH_ICONS[branch.name.toLowerCase()]} alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+                    )}
                     {branch.name}
                   </button>
                 ))}

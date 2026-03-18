@@ -344,7 +344,7 @@ export default function ForecastPage() {
                     hoverBg = 'hover:bg-blue-200';
                   } else if (branchName.includes('vegas')) {
                     lightBg = 'bg-amber-100';
-                    darkBg = 'bg-amber-500';
+                    darkBg = '';
                     lightText = 'text-amber-700';
                     darkText = 'text-white';
                     hoverBg = 'hover:bg-amber-200';
@@ -357,6 +357,8 @@ export default function ForecastPage() {
                   }
 
                   const isSelected = selectedBranchId === branch.id;
+                  const BRANCH_ICONS = { 'phx - north': '/n.png', 'phx - southeast': '/se.png', 'phx - southwest': '/sw.png', 'las vegas': '/lv.png' };
+                  const icon = BRANCH_ICONS[branch.name.toLowerCase()];
 
                   return (
                     <button
@@ -367,7 +369,9 @@ export default function ForecastPage() {
                           ? `${darkBg} ${darkText} shadow-md`
                           : `${lightBg} ${lightText} ${hoverBg}`
                       }`}
+                      style={isSelected && branchName.includes('vegas') ? { backgroundColor: '#B8860B' } : undefined}
                     >
+                      {icon && <img src={icon} alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />}
                       {branch.name.replace('Phoenix ', '').replace('Las Vegas', 'LV')}
                     </button>
                   );
@@ -376,10 +380,11 @@ export default function ForecastPage() {
                   onClick={() => setSelectedBranchId('phoenix')}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm ${
                     selectedBranchId === 'phoenix'
-                      ? 'bg-orange-500 text-white shadow-md'
+                      ? 'bg-orange-700 text-white shadow-md'
                       : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                   }`}
                 >
+                  <img src="/az.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Phoenix
                 </button>
                 <button
@@ -390,6 +395,7 @@ export default function ForecastPage() {
                       : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                   }`}
                 >
+                  <img src="/agave.png" alt="" className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Encore
                 </button>
               </div>

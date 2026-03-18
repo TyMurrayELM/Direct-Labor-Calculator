@@ -130,6 +130,14 @@ const ARBOR_HOURLY_COST = 29.00;
 const SPRAY_BILLING_RATE = 150.00;
 const SPRAY_LABOR_PERCENT = 0.90;
 const SPRAY_HOURLY_COST = 40.00;
+const ENHANCE_BILLING_RATE = 90.00;
+const ENHANCE_LABOR_PERCENT = 0.70;
+const ENHANCE_HOURLY_COST = 29.00;
+const ENHANCE_CREW_SIZE = 4;
+const IRRIG_BILLING_RATE = 105.00;
+const IRRIG_LABOR_PERCENT = 0.85;
+const IRRIG_BILLABLE_PERCENT = 0.75;
+const IRRIG_HOURLY_COST = 35.00;
 
 /**
  * P&L Table with editable cells and comparison columns
@@ -561,6 +569,89 @@ export default function PnlTable({
           result.push({
             account_code: null, account_name: 'Hours Efficiency %', full_label: 'Hours Efficiency %',
             row_type: 'percent', indent_level: 0, admin_only: li.admin_only, _isKpi: true, _effTooltips: effTooltips, ...effValues
+          });
+        }
+
+        // Inject FTEs Required for enhancements department (Revenue * 70% labor / $90 billing rate / hours per month)
+        if (department === 'enhancements') {
+          const enhHcValues = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            const laborRevenue = income * ENHANCE_LABOR_PERCENT;
+            enhHcValues[mk] = laborRevenue > 0 ? +(laborRevenue / ENHANCE_BILLING_RATE / HOURS_PER_MONTH).toFixed(1) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'FTEs Required', full_label: 'FTEs Required',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, ...enhHcValues
+          });
+
+          const enhCrewValues = {};
+          for (const mk of MONTH_KEYS) {
+            const ftes = enhHcValues[mk] || 0;
+            enhCrewValues[mk] = ftes > 0 ? Math.ceil(ftes / ENHANCE_CREW_SIZE) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'Crews Needed (4m)', full_label: 'Crews Needed (4m)',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, _isCrews: true, ...enhCrewValues
+          });
+
+          // Hours Efficiency %: Revenue / ((Total DL / $29 hourly cost) * $90 billing rate)
+          const enhEffValues = {};
+          const enhEffTooltips = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            const dl = Math.abs(parseFloat(li[mk]) || 0);
+            if (income > 0 && dl > 0) {
+              const theoreticalHours = dl / ENHANCE_HOURLY_COST;
+              const projectedRevenue = theoreticalHours * ENHANCE_BILLING_RATE;
+              enhEffValues[mk] = Math.round((income / projectedRevenue) * 1000) / 10;
+              const fmt = v => '$' + Math.round(v).toLocaleString();
+              enhEffTooltips[mk] = `DL: ${fmt(dl)} ÷ $${ENHANCE_HOURLY_COST}/hr = ${Math.round(theoreticalHours).toLocaleString()} hrs\n${Math.round(theoreticalHours).toLocaleString()} hrs × $${ENHANCE_BILLING_RATE}/hr = ${fmt(projectedRevenue)}\n${fmt(income)} Rev ÷ ${fmt(projectedRevenue)} = ${enhEffValues[mk]}%`;
+            } else {
+              enhEffValues[mk] = 0;
+            }
+          }
+          result.push({
+            account_code: null, account_name: 'Hours Efficiency %', full_label: 'Hours Efficiency %',
+            row_type: 'percent', indent_level: 0, admin_only: li.admin_only, _isKpi: true, _effTooltips: enhEffTooltips, ...enhEffValues
+          });
+        }
+
+        // Inject FTEs Required for irrigation department
+        // FTEs = (Revenue * 85% labor / $105 billing) / 75% billable / 173.33 hrs
+        if (department === 'irrigation') {
+          const irrHcValues = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            const laborRevenue = income * IRRIG_LABOR_PERCENT;
+            const billableHours = laborRevenue / IRRIG_BILLING_RATE;
+            const totalHours = billableHours / IRRIG_BILLABLE_PERCENT;
+            irrHcValues[mk] = totalHours > 0 ? +(totalHours / HOURS_PER_MONTH).toFixed(1) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'FTEs Required', full_label: 'FTEs Required',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, ...irrHcValues
+          });
+
+          // Hours Efficiency %: Revenue / ((Total DL / $35 hourly cost) * $105 billing rate)
+          const irrEffValues = {};
+          const irrEffTooltips = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            const dl = Math.abs(parseFloat(li[mk]) || 0);
+            if (income > 0 && dl > 0) {
+              const theoreticalHours = dl / IRRIG_HOURLY_COST;
+              const projectedRevenue = theoreticalHours * IRRIG_BILLING_RATE;
+              irrEffValues[mk] = Math.round((income / projectedRevenue) * 1000) / 10;
+              const fmt = v => '$' + Math.round(v).toLocaleString();
+              irrEffTooltips[mk] = `DL: ${fmt(dl)} ÷ $${IRRIG_HOURLY_COST}/hr = ${Math.round(theoreticalHours).toLocaleString()} hrs\n${Math.round(theoreticalHours).toLocaleString()} hrs × $${IRRIG_BILLING_RATE}/hr = ${fmt(projectedRevenue)}\n${fmt(income)} Rev ÷ ${fmt(projectedRevenue)} = ${irrEffValues[mk]}%`;
+            } else {
+              irrEffValues[mk] = 0;
+            }
+          }
+          result.push({
+            account_code: null, account_name: 'Effective Billable Time %', full_label: 'Effective Billable Time %',
+            row_type: 'percent', indent_level: 0, admin_only: li.admin_only, _isKpi: true, _effTooltips: irrEffTooltips, ...irrEffValues
           });
         }
 
@@ -2212,7 +2303,7 @@ export default function PnlTable({
                         })()}
                         {item._isCrews ? <span className="mr-1" style={{ fontSize: '13px' }}>&#128666;</span> : item._isHeadcount && <span className="mr-1" style={{ fontSize: '13px' }}>&#128101;</span>}
                         {item._isKpi && <span className="text-amber-600 mr-1" style={{ fontSize: '12px' }}>&#9733;</span>}
-                        {item.row_type === 'detail' && (item.account_name?.toLowerCase().trim() === 'maintenance recurring' || item.account_name?.toLowerCase().trim() === 'arbor' || item.account_name?.toLowerCase().trim() === 'spray') && <span className="mr-1" style={{ fontSize: '13px' }}>&#128176;</span>}
+                        {item.row_type === 'detail' && (item.account_name?.toLowerCase().trim() === 'maintenance recurring' || item.account_name?.toLowerCase().trim() === 'arbor' || item.account_name?.toLowerCase().trim() === 'spray' || item.account_name?.toLowerCase().trim() === 'enhancements' || item.account_name?.toLowerCase().trim() === 'irrigation') && <span className="mr-1" style={{ fontSize: '13px' }}>&#128176;</span>}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
                         {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (

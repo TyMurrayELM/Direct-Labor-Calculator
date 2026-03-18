@@ -115,16 +115,21 @@ export default function SprayForecastPage() {
       const incomeRow = items.find(r => r.row_type === 'total' && normalize(r.account_name) === 'total income');
       const revenue = incomeRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(incomeRow[mk]) || 0), 0) : 0;
 
-      // Use stored Gross Profit row if it exists (matches what PnlTable displays), otherwise compute from income - cogs
-      const gpRow = items.find(r => r.row_type === 'calculated' && r.account_name?.toLowerCase().trim() === 'gross profit');
-      let grossProfit;
-      if (gpRow) {
-        grossProfit = MONTH_KEYS.reduce((s, mk) => s + (parseFloat(gpRow[mk]) || 0), 0);
-      } else {
-        const cogsRow = items.find(r => r.row_type === 'total' && normalize(r.account_name).startsWith('total cost of'));
-        const cogs = cogsRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(cogsRow[mk]) || 0), 0) : 0;
-        grossProfit = Math.round((revenue - cogs) * 100) / 100;
+      // Always recalculate GP from income - cogs (stored GP row can be stale after edits)
+      let cogsRow = items.find(r => r.row_type === 'total' && normalize(r.account_name).startsWith('total cost of'));
+      if (!cogsRow && incomeRow) {
+        const incIdx = items.indexOf(incomeRow);
+        for (let k = incIdx + 1; k < items.length; k++) {
+          if (items[k].row_type === 'total' && (items[k].indent_level || 0) === 0) {
+            const tn = normalize(items[k].account_name);
+            if (!tn.startsWith('total income') && !tn.startsWith('total other income')) {
+              cogsRow = items[k]; break;
+            }
+          }
+        }
       }
+      const cogs = cogsRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(cogsRow[mk]) || 0), 0) : 0;
+      const grossProfit = Math.round((revenue - cogs) * 100) / 100;
       const grossMargin = revenue !== 0 ? Math.round((grossProfit / revenue) * 1000) / 10 : 0;
 
       // --- NOI from indent-level-0 totals (mirrors PnlTable) ---

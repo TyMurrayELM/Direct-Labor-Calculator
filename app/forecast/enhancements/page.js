@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  useBranches,
-  useRevenueForecasts,
-  useAllBranchForecasts
+  useBranches
 } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
@@ -17,30 +15,19 @@ export default function EnhancementsForecastPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
-  
-  // Constants for Enhancements department
-  const ENHANCEMENT_REVENUE_PERCENT = 0.40; // 40% of (Maintenance + Onsite) Revenue
-  const LABOR_REVENUE_PERCENT = 0.70; // 70% of Enhancement Revenue goes to labor
-  const BILLING_RATE = 90; // $90/hr billing rate
-  const HOURLY_COST = 29; // $29/hr fully burdened cost
-  const HOURS_PER_MONTH = 173.33; // ~40 hrs/week * 4.333 weeks
-  const CREW_SIZE = 4;
-  
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
+
+  const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
   // State
   const [session, setSession] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [saveMessage, setSaveMessage] = useState(null);
-  
-  // Fetch data from Maintenance forecasts
+  const [pnlVersionState, setPnlVersionState] = useState(null);
+  const [currentMetrics, setCurrentMetrics] = useState(null);
+  const [baselineMetrics, setBaselineMetrics] = useState(null);
+
   const { branches, loading: branchesLoading } = useBranches();
-  // Only fetch single branch forecasts when we have a valid numeric branch ID (not 'phoenix' or null)
-  const validBranchId = selectedBranchId && selectedBranchId !== 'phoenix' ? selectedBranchId : null;
-  const { forecasts, loading: forecastsLoading } = useRevenueForecasts(validBranchId, selectedYear);
-  const { forecasts: allBranchForecasts, loading: allForecastsLoading } = useAllBranchForecasts(selectedYear);
-  
+
   // Check authentication
   useEffect(() => {
     const getSession = async () => {
@@ -53,13 +40,176 @@ export default function EnhancementsForecastPage() {
     };
     getSession();
   }, [router, supabase.auth]);
-  
+
   // Set Phoenix as default when branches load
   useEffect(() => {
     if (branches.length > 0 && !selectedBranchId) {
       setSelectedBranchId('phoenix');
     }
   }, [branches, selectedBranchId]);
+
+  // Check if Phoenix (combined) view is selected
+  const isPhoenixView = selectedBranchId === 'phoenix';
+
+  // Phoenix parent branch ID for region-level P&L
+  const phoenixBranchId = branches.find(b => b.name === 'Phoenix')?.id || null;
+
+  // Fetch enhancements P&L metrics for current version and Original Forecast baseline
+  const pnlBranchId = isPhoenixView ? phoenixBranchId : selectedBranchId;
+  useEffect(() => {
+    if (!pnlBranchId || !pnlVersionState) { setCurrentMetrics(null); setBaselineMetrics(null); return; }
+
+    const normalize = (name) => (name || '').toLowerCase().replace(/^total\s*-\s*/, 'total ').trim();
+
+    const fetchMetrics = async (versionId) => {
+      let query = supabase
+        .from('pnl_line_items')
+        .select('account_name,row_type,row_order,admin_only,indent_level,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec')
+        .eq('branch_id', pnlBranchId)
+        .eq('department', 'enhancements')
+        .eq('year', selectedYear)
+        .is('parent_id', null)
+        .in('row_type', ['section_header', 'account_header', 'detail', 'total', 'calculated'])
+        .order('row_order', { ascending: true });
+      if (versionId && versionId !== 'draft') query = query.eq('version_id', versionId);
+      else query = query.is('version_id', null);
+
+      const { data: items } = await query;
+      if (!items?.length) return null;
+
+      // --- Recalculate total rows from detail rows (mirrors PnlTable logic exactly) ---
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].row_type !== 'total') continue;
+        const sectionName = normalize(items[i].account_name).replace(/^total\s*/, '').trim();
+        if (!sectionName) continue;
+
+        let headerIdx = -1;
+        for (let j = i - 1; j >= 0; j--) {
+          if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+              items[j].account_name?.toLowerCase().trim() === sectionName) {
+            headerIdx = j; break;
+          }
+        }
+        if (headerIdx < 0) {
+          for (let j = 0; j < items.length; j++) {
+            if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+                items[j].account_name?.toLowerCase().trim() === sectionName) {
+              headerIdx = j; break;
+            }
+          }
+        }
+        if (headerIdx < 0) continue;
+
+        const sumEnd = i > headerIdx ? i : items.length;
+        for (const mk of MONTH_KEYS) {
+          let sum = 0;
+          for (let j = headerIdx + 1; j < sumEnd; j++) {
+            if (items[j].row_type === 'detail') sum += parseFloat(items[j][mk]) || 0;
+          }
+          items[i][mk] = Math.round(sum * 100) / 100;
+        }
+      }
+
+      // --- Revenue and Gross Profit ---
+      const incomeRow = items.find(r => r.row_type === 'total' && normalize(r.account_name) === 'total income');
+      const revenue = incomeRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(incomeRow[mk]) || 0), 0) : 0;
+
+      // Always recalculate GP from income - cogs (stored GP row can be stale after edits)
+      let cogsRow = items.find(r => r.row_type === 'total' && normalize(r.account_name).startsWith('total cost of'));
+      if (!cogsRow && incomeRow) {
+        // Fallback: first indent-0 total after income that isn't another income section
+        const incIdx = items.indexOf(incomeRow);
+        for (let k = incIdx + 1; k < items.length; k++) {
+          if (items[k].row_type === 'total' && (items[k].indent_level || 0) === 0) {
+            const tn = normalize(items[k].account_name);
+            if (!tn.startsWith('total income') && !tn.startsWith('total other income')) {
+              cogsRow = items[k]; break;
+            }
+          }
+        }
+      }
+      const cogs = cogsRow ? MONTH_KEYS.reduce((s, mk) => s + (parseFloat(cogsRow[mk]) || 0), 0) : 0;
+      const grossProfit = Math.round((revenue - cogs) * 100) / 100;
+      const grossMargin = revenue !== 0 ? Math.round((grossProfit / revenue) * 1000) / 10 : 0;
+
+      // --- NOI from indent-level-0 totals (mirrors PnlTable) ---
+      const noiRow = items.find(r =>
+        (r.row_type === 'total' || r.row_type === 'calculated' || r.row_type === 'section_header') &&
+        (normalize(r.account_name) === 'net ordinary income' || normalize(r.account_name) === 'net operating income')
+      );
+      let noi = 0;
+      if (noiRow) {
+        const noiIdx = items.indexOf(noiRow);
+        for (let j = 0; j < noiIdx; j++) {
+          if (items[j].row_type !== 'total' || (items[j].indent_level || 0) > 0) continue;
+          const tn = normalize(items[j].account_name);
+          if (!tn.startsWith('total ')) continue;
+          const sn = tn.replace(/^total\s*/, '');
+          const isIncome = sn === 'income' || sn.startsWith('other income');
+          noi += MONTH_KEYS.reduce((s, mk) => {
+            const v = parseFloat(items[j][mk]) || 0;
+            return s + (isIncome ? v : -v);
+          }, 0);
+        }
+      }
+
+      // --- Controllable NOI: re-sum excluding admin_only detail rows ---
+      let controllableNoi = 0;
+      if (noiRow) {
+        const noiIdx = items.indexOf(noiRow);
+        for (let i = 0; i < noiIdx; i++) {
+          if (items[i].row_type !== 'total' || (items[i].indent_level || 0) > 0) continue;
+          const tn = normalize(items[i].account_name);
+          if (!tn.startsWith('total ')) continue;
+          const sectionName = tn.replace(/^total\s*/, '').trim();
+
+          let headerIdx = -1;
+          for (let j = i - 1; j >= 0; j--) {
+            if ((items[j].row_type === 'section_header' || items[j].row_type === 'account_header') &&
+                items[j].account_name?.toLowerCase().trim() === sectionName) {
+              headerIdx = j; break;
+            }
+          }
+          if (headerIdx < 0) continue;
+
+          const isIncome = sectionName === 'income' || sectionName.startsWith('other income');
+          let sectionSum = 0;
+          for (let j = headerIdx + 1; j < i; j++) {
+            if (items[j].row_type === 'detail' && !items[j].admin_only) {
+              sectionSum += MONTH_KEYS.reduce((s, mk) => s + (parseFloat(items[j][mk]) || 0), 0);
+            }
+          }
+          controllableNoi += isIncome ? sectionSum : -sectionSum;
+        }
+      }
+
+      return { revenue, grossProfit, grossMargin, noi, controllableNoi };
+    };
+
+    const fetchBaselineVersionId = async () => {
+      const { data } = await supabase
+        .from('pnl_versions')
+        .select('id')
+        .eq('branch_id', pnlBranchId)
+        .eq('department', 'enhancements')
+        .eq('year', selectedYear)
+        .eq('version_name', 'Original Forecast')
+        .limit(1);
+      return data?.[0]?.id || null;
+    };
+
+    const run = async () => {
+      const baselineVersionId = await fetchBaselineVersionId();
+      const [current, baseline] = await Promise.all([
+        fetchMetrics(pnlVersionState.selectedVersionId),
+        baselineVersionId ? fetchMetrics(baselineVersionId) : Promise.resolve(null)
+      ]);
+      setCurrentMetrics(current);
+      setBaselineMetrics(baseline);
+    };
+    run();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pnlBranchId, selectedYear, pnlVersionState?.selectedVersionId]);
 
   // Helper functions
   const formatCurrency = (value) => {
@@ -71,204 +221,56 @@ export default function EnhancementsForecastPage() {
     }).format(value);
   };
 
-  const formatNumber = (value, decimals = 1) => {
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    });
-  };
-
-  // Check if Phoenix (combined) view is selected
-  const isPhoenixView = selectedBranchId === 'phoenix';
-
-  // Phoenix parent branch ID for region-level P&L
-  const phoenixBranchId = branches.find(b => b.name === 'Phoenix')?.id || null;
-
-  // Get Phoenix branches for combined view (Phx - North, Phx - SouthEast, Phx - SouthWest)
-  const phoenixBranches = branches.filter(b => b.name.toLowerCase().includes('phx'));
-
   // Get selected branch info
-  const selectedBranch = isPhoenixView 
+  const selectedBranch = isPhoenixView
     ? { name: 'Phoenix (Combined)', color: '#7C3AED' }
     : branches.find(b => b.id === selectedBranchId) || {};
 
-  // Get maintenance revenue data
-  const getMaintenanceRevenue = (month) => {
-    if (isPhoenixView) {
-      // Combine all Phoenix branches
-      let total = 0;
-      phoenixBranches.forEach(branch => {
-        const branchForecasts = allBranchForecasts[branch.id] || [];
-        const forecast = branchForecasts.find(f => f.month === month);
-        if (forecast) {
-          total += parseFloat(forecast.forecast_revenue) || 0;
-        }
-      });
-      return total;
-    } else {
-      const forecast = forecasts?.find(f => f.month === month);
-      return forecast ? parseFloat(forecast.forecast_revenue) || 0 : 0;
-    }
+  const versionLabel = isPhoenixView ? 'Phoenix' : (selectedBranch?.name || '');
+  const versionSuffix = pnlVersionState?.versionName ? ` \u00b7 ${pnlVersionState.versionName}` : ' \u00b7 Draft';
+
+  const renderSummaryCard = (title, gradient, currentVal, baselineVal, upIsGood, subtitle, baselineSubtitle) => {
+    const delta = baselineVal != null && currentVal != null ? currentVal - baselineVal : null;
+    const pctChange = delta !== null && baselineVal !== 0 ? (delta / Math.abs(baselineVal)) * 100 : null;
+    const isPositive = upIsGood ? delta > 0 : delta < 0;
+
+    return (
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className={`bg-gradient-to-r ${gradient} px-4 py-2`}>
+          <div className="text-white text-xs font-semibold tracking-wide uppercase">{title}</div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="text-2xl font-bold text-gray-900">{formatCurrency(currentVal)}</div>
+          {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
+          {baselineVal != null && (
+            <div className="text-xs text-gray-500 mt-1">
+              Original Forecast: {formatCurrency(baselineVal)}{baselineSubtitle ? ` (${baselineSubtitle})` : ''}
+            </div>
+          )}
+          {delta !== null && delta !== 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {delta > 0 ? '\u2191' : '\u2193'} {formatCurrency(Math.abs(delta))}
+                {pctChange !== null && <span className="font-normal ml-0.5">({Math.abs(pctChange).toFixed(1)}%)</span>}
+              </span>
+              <span className="text-[10px] text-gray-500">vs Original Forecast</span>
+            </div>
+          )}
+        </div>
+        <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-500">
+          {versionLabel}{versionSuffix}
+        </div>
+      </div>
+    );
   };
-
-  // Get onsite revenue data
-  const getOnsiteRevenue = (month) => {
-    if (isPhoenixView) {
-      // Combine all Phoenix branches
-      let total = 0;
-      phoenixBranches.forEach(branch => {
-        const branchForecasts = allBranchForecasts[branch.id] || [];
-        const forecast = branchForecasts.find(f => f.month === month);
-        if (forecast) {
-          total += parseFloat(forecast.onsite_revenue) || 0;
-        }
-      });
-      return total;
-    } else {
-      const forecast = forecasts?.find(f => f.month === month);
-      return forecast ? parseFloat(forecast.onsite_revenue) || 0 : 0;
-    }
-  };
-
-  // Calculate Enhancement metrics for a given maintenance and onsite revenue
-  const calculateEnhancementMetrics = (maintenanceRevenue, onsiteRevenue) => {
-    const combinedRevenue = maintenanceRevenue + onsiteRevenue;
-    const enhancementRevenue = combinedRevenue * ENHANCEMENT_REVENUE_PERCENT;
-    const laborRevenue = enhancementRevenue * LABOR_REVENUE_PERCENT;
-    const nonLaborRevenue = enhancementRevenue - laborRevenue;
-    const billableHours = laborRevenue / BILLING_RATE;
-    const laborCost = billableHours * HOURLY_COST;
-    const ftes = billableHours / HOURS_PER_MONTH;
-    const crews = ftes / CREW_SIZE;
-    
-    return {
-      maintenanceRevenue,
-      onsiteRevenue,
-      combinedRevenue,
-      enhancementRevenue,
-      laborRevenue,
-      nonLaborRevenue,
-      billableHours,
-      laborCost,
-      ftes,
-      crews
-    };
-  };
-
-  // Calculate monthly data
-  const monthlyData = months.map(month => {
-    const maintenanceRevenue = getMaintenanceRevenue(month);
-    const onsiteRevenue = getOnsiteRevenue(month);
-    return {
-      month,
-      ...calculateEnhancementMetrics(maintenanceRevenue, onsiteRevenue)
-    };
-  });
-
-  // Calculate totals
-  const totals = monthlyData.reduce((acc, d) => ({
-    maintenanceRevenue: acc.maintenanceRevenue + d.maintenanceRevenue,
-    onsiteRevenue: acc.onsiteRevenue + d.onsiteRevenue,
-    combinedRevenue: acc.combinedRevenue + d.combinedRevenue,
-    enhancementRevenue: acc.enhancementRevenue + d.enhancementRevenue,
-    laborRevenue: acc.laborRevenue + d.laborRevenue,
-    nonLaborRevenue: acc.nonLaborRevenue + d.nonLaborRevenue,
-    billableHours: acc.billableHours + d.billableHours,
-    laborCost: acc.laborCost + d.laborCost
-  }), {
-    maintenanceRevenue: 0,
-    onsiteRevenue: 0,
-    combinedRevenue: 0,
-    enhancementRevenue: 0,
-    laborRevenue: 0,
-    nonLaborRevenue: 0,
-    billableHours: 0,
-    laborCost: 0
-  });
-
-  const avgFtes = totals.billableHours / HOURS_PER_MONTH / 12;
-  const avgCrews = avgFtes / CREW_SIZE;
 
   // Year options
   const yearOptions = [2025, 2026, 2027];
 
-  // CSV Export Function - Horizontal layout matching the UI
-  const exportToCSV = () => {
-    try {
-      setSaveMessage({ type: 'success', text: 'Preparing export...' });
-      
-      const branchName = isPhoenixView ? 'Phoenix_Combined' : (selectedBranch.name || 'Unknown').replace(/\s+/g, '_');
-      
-      // Escape CSV values
-      const escapeCSV = (value) => {
-        if (value === null || value === undefined) return '';
-        const str = String(value);
-        return (str.includes(',') || str.includes('"') || str.includes('\n')) 
-          ? `"${str.replace(/"/g, '""')}"` 
-          : str;
-      };
-      
-      // Build rows (each row is a metric, columns are months + total)
-      const rows = [];
-      
-      // Header row
-      rows.push(['Metric', ...months, 'Total']);
-      
-      // Maintenance Revenue (source)
-      rows.push(['Maintenance Revenue', ...monthlyData.map(d => d.maintenanceRevenue), totals.maintenanceRevenue]);
-      
-      // Onsite Revenue (source)
-      rows.push(['Onsite Revenue', ...monthlyData.map(d => d.onsiteRevenue), totals.onsiteRevenue]);
-      
-      // Combined Revenue (source)
-      rows.push(['Combined Revenue (Maint + Onsite)', ...monthlyData.map(d => d.combinedRevenue), totals.combinedRevenue]);
-      
-      // Enhancement Revenue Target
-      rows.push(['Enhancement Revenue (40% of Combined)', ...monthlyData.map(d => d.enhancementRevenue), totals.enhancementRevenue]);
-      
-      // Labor Revenue
-      rows.push(['Labor Revenue (70%)', ...monthlyData.map(d => d.laborRevenue), totals.laborRevenue]);
-      
-      // Non-Labor Revenue
-      rows.push(['Non-Labor Revenue (30%)', ...monthlyData.map(d => d.nonLaborRevenue), totals.nonLaborRevenue]);
-      
-      // Billable Hours
-      rows.push(['Billable Hours (@$90/hr)', ...monthlyData.map(d => Math.round(d.billableHours)), Math.round(totals.billableHours)]);
-      
-      // Labor Cost
-      rows.push(['Labor Cost (@$29/hr)', ...monthlyData.map(d => d.laborCost), totals.laborCost]);
-      
-      // FTEs Required
-      rows.push(['FTEs Required', ...monthlyData.map(d => d.ftes.toFixed(1)), avgFtes.toFixed(1) + ' (avg)']);
-      
-      // Crews Required
-      rows.push(['Crews (4-person)', ...monthlyData.map(d => Math.ceil(d.crews)), Math.ceil(avgCrews) + ' (avg)']);
-      
-      // Build CSV content
-      const csvContent = rows.map(row => row.map(escapeCSV).join(',')).join('\n');
-      
-      // Create and trigger download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.setAttribute('href', URL.createObjectURL(blob));
-      link.setAttribute('download', `Enhancement_FTE_Forecast_${branchName}_${selectedYear}_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      setSaveMessage({ type: 'success', text: 'Export complete!' });
-      setTimeout(() => setSaveMessage(null), 3000);
-    } catch (err) {
-      console.error('Export error:', err);
-      setSaveMessage({ type: 'error', text: 'Error exporting data' });
-      setTimeout(() => setSaveMessage(null), 3000);
-    }
-  };
+  const isLoading = branchesLoading;
 
-  // Loading state - only wait for forecastsLoading when we have a valid branch selected
-  const isLoading = branchesLoading || allForecastsLoading || (validBranchId && forecastsLoading);
-  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-purple-50">
@@ -307,14 +309,14 @@ export default function EnhancementsForecastPage() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Enhancement FTE Forecast</h1>
-                <p className="text-sm text-gray-700 mt-1">Based on Maintenance Revenue projections</p>
+                <h1 className="text-2xl font-bold text-gray-800">Enhancements Forecast</h1>
+                <p className="text-sm text-gray-700 mt-1">P&L Forecast</p>
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
-              <Link 
-                href="/forecast" 
+              <Link
+                href="/forecast"
                 className="px-2 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -322,9 +324,9 @@ export default function EnhancementsForecastPage() {
                 </svg>
                 <span>Maintenance Forecast</span>
               </Link>
-              
-              <Link 
-                href="/" 
+
+              <Link
+                href="/"
                 className="px-2 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-colors flex items-center space-x-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -334,7 +336,7 @@ export default function EnhancementsForecastPage() {
               </Link>
             </div>
           </div>
-          
+
           {/* Branch & Year Selector */}
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
@@ -343,7 +345,7 @@ export default function EnhancementsForecastPage() {
                 {/* Phoenix Combined Button */}
                 <button
                   onClick={() => setSelectedBranchId('phoenix')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                     selectedBranchId === 'phoenix'
                       ? 'bg-purple-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -351,12 +353,12 @@ export default function EnhancementsForecastPage() {
                 >
                   Phoenix
                 </button>
-                {/* All individual branches */}
-                {branches.filter(b => b.name !== 'Phoenix').map(branch => (
+                {/* Individual branches (exclude Phoenix parent and sub-branches) */}
+                {branches.filter(b => b.name !== 'Phoenix' && !b.name.toLowerCase().includes('phx')).map(branch => (
                   <button
                     key={branch.id}
                     onClick={() => setSelectedBranchId(branch.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                       selectedBranchId === branch.id
                         ? 'text-white shadow-md'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -370,7 +372,7 @@ export default function EnhancementsForecastPage() {
                 ))}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">Year:</label>
               <select
@@ -383,260 +385,34 @@ export default function EnhancementsForecastPage() {
                 ))}
               </select>
             </div>
-            
-            {/* Export CSV Button */}
-            <button
-              onClick={exportToCSV}
-              className="px-4 py-2 bg-white text-purple-700 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors shadow-sm font-medium flex items-center space-x-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              <span>Export CSV</span>
-            </button>
           </div>
-          
-          {/* Message */}
-          {saveMessage && (
-            <div className={`p-3 rounded-lg mb-4 ${
-              saveMessage.type === 'success' 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
-              {saveMessage.text}
-            </div>
-          )}
-          
-          {/* Constants Display */}
-          <div className="flex flex-wrap gap-4 text-sm bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Enhancement Target:</span>
-              <span className="text-purple-700 font-semibold">40% of (Maint + Onsite)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Labor Split:</span>
-              <span className="text-purple-700 font-semibold">70% Labor / 30% Non-Labor</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Billing Rate:</span>
-              <span className="text-purple-700 font-semibold">${BILLING_RATE}/hr</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Labor Cost:</span>
-              <span className="text-purple-700 font-semibold">${HOURLY_COST}/hr</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Crew Size:</span>
-              <span className="text-purple-700 font-semibold">{CREW_SIZE} people</span>
-            </div>
+
           </div>
-        </div>
-
-        {/* Main Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-purple-800 text-white text-sm">
-                <th className="px-3 py-2 text-left font-semibold sticky left-0 bg-purple-800 z-10">Metric</th>
-                {months.map(month => (
-                  <th key={month} className="px-2 py-2 text-center font-semibold min-w-20">
-                    {month}
-                  </th>
-                ))}
-                <th className="px-3 py-2 text-center font-semibold bg-purple-900 min-w-24">Total</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {/* Maintenance Revenue (Source) Row */}
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-gray-50 z-10">
-                  <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    Maintenance Revenue
-                  </div>
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-gray-700">
-                    {d.maintenanceRevenue > 0 ? formatCurrency(d.maintenanceRevenue) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100">
-                  {formatCurrency(totals.maintenanceRevenue)}
-                </td>
-              </tr>
-
-              {/* Onsite Revenue (Source) Row */}
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-gray-50 z-10">
-                  <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    Onsite Revenue
-                  </div>
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-gray-700">
-                    {d.onsiteRevenue > 0 ? formatCurrency(d.onsiteRevenue) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100">
-                  {formatCurrency(totals.onsiteRevenue)}
-                </td>
-              </tr>
-
-              {/* Enhancement Revenue Target Row */}
-              <tr className="bg-purple-50 border-b border-purple-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-purple-50 z-10">
-                  Enhancement Revenue (40% of Maint + Onsite)
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-purple-700 font-medium">
-                    {d.enhancementRevenue > 0 ? formatCurrency(d.enhancementRevenue) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-100">
-                  {formatCurrency(totals.enhancementRevenue)}
-                </td>
-              </tr>
-
-              {/* Labor Revenue Row */}
-              <tr className="bg-violet-50 border-b border-violet-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-violet-50 z-10">
-                  Labor Revenue (70%)
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-violet-700">
-                    {d.laborRevenue > 0 ? formatCurrency(d.laborRevenue) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-semibold text-violet-700 bg-violet-100">
-                  {formatCurrency(totals.laborRevenue)}
-                </td>
-              </tr>
-
-              {/* Non-Labor Revenue Row */}
-              <tr className="bg-violet-50/50 border-b border-violet-100">
-                <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-violet-50/50 z-10">
-                  Non-Labor Revenue (30%)
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-1.5 text-center text-xs text-gray-700">
-                    {d.nonLaborRevenue > 0 ? formatCurrency(d.nonLaborRevenue) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-700 bg-violet-100/50">
-                  {formatCurrency(totals.nonLaborRevenue)}
-                </td>
-              </tr>
-
-              {/* Billable Hours Row */}
-              <tr className="bg-fuchsia-50 border-b border-fuchsia-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-fuchsia-50 z-10">
-                  Billable Hours (@${BILLING_RATE}/hr)
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-fuchsia-700">
-                    {d.billableHours > 0 ? formatNumber(d.billableHours, 0) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-semibold text-fuchsia-700 bg-fuchsia-100">
-                  {formatNumber(totals.billableHours, 0)}
-                </td>
-              </tr>
-
-              {/* Labor Cost Row */}
-              <tr className="bg-orange-50 border-b border-orange-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-orange-50 z-10">
-                  Labor Cost (@${HOURLY_COST}/hr)
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center text-orange-700">
-                    {d.laborCost > 0 ? formatCurrency(d.laborCost) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center font-semibold text-orange-700 bg-orange-100">
-                  {formatCurrency(totals.laborCost)}
-                </td>
-              </tr>
-
-              {/* FTEs Required Row */}
-              <tr className="bg-teal-50 border-b border-teal-200">
-                <td className="px-2 py-2 font-medium text-gray-700 sticky left-0 bg-teal-50 z-10">
-                  FTEs Required
-                </td>
-                {monthlyData.map(d => (
-                  <td key={d.month} className="px-2 py-2 text-center">
-                    {d.ftes > 0 ? (
-                      <span className="inline-block bg-teal-200 text-teal-800 font-bold px-2 py-0.5 rounded-full text-sm">
-                        {formatNumber(d.ftes, 1)}
-                      </span>
-                    ) : '—'}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center bg-teal-100">
-                  <div className="text-xs text-gray-700">Avg</div>
-                  <span className="inline-block bg-teal-300 text-teal-900 font-bold px-2 py-0.5 rounded-full text-sm">
-                    {formatNumber(avgFtes, 1)}
-                  </span>
-                </td>
-              </tr>
-
-              {/* Crews Required Row */}
-              <tr className="bg-gray-100 border-b border-gray-200">
-                <td className="px-2 py-1.5 text-xs text-gray-700 sticky left-0 bg-gray-100 z-10">
-                  <div className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span>Crews ({CREW_SIZE}-person)</span>
-                  </div>
-                </td>
-                {monthlyData.map((d, index) => {
-                  const crews = Math.ceil(d.crews);
-                  const prevCrews = index > 0 ? Math.ceil(monthlyData[index - 1].crews) : null;
-                  const hasJump = crews > 0 && prevCrews !== null && prevCrews > 0 && crews !== prevCrews;
-                  
-                  return (
-                    <td key={d.month} className={`px-2 py-1.5 text-center text-xs ${hasJump ? 'bg-yellow-200 text-yellow-800 font-semibold' : 'text-gray-700'}`}>
-                      {d.crews > 0 ? crews : '—'}
-                    </td>
-                  );
-                })}
-                <td className="px-2 py-1.5 text-center text-xs text-gray-700 bg-gray-200">
-                  {avgCrews > 0 ? Math.ceil(avgCrews) : '—'}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
         {/* Summary Cards */}
-        {totals.enhancementRevenue > 0 && (
+        {currentMetrics && (
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-purple-100 text-sm font-medium mb-1">Annual Enhancement Revenue Target</div>
-                <div className="text-2xl font-bold">{formatCurrency(totals.enhancementRevenue)}</div>
-                <div className="text-purple-200 text-xs mt-1">40% of (Maint + Onsite)</div>
-              </div>
-              <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-violet-100 text-sm font-medium mb-1">Annual Labor Revenue</div>
-                <div className="text-2xl font-bold">{formatCurrency(totals.laborRevenue)}</div>
-                <div className="text-violet-200 text-xs mt-1">70% of Enhancement</div>
-              </div>
-              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-red-100 text-sm font-medium mb-1">Annual Labor Cost</div>
-                <div className="text-2xl font-bold">{formatCurrency(totals.laborCost)}</div>
-                <div className="text-red-200 text-xs mt-1">@ ${HOURLY_COST}/hr</div>
-              </div>
-              <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-5 text-white shadow-lg">
-                <div className="text-teal-100 text-sm font-medium mb-1">Average FTEs/Month</div>
-                <div className="text-2xl font-bold">{formatNumber(avgFtes, 1)}</div>
-                <div className="text-teal-200 text-xs mt-1">{Math.ceil(avgCrews)} crew(s)</div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Annual Revenue */}
+              {renderSummaryCard(
+                'Annual Revenue', 'from-purple-600 to-purple-500',
+                currentMetrics.revenue, baselineMetrics?.revenue,
+                true
+              )}
+              {/* Gross Margin */}
+              {renderSummaryCard(
+                'Gross Margin', 'from-blue-600 to-blue-500',
+                currentMetrics.grossProfit, baselineMetrics?.grossProfit,
+                true,
+                `${currentMetrics.grossMargin}% margin`,
+                baselineMetrics ? `${baselineMetrics.grossMargin}%` : null
+              )}
+              {/* Total Controllable Income */}
+              {renderSummaryCard(
+                'Total Controllable Income', 'from-violet-600 to-violet-500',
+                currentMetrics.controllableNoi, baselineMetrics?.controllableNoi,
+                true
+              )}
             </div>
           </div>
         )}
@@ -648,21 +424,10 @@ export default function EnhancementsForecastPage() {
             branchName={isPhoenixView ? ['Corporate', 'Phoenix'] : selectedBranch?.name}
             year={selectedYear}
             department="enhancements"
+            onVersionStateChange={setPnlVersionState}
           />
         )}
 
-        {/* Formula Reference */}
-        <div className="p-6 bg-gray-50 border-t border-gray-200">
-          <div className="font-semibold text-gray-700 mb-2">Calculation Reference:</div>
-          <div className="text-sm text-gray-700 space-y-1">
-            <div><span className="font-medium">Enhancement Revenue</span> = (Maintenance + Onsite) Revenue × 40%</div>
-            <div><span className="font-medium">Labor Revenue</span> = Enhancement Revenue × 70%</div>
-            <div><span className="font-medium">Billable Hours</span> = Labor Revenue ÷ ${BILLING_RATE}/hr</div>
-            <div><span className="font-medium">Labor Cost</span> = Billable Hours × ${HOURLY_COST}/hr</div>
-            <div><span className="font-medium">FTEs</span> = Billable Hours ÷ {HOURS_PER_MONTH} hrs/month</div>
-            <div><span className="font-medium">Crews</span> = FTEs ÷ {CREW_SIZE}</div>
-          </div>
-        </div>
       </div>
     </div>
   );

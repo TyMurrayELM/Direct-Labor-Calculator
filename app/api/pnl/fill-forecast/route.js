@@ -232,7 +232,7 @@ export async function POST(request) {
       // Match by position
       const matchCount = Math.min(sourceSubs.length, targetSubs.length);
       for (let si = 0; si < matchCount; si++) {
-        for (const month of forecastMonths) {
+        for (const month of ALL_MONTHS) {
           targetSubs[si][month] = sourceSubs[si][month] ?? 0;
         }
         matchedSourceIds.add(sourceSubs[si].id);
@@ -298,7 +298,10 @@ export async function POST(request) {
 
       const changed = {};
       let hasChanges = false;
-      for (const month of forecastMonths) {
+      // Sub-lines get all month values from the source (no import actuals),
+      // so diff all months; other rows only diff forecast months to preserve imported actuals
+      const monthsToCheck = row.row_type === 'sub_line' ? ALL_MONTHS : forecastMonths;
+      for (const month of monthsToCheck) {
         const newVal = row[month] ?? 0;
         const oldVal = orig[month] ?? 0;
         if (newVal !== oldVal) {
@@ -498,7 +501,7 @@ export async function POST(request) {
             cell_notes: src.cell_notes ?? {},
           };
           for (const m of ALL_MONTHS) {
-            row[m] = forecastSet.has(m) ? (src[m] ?? 0) : 0;
+            row[m] = src[m] ?? 0;
           }
           subInserts.push(row);
         }

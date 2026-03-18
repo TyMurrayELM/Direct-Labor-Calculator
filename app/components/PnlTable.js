@@ -125,6 +125,7 @@ function getHourlyRateForBranch(branchName) {
 
 const HOURS_PER_MONTH = 173.33;
 const DL_TARGET = 0.40;
+const ARBOR_HOURLY_RATE = 110.00;
 
 /**
  * P&L Table with editable cells and comparison columns
@@ -479,6 +480,29 @@ export default function PnlTable({
           account_code: null, account_name: 'Direct Labor %', full_label: 'Direct Labor %',
           row_type: 'percent', indent_level: 0, admin_only: li.admin_only, _isKpi: true, ...dlPctValues
         });
+
+        // Inject FTEs Required for arbor department (Revenue / $110 billing rate / hours per month)
+        if (department === 'arbor') {
+          const hcValues = {};
+          for (const mk of MONTH_KEYS) {
+            const income = parseFloat(incomeRow?.[mk]) || 0;
+            hcValues[mk] = income > 0 ? +(income / ARBOR_HOURLY_RATE / HOURS_PER_MONTH).toFixed(1) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'FTEs Required', full_label: 'FTEs Required',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, ...hcValues
+          });
+
+          const crewValues = {};
+          for (const mk of MONTH_KEYS) {
+            const ftes = hcValues[mk] || 0;
+            crewValues[mk] = ftes > 0 ? Math.ceil(ftes / 4) : 0;
+          }
+          result.push({
+            account_code: null, account_name: 'Crews Needed (4m)', full_label: 'Crews Needed (4m)',
+            row_type: 'headcount', indent_level: 0, admin_only: li.admin_only, _isHeadcount: true, _isCrews: true, ...crewValues
+          });
+        }
 
         // Inject Headcount (FTEs to hit 40% DL) for maintenance departments
         if (department === 'maintenance' || department === 'maintenance_onsite' || department === 'all_maintenance') {
@@ -2128,7 +2152,7 @@ export default function PnlTable({
                         })()}
                         {item._isCrews ? <span className="mr-1" style={{ fontSize: '13px' }}>&#128666;</span> : item._isHeadcount && <span className="mr-1" style={{ fontSize: '13px' }}>&#128101;</span>}
                         {item._isKpi && <span className="text-amber-600 mr-1" style={{ fontSize: '12px' }}>&#9733;</span>}
-                        {item.row_type === 'detail' && item.account_name?.toLowerCase().trim() === 'maintenance recurring' && <span className="mr-1" style={{ fontSize: '13px' }}>&#128176;</span>}
+                        {item.row_type === 'detail' && (item.account_name?.toLowerCase().trim() === 'maintenance recurring' || item.account_name?.toLowerCase().trim() === 'arbor') && <span className="mr-1" style={{ fontSize: '13px' }}>&#128176;</span>}
                         {item.account_name}
                         {/* Expand/collapse chevron for detail rows with existing sub-lines */}
                         {!isRefOnly && item.row_type === 'detail' && item.id && parentsWithSubLines.has(item.id) && (

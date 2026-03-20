@@ -7,6 +7,7 @@ import PnlTable from './PnlTable';
 import PnlVersionBar from './PnlVersionBar';
 import PnlImport from './PnlImport';
 import BudgetImport from './BudgetImport';
+import RevenuePercentTable from './RevenuePercentTable';
 
 /**
  * Self-contained P&L section component.
@@ -729,6 +730,17 @@ export default function PnlSection({
               : 'No P&L data. Import a NetSuite Income Statement XLS to get started.'}
           </p>
         </div>
+      )}
+
+      {/* % of Revenue table — maintenance departments only */}
+      {['maintenance', 'maintenance_onsite', 'maintenance_wo', 'all_maintenance'].includes(department) && pnlLineItems?.length > 0 && (
+        <RevenuePercentTable
+          lineItems={pnlLineItems}
+          importedMonths={importedMonths}
+          isAdmin={isAdmin}
+          loading={pnlLoading}
+          referenceItems={referenceItems}
+        />
       )}
     </div>
   );

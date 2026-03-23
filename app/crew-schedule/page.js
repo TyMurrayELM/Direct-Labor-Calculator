@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -10,7 +10,7 @@ import {
   useCrewDayData
 } from '../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Get branch icon path based on branch name
 const getIconPath = (branchName) => {
@@ -29,22 +29,32 @@ const getIconPath = (branchName) => {
   return null;
 };
 
-export default function CrewSchedulePrintPage() {
+export default function CrewSchedulePageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-8 text-gray-400">Loading...</div>}>
+      <CrewSchedulePrintPage />
+    </Suspense>
+  );
+}
+
+function CrewSchedulePrintPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
   const [session, setSession] = useState(null);
-  
+
   // Fetch data using existing hooks
   const { crews = [], loading: crewsLoading } = useCrews();
   const { branches = [], loading: branchesLoading } = useBranches();
 
-  // State
+  // Initialize state from URL params if present
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [selectedCrewId, setSelectedCrewId] = useState(null);
   const [expandedPropertyId, setExpandedPropertyId] = useState(null);
+  const [urlInitialized, setUrlInitialized] = useState(false);
   
   // Get the selected crew object - handle both string and number IDs
   const selectedCrew = crews.find(c => String(c.id) === String(selectedCrewId));
@@ -133,19 +143,51 @@ export default function CrewSchedulePrintPage() {
     getSession();
   }, [supabase, router]);
 
-  // Set default branch when branches load
+  // Initialize from URL params when data loads
   useEffect(() => {
-    if (branches.length > 0 && !selectedBranchId) {
-      setSelectedBranchId(branches[0].id);
+    if (urlInitialized || branches.length === 0 || crews.length === 0) return;
+
+    const branchParam = searchParams.get('branch');
+    const crewParam = searchParams.get('crew');
+
+    if (branchParam) {
+      const branchId = parseInt(branchParam);
+      const branch = branches.find(b => b.id === branchId);
+      if (branch) {
+        setSelectedBranchId(branchId);
+        if (crewParam) {
+          const crewId = parseInt(crewParam);
+          const crew = crews.find(c => c.id === crewId && c.branch_id === branchId);
+          if (crew) setSelectedCrewId(crewId);
+        }
+        setUrlInitialized(true);
+        return;
+      }
     }
-  }, [branches, selectedBranchId]);
+
+    // No valid URL params — use defaults
+    setSelectedBranchId(branches[0].id);
+    setUrlInitialized(true);
+  }, [branches, crews, searchParams, urlInitialized]);
+
+  // Update URL when selections change
+  useEffect(() => {
+    if (!urlInitialized || !selectedBranchId) return;
+
+    const params = new URLSearchParams();
+    params.set('branch', String(selectedBranchId));
+    if (selectedCrewId) params.set('crew', String(selectedCrewId));
+
+    const newUrl = `/crew-schedule?${params.toString()}`;
+    router.replace(newUrl, { scroll: false });
+  }, [selectedBranchId, selectedCrewId, urlInitialized]);
 
   // Filter crews by selected branch (Maintenance only)
-  const filteredCrews = crews.filter(c => 
+  const filteredCrews = crews.filter(c =>
     c.branch_id === selectedBranchId && c.crew_type === 'Maintenance'
   );
 
-  // Set default crew when filtered crews change
+  // Set default crew when filtered crews change (only if no URL crew was set)
   useEffect(() => {
     if (filteredCrews.length > 0 && !selectedCrewId) {
       setSelectedCrewId(filteredCrews[0].id);

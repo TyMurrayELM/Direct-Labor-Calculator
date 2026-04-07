@@ -168,8 +168,10 @@ export async function POST(request) {
         const [h, m] = t.split(':').map(Number);
         return h * 60 + (m || 0);
       };
-      const windowStart = parseTime(p.service_window_start);
-      const windowEnd = parseTime(p.service_window_end);
+      // Onsite crews are exempt from service-window enforcement
+      const isOnsiteCrew = (propCrew.crew_type || '').toLowerCase() === 'onsite';
+      const windowStart = isOnsiteCrew ? null : parseTime(p.service_window_start);
+      const windowEnd = isOnsiteCrew ? null : parseTime(p.service_window_end);
 
       return {
         id: p.id,

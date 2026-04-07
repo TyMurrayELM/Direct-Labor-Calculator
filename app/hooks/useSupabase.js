@@ -549,7 +549,17 @@ export async function deleteProperty(id) {
       console.warn('Warning when deleting property_updates:', updateRecordsError);
       // Continue anyway since we've set up CASCADE
     }
-    
+
+    // Delete any route_optimization_results referencing this property (no CASCADE on FK)
+    const { error: routeOptError } = await supabase
+      .from('route_optimization_results')
+      .delete()
+      .eq('property_id', id);
+
+    if (routeOptError) {
+      console.warn('Warning when deleting route_optimization_results:', routeOptError);
+    }
+
     // Now delete the property
     const { error } = await supabase
       .from('properties')

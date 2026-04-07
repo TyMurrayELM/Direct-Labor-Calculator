@@ -120,17 +120,18 @@ const PropertyForm = ({ property, branches, crews, onSave, onCancel }) => {
     }
 
     // Validate that service time window can accommodate the crew hours
-    if (formData.service_window_start && formData.service_window_end && formData.current_hours) {
+    // Onsite crews are exempt — they're stationed at the property
+    const selectedCrew = crews.find(c => c.id === formData.crew_id);
+    const isOnsiteCrew = (selectedCrew?.crew_type || '').toLowerCase() === 'onsite';
+    if (!isOnsiteCrew && formData.service_window_start && formData.service_window_end && formData.current_hours) {
       const [startHour, startMin] = formData.service_window_start.split(':').map(Number);
       const [endHour, endMin] = formData.service_window_end.split(':').map(Number);
       const windowMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
       const windowHours = windowMinutes / 60;
-      
-      // Get crew size to calculate crew hours
-      const selectedCrew = crews.find(c => c.id === formData.crew_id);
+
       const crewSize = selectedCrew?.size || 1;
       const crewHours = formData.current_hours / crewSize;
-      
+
       if (windowHours < crewHours) {
         setError(`Service time window (${windowHours.toFixed(1)} hrs) is shorter than Crew Hours (${crewHours.toFixed(1)} hrs = ${formData.current_hours} hrs ÷ ${crewSize} crew). Please adjust the time window or hours.`);
         return;

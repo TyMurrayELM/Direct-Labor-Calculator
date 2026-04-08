@@ -930,6 +930,8 @@ export default function PnlSection({
         department={department}
         branchName={branchName}
         scheduledHC={scheduledHC}
+        branchId={branchId}
+        currentVersionName={currentPnlVersion?.version_name || null}
       />
 
       {!pnlLoading && !pnlLineItems?.length && (

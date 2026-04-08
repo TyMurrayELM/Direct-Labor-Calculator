@@ -178,7 +178,9 @@ export default function PnlTable({
   crossDeptConfig = null,
   department = null,
   branchName = null,
-  scheduledHC = null
+  scheduledHC = null,
+  branchId = null,
+  currentVersionName = null
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -1867,6 +1869,147 @@ export default function PnlTable({
     setSubDragId(null);
   }, [subDragId, onRowReorder, subLinesByParent, displayRows]);
 
+  // --- Send Key Items summary to Slack ---
+  const [sendingSlack, setSendingSlack] = useState(false);
+  const handleSendKeyItemsToSlack = useCallback(async () => {
+    // Find the most recent completed actual month
+    let prevIdx = -1;
+    for (let i = MONTH_KEYS.length - 1; i >= 0; i--) {
+      if (importedMonthKeys.has(MONTH_KEYS[i])) { prevIdx = i; break; }
+    }
+    if (prevIdx < 0) {
+      alert('No completed actual months yet — nothing to send.');
+      return;
+    }
+    const monthKey = MONTH_KEYS[prevIdx];
+    const monthLabel = MONTH_LABELS[prevIdx];
+
+    // Format helper mirroring the KPI strip rendering
+    const fmtVal = (item, val) => {
+      const isPercent = item.row_type === 'percent' || item._isKpi;
+      const isHeadcount = item._isHeadcount;
+      if (isPercent && !isHeadcount) return val !== 0 ? val.toFixed(1) + '%' : '—';
+      if (isHeadcount) return formatHeadcount(val);
+      return val !== 0 ? formatCurrency(val) : '—';
+    };
+
+    const currIdx = prevIdx + 1 < MONTH_KEYS.length ? prevIdx + 1 : null;
+    const currMonthKey = currIdx !== null ? MONTH_KEYS[currIdx] : null;
+    const currMonthLabel = currIdx !== null ? MONTH_LABELS[currIdx] : null;
+
+    const isMaintDept = department === 'maintenance' || department === 'maintenance_onsite';
+
+    const filtered = summaryRows.filter(({ item }) => {
+      if (isNOI(item.account_name) || isNOIPct(item.account_name) || item.account_name === 'Net Operating Income %') return false;
+      if (!isMaintDept && item._isKpi && item.account_name === 'Direct Labor %') return false;
+      if (item._isCrews) return false;
+      return true;
+    });
+
+    const withDollar = (s) => {
+      if (!s || s === '\u2014') return s;
+      if (s.startsWith('(')) return '($' + s.slice(1);
+      if (s.startsWith('+') || s.startsWith('-')) return s[0] + '$' + s.slice(1);
+      return '$' + s;
+    };
+
+
+    const items = filtered.map(({ item, refItem }) => {
+      const val = parseFloat(item[monthKey]) || 0;
+      const refVal = refItem ? (parseFloat(refItem[monthKey]) || 0) : null;
+      const isPercent = item.row_type === 'percent' || item._isKpi;
+      const isHeadcount = item._isHeadcount;
+      const isMoneyBag = (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim())) || item._isMoneyBag;
+      const isGP = item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit';
+      const isIncomeRow = isMoneyBag || isGP || (isPercent && !isHeadcount);
+
+      let dollarVarStr = null, pctVarStr = null, varDirection = null;
+      if (refVal !== null) {
+        const dv = val - refVal;
+        if (dv !== 0) {
+          dollarVarStr = (dv > 0 ? '+' : '') + (isPercent && !isHeadcount ? dv.toFixed(1) + '%' : isHeadcount ? formatHeadcount(dv) : formatCurrency(dv));
+          if (refVal !== 0 && !isPercent && !isHeadcount) {
+            const pv = (dv / Math.abs(refVal)) * 100;
+            pctVarStr = (pv > 0 ? '+' : '') + pv.toFixed(1) + '%';
+          }
+          varDirection = (isIncomeRow ? dv > 0 : dv < 0) ? 'up' : 'down';
+        }
+      }
+
+      let displayName = item.account_name;
+      let displayValue = fmtVal(item, val);
+
+      // FTEs Required: relabel as "Effective FTEs" (prior month) and append current month required
+      if (item.account_name === 'FTEs Required') {
+        displayName = 'Effective FTEs';
+        const fteFmt = department === 'irrigation'
+          ? (v) => (v === 0 ? '\u2014' : v.toFixed(1))
+          : (v) => fmtVal(item, v);
+        if (currMonthKey) {
+          const currVal = parseFloat(item[currMonthKey]) || 0;
+          displayValue = `${fteFmt(val)}   (${currMonthLabel} Required: ${fteFmt(currVal)})`;
+        } else {
+          displayValue = fteFmt(val);
+        }
+      }
+
+      // Money-bag (department revenue) rows: append " Revenue"
+      if (isMoneyBag) {
+        displayName = `${item.account_name} Revenue`;
+      }
+
+      // Hours Efficiency / Effective Billable Time over 100% gets a positive emoji
+      if ((item.account_name === 'Hours Efficiency %' || item.account_name === 'Effective Billable Time %') && val > 100) {
+        displayValue = `${displayValue} :white_check_mark:`;
+      }
+
+      // Add $ to money-bag and Gross Profit rows
+      const needsDollar = isMoneyBag || isGP;
+      if (needsDollar) {
+        displayValue = withDollar(displayValue);
+      }
+
+      return {
+        name: displayName,
+        value: displayValue,
+        refValue: refVal !== null ? (needsDollar ? withDollar(fmtVal(item, refVal)) : fmtVal(item, refVal)) : null,
+        dollarVar: needsDollar && dollarVarStr ? withDollar(dollarVarStr) : dollarVarStr,
+        pctVar: pctVarStr,
+        varDirection,
+      };
+    });
+
+    setSendingSlack(true);
+    try {
+      const res = await fetch('/api/slack/pnl-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchName,
+          year,
+          department,
+          monthLabel,
+          forecastLabel: (() => {
+            const ac = importedMonthKeys.size;
+            const fc = 12 - ac;
+            return ac > 0 && fc > 0 ? `${ac}+${fc} Forecast` : ac === 12 ? 'Full Year Actuals' : 'Full Forecast';
+          })(),
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert('Slack send failed: ' + (data.error || 'unknown error'));
+      } else {
+        alert('Sent to Slack ✓');
+      }
+    } catch (err) {
+      alert('Slack send failed: ' + err.message);
+    } finally {
+      setSendingSlack(false);
+    }
+  }, [summaryRows, importedMonthKeys, branchName, year, department, branchId, currentVersionName]);
+
   if (loading) {
     return (
       <div className="py-8 px-6">
@@ -1917,7 +2060,22 @@ export default function PnlTable({
             <table className="text-xs" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr className="bg-gray-700 text-white">
-                  <th className="px-1.5 py-1.5 text-left font-semibold sticky left-0 bg-gray-700 z-10" style={{ width: accountColWidth, minWidth: 120 }}>Key Items</th>
+                  <th className="px-1.5 py-1.5 text-left font-semibold sticky left-0 bg-gray-700 z-10" style={{ width: accountColWidth, minWidth: 120 }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Key Items</span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleSendKeyItemsToSlack}
+                          disabled={sendingSlack}
+                          title="Send previous-month Key Items to Slack"
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-500 disabled:cursor-not-allowed text-white"
+                        >
+                          {sendingSlack ? 'Sending…' : 'Send to Slack'}
+                        </button>
+                      )}
+                    </div>
+                  </th>
                   {MONTH_KEYS.map((mk, i) => {
                     const isActual = importedMonthKeys.has(mk);
                     const isBoundary = actualCount > 0 && actualCount < 12 && i === actualCount;
@@ -1965,7 +2123,12 @@ export default function PnlTable({
                   // Format helper
                   const fmtVal = (val) => {
                     if (isPercent && !isHeadcount) return val !== 0 ? val.toFixed(1) + '%' : '\u2014';
-                    if (isHeadcount) return formatHeadcount(val);
+                    if (isHeadcount) {
+                      if (department === 'irrigation' && item.account_name === 'FTEs Required') {
+                        return val !== 0 ? val.toFixed(1) : '\u2014';
+                      }
+                      return formatHeadcount(val);
+                    }
                     return val !== 0 ? formatCurrency(val) : '\u2014';
                   };
 

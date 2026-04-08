@@ -139,10 +139,37 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
   }, [isStandalone, targetBranches, year, supabase]);
 
   // Reset internal selections when target branches or year change
+  const defaultsAppliedKey = useRef(null);
   useEffect(() => {
     setInternalVersionName(null);
     setInternalRefName(null);
+    defaultsAppliedKey.current = null;
   }, [branchKey, year]);
+
+  // Apply admin-configured defaults in standalone mode (e.g. Encore)
+  const [pnlDefaults, setPnlDefaults] = useState(null);
+  useEffect(() => {
+    if (!isStandalone) return;
+    fetch('/api/pnl-defaults')
+      .then(r => r.json())
+      .then(d => { if (d.success) setPnlDefaults(d.defaults); })
+      .catch(() => {});
+  }, [isStandalone]);
+
+  useEffect(() => {
+    if (!isStandalone || !pnlDefaults || !availableVersions?.length) return;
+    const key = `${branchKey}-${year}`;
+    if (defaultsAppliedKey.current === key) return;
+    defaultsAppliedKey.current = key;
+    if (pnlDefaults.default_version_name) {
+      const match = availableVersions.find(v => v.version_name === pnlDefaults.default_version_name);
+      if (match) setInternalVersionName(match.version_name);
+    }
+    if (pnlDefaults.compare_version_name) {
+      const match = availableVersions.find(v => v.version_name === pnlDefaults.compare_version_name);
+      if (match) setInternalRefName(match.version_name);
+    }
+  }, [isStandalone, pnlDefaults, availableVersions, branchKey, year]);
 
   // Build effective version state: use external if provided, otherwise internal
   const effectiveVersionState = useMemo(() => {

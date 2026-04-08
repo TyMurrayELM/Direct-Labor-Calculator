@@ -1307,8 +1307,71 @@ export default function PnlTable({
 
       result.push(row);
     }
+
+    // Inject "Maintenance Growth" (MoM %) row right after Maintenance Recurring
+    const buildGrowthRow = (sourceItem) => {
+      if (!sourceItem) return null;
+      const growth = {
+        ...sourceItem,
+        id: `${sourceItem.id || 'maint-recurring'}-mom-growth`,
+        account_name: 'Maintenance Growth',
+        row_type: 'percent',
+        _isKpi: false,
+        _isHeadcount: false,
+        _isCrews: false,
+        _isMaintGrowth: true,
+        _srcJan: parseFloat(sourceItem.jan),
+        _srcDec: parseFloat(sourceItem.dec),
+      };
+      const janVal = parseFloat(sourceItem.jan);
+      for (const mk of MONTH_KEYS) {
+        const curr = parseFloat(sourceItem[mk]);
+        if (mk === 'jan' || !isFinite(janVal) || janVal === 0 || !isFinite(curr)) {
+          growth[mk] = null;
+        } else {
+          growth[mk] = Math.round(((curr - janVal) / janVal) * 1000) / 10;
+        }
+      }
+      return growth;
+    };
+
+    const mrIdx = result.findIndex(r => r.item.row_type === 'detail' && r.item.account_name?.toLowerCase().trim() === 'maintenance recurring');
+    if (mrIdx >= 0) {
+      const mrRow = result[mrIdx];
+      const growthItem = buildGrowthRow(mrRow.item);
+      const growthRef = mrRow.refItem ? buildGrowthRow(mrRow.refItem) : null;
+      if (growthItem) {
+        result.splice(mrIdx + 1, 0, { item: growthItem, refItem: growthRef, isRefOnly: false });
+      }
+    }
+
+    // For BD, append a Maintenance Growth row sourced from cross-dept maintenance revenue
+    if (department === 'biz_dev_marketing' && crossDeptData) {
+      const maintRev = crossDeptData['maintenance']?.revenue;
+      const maintOnsiteRev = crossDeptData['maintenance_onsite']?.revenue;
+      if (maintRev || maintOnsiteRev) {
+        const synthSrc = { id: 'bd-maint-growth-src', account_name: 'Maintenance Recurring', row_type: 'detail' };
+        for (const mk of MONTH_KEYS) {
+          synthSrc[mk] = (parseFloat(maintRev?.[mk]) || 0) + (parseFloat(maintOnsiteRev?.[mk]) || 0);
+        }
+        const totalMaintItem = {
+          id: 'bd-total-maint',
+          account_name: 'Total Maintenance',
+          row_type: 'detail',
+          indent_level: 0,
+          _isMoneyBag: true,
+        };
+        for (const mk of MONTH_KEYS) totalMaintItem[mk] = synthSrc[mk];
+        result.push({ item: totalMaintItem, refItem: null, isRefOnly: false });
+        const growthItem = buildGrowthRow(synthSrc);
+        if (growthItem) {
+          result.push({ item: growthItem, refItem: null, isRefOnly: false });
+        }
+      }
+    }
+
     return result;
-  }, [_allDisplayRows, computedLineItems, referenceItems]);
+  }, [_allDisplayRows, computedLineItems, referenceItems, department, crossDeptData]);
 
   // Collect available source rows for the pct-of-total picker, grouped by section
   const availableSources = useMemo(() => {
@@ -1877,7 +1940,7 @@ export default function PnlTable({
               </thead>
               <tbody>
                 {summaryRows.map(({ item, refItem }, idx) => {
-                  const isMoneyBag = item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim());
+                  const isMoneyBag = (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim())) || item._isMoneyBag;
                   const isGP = item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit';
                   const isPercent = item.row_type === 'percent' || item._isKpi;
                   const isHeadcount = item._isHeadcount;
@@ -1887,12 +1950,14 @@ export default function PnlTable({
                   let rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                   if (isMoneyBag) rowBg = 'bg-amber-50';
                   else if (isGP) rowBg = 'bg-green-50';
+                  else if (item._isMaintGrowth) rowBg = 'bg-green-50';
                   else if (item._isKpi) rowBg = 'bg-amber-50';
                   else if (isHeadcount) rowBg = 'bg-emerald-50';
 
                   // Icon
                   let icon = null;
-                  if (isMoneyBag) icon = <span style={{ fontSize: '11px' }}>&#128176;</span>;
+                  if (item._isMaintGrowth) icon = <span className="text-green-600" style={{ fontSize: '11px' }}>&#8599;</span>;
+                  else if (isMoneyBag) icon = <span style={{ fontSize: '11px' }}>&#128176;</span>;
                   else if (item._isCrews) icon = <span style={{ fontSize: '11px' }}>&#128666;</span>;
                   else if (item._isHeadcount) icon = <span style={{ fontSize: '11px' }}>&#128101;</span>;
                   else if (item._isKpi) icon = <span className="text-amber-600" style={{ fontSize: '10px' }}>&#9733;</span>;
@@ -1905,8 +1970,18 @@ export default function PnlTable({
                   };
 
                   // Annual values
-                  const annualRaw = computeRowTotal(item);
-                  const refAnnualRaw = refItem ? computeRowTotal(refItem) : null;
+                  let annualRaw = computeRowTotal(item);
+                  let refAnnualRaw = refItem ? computeRowTotal(refItem) : null;
+                  if (item._isMaintGrowth) {
+                    const computeMgTotal = (src) => {
+                      const jan = parseFloat(src?._srcJan);
+                      const dec = parseFloat(src?._srcDec);
+                      if (!isFinite(jan) || jan === 0 || !isFinite(dec)) return 0;
+                      return Math.round(((dec - jan) / jan) * 1000) / 10;
+                    };
+                    annualRaw = computeMgTotal(item) * 12; // multiplied because annualDisplay divides by 12 below
+                    refAnnualRaw = refItem ? computeMgTotal(refItem) * 12 : null;
+                  }
                   let annualDisplay, refAnnualDisplay;
                   if (isPercent && !isHeadcount) {
                     annualDisplay = (annualRaw / 12).toFixed(1) + '%';

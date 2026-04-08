@@ -914,6 +914,58 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
                       )}
                     </tr>
                   )}
+
+                  {/* Maintenance Growth row (vs January) */}
+                  {grandTotal && (() => {
+                    const janVal = parseFloat(grandTotal.jan) || 0;
+                    const refJanVal = grandRefTotal ? (parseFloat(grandRefTotal.jan) || 0) : 0;
+                    const growthFor = (vals, jan) => {
+                      const out = {};
+                      for (const mk of MONTH_KEYS) {
+                        const v = parseFloat(vals?.[mk]);
+                        out[mk] = (mk === 'jan' || !jan || !isFinite(v)) ? null : Math.round(((v - jan) / jan) * 1000) / 10;
+                      }
+                      return out;
+                    };
+                    const growth = growthFor(grandTotal, janVal);
+                    const refGrowth = grandRefTotal ? growthFor(grandRefTotal, refJanVal) : null;
+                    const decGrowth = (janVal && isFinite(parseFloat(grandTotal.dec)))
+                      ? Math.round((((parseFloat(grandTotal.dec) || 0) - janVal) / janVal) * 1000) / 10
+                      : null;
+                    const refDecGrowth = (grandRefTotal && refJanVal && isFinite(parseFloat(grandRefTotal.dec)))
+                      ? Math.round((((parseFloat(grandRefTotal.dec) || 0) - refJanVal) / refJanVal) * 1000) / 10
+                      : null;
+                    return (
+                      <tr className="bg-green-50 font-semibold text-xs border-t border-green-200">
+                        <td className="py-1 px-2 whitespace-nowrap sticky left-0 bg-green-50 z-[5]">
+                          <span className="text-green-600 mr-1">&#8599;</span>Maintenance Growth
+                        </td>
+                        {MONTH_KEYS.map((key, keyIdx) => {
+                          const v = growth[key];
+                          const isBoundary = actualMonths > 0 && actualMonths < 12 && keyIdx === actualMonths;
+                          return (
+                            <td key={key}
+                              className={`py-1 px-0.5 text-right tabular-nums ${v != null && v < 0 ? 'text-red-600' : 'text-green-700'} ${isBoundary ? 'border-l-2 border-l-blue-300' : ''}`}
+                            >
+                              {v == null ? '\u2014' : formatPercent(v)}
+                            </td>
+                          );
+                        })}
+                        <td className="py-1 px-1.5 text-right tabular-nums border-l-2 border-r-2 border-gray-400 font-bold text-green-700">
+                          {decGrowth == null ? '\u2014' : formatPercent(decGrowth)}
+                        </td>
+                        {showComparison && (
+                          <>
+                            <td className="py-1 px-1.5 text-right tabular-nums text-amber-700 border-l border-gray-300">
+                              {refDecGrowth == null ? '\u2014' : formatPercent(refDecGrowth)}
+                            </td>
+                            <td className="py-1 px-1 text-right">{'\u2014'}</td>
+                            <td className="py-1 px-1 text-right">{'\u2014'}</td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>

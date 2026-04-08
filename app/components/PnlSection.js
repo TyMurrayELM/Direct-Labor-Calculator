@@ -725,6 +725,132 @@ export default function PnlSection({
           </div>
         )}
 
+        {/* Export XLSX — admin only */}
+        {isAdmin && pnlLineItems?.length > 0 && (
+          <button
+            onClick={async () => {
+              const XLSX = (await import('xlsx-js-style')).default;
+              const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+              const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              const visible = (pnlLineItems || []).filter(li => isAdmin || !li.admin_only);
+              // Group sub_lines under their parents
+              const subsByParent = new Map();
+              for (const li of visible) {
+                if (li.row_type === 'sub_line' && li.parent_id != null) {
+                  if (!subsByParent.has(li.parent_id)) subsByParent.set(li.parent_id, []);
+                  subsByParent.get(li.parent_id).push(li);
+                }
+              }
+              const rows = [];
+              for (const li of visible) {
+                if (li.row_type === 'sub_line') continue;
+                rows.push(li);
+                const subs = subsByParent.get(li.id);
+                if (subs) rows.push(...subs);
+              }
+
+              const headerStyle = {
+                font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 11 },
+                fill: { fgColor: { rgb: 'FF1E3A8A' } },
+                alignment: { horizontal: 'center', vertical: 'center' },
+                border: {
+                  bottom: { style: 'thin', color: { rgb: 'FF000000' } },
+                }
+              };
+              const sectionStyle = {
+                font: { bold: true, sz: 11 },
+                fill: { fgColor: { rgb: 'FFDBEAFE' } },
+              };
+              const totalStyle = {
+                font: { bold: true },
+                fill: { fgColor: { rgb: 'FFE2E8F0' } },
+                border: { top: { style: 'thin', color: { rgb: 'FF94A3B8' } } }
+              };
+              const calcStyle = {
+                font: { bold: true, italic: true },
+                fill: { fgColor: { rgb: 'FFF1F5F9' } },
+              };
+              const numFmt = '#,##0;(#,##0);""';
+              const pctFmt = '0.0%;(0.0%);""';
+
+              const aoa = [];
+              const styleMap = {}; // "r,c" -> style
+
+              const headerRow = ['Account', ...MONTH_LABELS, 'Total'];
+              aoa.push(headerRow);
+              headerRow.forEach((_, c) => { styleMap[`0,${c}`] = headerStyle; });
+
+              rows.forEach((li, i) => {
+                const r = i + 1;
+                const indent = li.indent_level || 0;
+                const label = (li.full_label || li.account_name || '');
+                const indentedLabel = '  '.repeat(indent) + label;
+                const isPercent = li.row_type === 'percent' || li.row_type === 'calculated' && /%/.test(label);
+                const monthVals = MONTHS.map(m => {
+                  const v = li[m];
+                  return v == null || v === '' ? null : Number(v);
+                });
+                const total = monthVals.reduce((a,b)=> a + (b||0), 0);
+
+                const row = [indentedLabel, ...monthVals, total === 0 ? null : total];
+                aoa.push(row);
+
+                let rowStyleBase = null;
+                if (li.row_type === 'section_header' || li.row_type === 'account_header') rowStyleBase = sectionStyle;
+                else if (li.row_type === 'total') rowStyleBase = totalStyle;
+                else if (li.row_type === 'calculated' || li.row_type === 'percent') rowStyleBase = calcStyle;
+
+                // Account name cell
+                styleMap[`${r},0`] = {
+                  ...(rowStyleBase || {}),
+                  alignment: { horizontal: 'left', indent },
+                };
+                // Number cells
+                for (let c = 1; c <= 13; c++) {
+                  styleMap[`${r},${c}`] = {
+                    ...(rowStyleBase || {}),
+                    numFmt: isPercent ? pctFmt : numFmt,
+                    alignment: { horizontal: 'right' },
+                  };
+                }
+              });
+
+              const ws = XLSX.utils.aoa_to_sheet(aoa);
+              // Apply styles
+              Object.entries(styleMap).forEach(([key, style]) => {
+                const [r, c] = key.split(',').map(Number);
+                const addr = XLSX.utils.encode_cell({ r, c });
+                if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+                ws[addr].s = style;
+              });
+              // Column widths
+              ws['!cols'] = [
+                { wch: 42 },
+                ...MONTH_LABELS.map(() => ({ wch: 12 })),
+                { wch: 13 },
+              ];
+              // Freeze header row + first column
+              ws['!freeze'] = { xSplit: 1, ySplit: 1 };
+              ws['!views'] = [{ state: 'frozen', xSplit: 1, ySplit: 1 }];
+
+              const wb = XLSX.utils.book_new();
+              const versionLabel = currentPnlVersion?.version_name || 'Working Draft';
+              const deptLabel = DEPARTMENT_LABELS[department] || department || 'P&L';
+              const branchLabel = Array.isArray(branchName) ? branchName.join('-') : (branchName || 'Branch');
+              XLSX.utils.book_append_sheet(wb, ws, `${deptLabel}`.slice(0, 31));
+
+              const fname = `pnl_${branchLabel}_${deptLabel}_${year}_${versionLabel}.xlsx`.replace(/[\s/\\?%*:|"<>]+/g,'_');
+              XLSX.writeFile(wb, fname);
+            }}
+            className="px-3 py-1.5 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export XLSX
+          </button>
+        )}
+
         {/* Admin preview toggle */}
         {isRealAdmin && (
           <button

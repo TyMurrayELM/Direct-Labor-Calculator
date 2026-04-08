@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useBranches } from '../../hooks/useSupabase';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PnlSection from '../../components/PnlSection';
 import MaintenanceRevenuePanel from '../../components/MaintenanceRevenuePanel';
 
@@ -30,6 +30,7 @@ const OVERHEAD_BRANCHES = [
 
 export default function OverheadForecastPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -38,9 +39,24 @@ export default function OverheadForecastPage() {
   // State
   const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(false);
-  const [selectedBranchKey, setSelectedBranchKey] = useState('encore');
+  const [selectedBranchKey, setSelectedBranchKey] = useState(() => {
+    const fromUrl = searchParams.get('branch');
+    return OVERHEAD_BRANCHES.some(b => b.key === fromUrl) ? fromUrl : 'encore';
+  });
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [selectedDepartment, setSelectedDepartment] = useState('biz_dev_marketing');
+  const [selectedDepartment, setSelectedDepartment] = useState(() => {
+    const fromUrl = searchParams.get('department');
+    return OVERHEAD_DEPARTMENTS.some(d => d.value === fromUrl) ? fromUrl : 'biz_dev_marketing';
+  });
+
+  // Sync department + branch to URL
+  useEffect(() => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    if (params.get('department') === selectedDepartment && params.get('branch') === selectedBranchKey) return;
+    params.set('department', selectedDepartment);
+    params.set('branch', selectedBranchKey);
+    router.replace(`/forecast/overhead?${params.toString()}`, { scroll: false });
+  }, [selectedDepartment, selectedBranchKey, router, searchParams]);
   const [creatingCorporate, setCreatingCorporate] = useState(false);
   const [pnlVersionState, setPnlVersionState] = useState(null);
 

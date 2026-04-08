@@ -458,46 +458,7 @@ export default function PnlVersionBar({
           </select>
         </div>
 
-        {/* Import buttons moved to PnlSection header row */}
-
-        {/* Fill Forecast — draft or unlocked saved versions, not in readOnly mode */}
-        {!readOnly && !currentVersionLocked && versions.filter(v => v.id !== selectedVersionId).length > 0 && (
-          <div className="relative" ref={fillDropdownRef}>
-            <button
-              onClick={() => setShowFillDropdown(!showFillDropdown)}
-              disabled={filling}
-              className="px-3 py-1.5 bg-amber-500 text-white rounded-md text-sm font-medium hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-              </svg>
-              {filling ? 'Filling...' : 'Fill Forecast'}
-            </button>
-            {showFillDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
-                  Copy forecast months from:
-                </div>
-                {versions.filter(v => v.id !== selectedVersionId).map(v => (
-                  <button
-                    key={v.id}
-                    onClick={() => handleFillForecast(v.id)}
-                    className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-800"
-                  >
-                    {v.version_name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {fillMessage && (
-              <span className={`absolute top-full left-0 mt-1 text-xs whitespace-nowrap ${fillMessage.startsWith('Error') ? 'text-red-600' : 'text-emerald-600'}`}>
-                {fillMessage}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Copy Structure moved to PnlSection header row */}
+        {/* Import + Fill Forecast + Copy Structure moved to PnlSection header row */}
 
         {/* Import info */}
         {importInfo && (

@@ -431,6 +431,53 @@ export default function PnlSection({
     }
   }, [refetchPnlVersions]);
 
+  // --- Forecast summary note (above Key Items) ---
+  const summaryNoteSupported = !isCombinedBranch && !isCombinedDepartment;
+  const [summaryNote, setSummaryNote] = useState('');
+
+  useEffect(() => {
+    if (!summaryNoteSupported || !branchId || !department || !year) {
+      setSummaryNote('');
+      return;
+    }
+    let cancelled = false;
+    const params = new URLSearchParams({
+      branchId: String(branchId),
+      department,
+      year: String(year),
+      versionId: selectedVersionId == null ? 'null' : String(selectedVersionId)
+    });
+    fetch(`/api/pnl/summary-note?${params.toString()}`)
+      .then(r => r.json())
+      .then(result => {
+        if (cancelled) return;
+        setSummaryNote(result?.success ? (result.notes || '') : '');
+      })
+      .catch(() => { if (!cancelled) setSummaryNote(''); });
+    return () => { cancelled = true; };
+  }, [summaryNoteSupported, branchId, department, year, selectedVersionId]);
+
+  const handleUpdateSummaryNote = useCallback(async (noteText) => {
+    setSummaryNote(noteText); // optimistic
+    try {
+      const res = await fetch('/api/pnl/summary-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          department,
+          year,
+          versionId: selectedVersionId,
+          notes: noteText
+        })
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+    } catch (err) {
+      console.error('Failed to update summary note:', err);
+    }
+  }, [branchId, department, year, selectedVersionId]);
+
   const handleCopyStructure = useCallback(async (sourceDepartment) => {
     const res = await fetch('/api/pnl/copy-structure', {
       method: 'POST',
@@ -933,6 +980,12 @@ export default function PnlSection({
         branchId={branchId}
         currentVersionName={currentPnlVersion?.version_name || null}
         referenceVersionName={referenceVersion?.version_name || null}
+        summaryNote={summaryNoteSupported ? summaryNote : null}
+        onUpdateSummaryNote={
+          summaryNoteSupported && !isReadOnly && isEditor && !isPnlLocked
+            ? handleUpdateSummaryNote
+            : undefined
+        }
       />
 
       {!pnlLoading && !pnlLineItems?.length && (

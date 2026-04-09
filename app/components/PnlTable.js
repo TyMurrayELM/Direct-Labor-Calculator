@@ -181,7 +181,9 @@ export default function PnlTable({
   scheduledHC = null,
   branchId = null,
   currentVersionName = null,
-  referenceVersionName = null
+  referenceVersionName = null,
+  summaryNote = null,
+  onUpdateSummaryNote
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -2137,6 +2139,16 @@ export default function PnlTable({
 
   return (
     <div className="mt-4">
+      {/* Forecast Summary Notes — tied to (branch, dept, year, version) */}
+      {summaryNote !== null && (
+        <ForecastNotesBox
+          key={`${branchId}-${department}-${year}-${currentVersionName || 'draft'}`}
+          initialNote={summaryNote}
+          currentVersionName={currentVersionName}
+          onUpdate={onUpdateSummaryNote}
+        />
+      )}
+
       {/* KPI Summary Strip */}
       {summaryRows.length > 0 && (
         <div className="mb-3 border border-gray-400 rounded-lg overflow-hidden">
@@ -3539,4 +3551,130 @@ function getTextWeight(rowType) {
     default:
       return '';
   }
+}
+
+// Isolated Forecast Notes box. Lives outside PnlTable's render-heavy state so
+// keystrokes only re-render this small component, not the whole P&L table.
+const BULLET = '\u2022 ';
+
+function ForecastNotesBox({ initialNote, currentVersionName, onUpdate }) {
+  const [draft, setDraft] = useState(initialNote || '');
+  const [saved, setSaved] = useState(false);
+  const timerRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Auto-resize to fit content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, [draft]);
+
+  const scheduleSave = (val) => {
+    setSaved(false);
+    if (!onUpdate) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      await onUpdate(val);
+      setSaved(true);
+    }, 600);
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setDraft(val);
+    scheduleSave(val);
+  };
+
+  // Auto-continue bullet lists on Enter; clear bullet on empty-bullet Enter.
+  const handleKeyDown = (e) => {
+    const ta = e.currentTarget;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const { selectionStart, selectionEnd, value } = ta;
+      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+      const currentLine = value.slice(lineStart, selectionStart);
+      if (currentLine.startsWith(BULLET)) {
+        e.preventDefault();
+        // Empty bullet → exit list
+        if (currentLine.trim() === BULLET.trim()) {
+          const newVal = value.slice(0, lineStart) + value.slice(selectionEnd);
+          setDraft(newVal);
+          scheduleSave(newVal);
+          requestAnimationFrame(() => {
+            ta.selectionStart = ta.selectionEnd = lineStart;
+          });
+          return;
+        }
+        const insert = '\n' + BULLET;
+        const newVal = value.slice(0, selectionStart) + insert + value.slice(selectionEnd);
+        setDraft(newVal);
+        scheduleSave(newVal);
+        const caret = selectionStart + insert.length;
+        requestAnimationFrame(() => {
+          ta.selectionStart = ta.selectionEnd = caret;
+        });
+      }
+    }
+  };
+
+  const insertBullet = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const { selectionStart, selectionEnd, value } = ta;
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const atLineStart = selectionStart === lineStart;
+    const prefix = atLineStart ? BULLET : (value[selectionStart - 1] === '\n' ? BULLET : '\n' + BULLET);
+    const newVal = value.slice(0, selectionStart) + prefix + value.slice(selectionEnd);
+    setDraft(newVal);
+    scheduleSave(newVal);
+    const caret = selectionStart + prefix.length;
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = caret;
+    });
+  };
+
+  return (
+    <div className="mb-3 border-2 border-blue-800 rounded-lg bg-blue-50 p-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs font-semibold text-black flex items-center gap-1.5">
+          <span>&#128221;</span>
+          <span>Forecast Notes</span>
+          {currentVersionName && (
+            <span className="text-[10px] font-medium text-blue-800">
+              &middot; {currentVersionName}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {onUpdate && (
+            <button
+              type="button"
+              onClick={insertBullet}
+              title="Insert bullet (Enter continues the list)"
+              className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
+            >
+              &bull; Bullet
+            </button>
+          )}
+          {onUpdate && saved && (
+            <span className="text-[10px] text-emerald-700 font-medium">Saved</span>
+          )}
+        </div>
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        readOnly={!onUpdate}
+        placeholder={onUpdate
+          ? 'Summarize key takeaways from this forecast to guide discussion...'
+          : 'No notes for this forecast.'}
+        rows={1}
+        className="w-full text-xs text-black bg-white border border-blue-300 rounded px-2 py-1.5 resize-none overflow-hidden focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+  );
 }

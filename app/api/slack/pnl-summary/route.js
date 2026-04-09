@@ -5,23 +5,41 @@ import { getUserRole, isAdminRole } from '../../../lib/getUserRole';
 const DEFAULT_CHANNEL = 'C046RPZGEHE';
 
 // Per-department, per-branch channel routing.
+// Each department maps an ordered list of [pattern, channelId] pairs.
+// Patterns are matched as case-insensitive substrings against branchName,
+// in order — first match wins, so put more specific patterns first.
 const CHANNEL_ROUTES = {
-  arbor: {
-    phoenix: 'C06JT9Q4A3B',
-    las_vegas: 'C027MTDGN3G',
-  },
-  enhancements: {
-    phoenix: 'C06JTB3QS0Z',
-    las_vegas: 'C01UPNF7M6J',
-  },
-  spray: {
-    phoenix: 'C06U9K3EKT7',
-    las_vegas: 'C01UWN4L403',
-  },
-  irrigation: {
-    phoenix: 'C07DKUMMJTF',
-    las_vegas: 'C06JBNL7UKX',
-  },
+  arbor: [
+    ['las vegas', 'C027MTDGN3G'],
+    ['phoenix', 'C06JT9Q4A3B'],
+  ],
+  enhancements: [
+    ['las vegas', 'C01UPNF7M6J'],
+    ['phoenix', 'C06JTB3QS0Z'],
+  ],
+  spray: [
+    ['las vegas', 'C01UWN4L403'],
+    ['phoenix', 'C06U9K3EKT7'],
+  ],
+  irrigation: [
+    ['las vegas', 'C06JBNL7UKX'],
+    ['phoenix', 'C07DKUMMJTF'],
+  ],
+  // Maintenance routes per individual branch
+  maintenance: [
+    ['las vegas', 'C06JBNL7UKX'],
+    ['southeast', 'C06JT7JU81F'],
+    ['southwest', 'C06J7ULQXV4'],
+    ['north',     'C0738AHV23H'],
+    ['phoenix',   'C046RPZGEHE'], // Phoenix combined view → test channel until specified
+  ],
+  maintenance_onsite: [
+    ['las vegas', 'C06JBNL7UKX'],
+    ['southeast', 'C06JT7JU81F'],
+    ['southwest', 'C06J7ULQXV4'],
+    ['north',     'C0738AHV23H'],
+    ['phoenix',   'C046RPZGEHE'],
+  ],
 };
 
 function normalizeBranchName(branchName) {
@@ -33,8 +51,9 @@ function resolveChannel(department, branchName) {
   const deptRoutes = CHANNEL_ROUTES[department];
   if (!deptRoutes) return null;
   const bn = normalizeBranchName(branchName).toLowerCase();
-  if (bn.includes('las vegas')) return deptRoutes.las_vegas || null;
-  if (bn.includes('phoenix')) return deptRoutes.phoenix || null;
+  for (const [pattern, channelId] of deptRoutes) {
+    if (bn.includes(pattern)) return channelId;
+  }
   return null;
 }
 
@@ -95,7 +114,7 @@ export async function POST(request) {
       if (it.refValue && it.dollarVar) {
         const arrow = it.varDirection === 'up' ? ':white_check_mark:'
           : it.varDirection === 'down' ? ':x:' : '';
-        return `${left}   _(Goal: ${it.refValue} • ${it.dollarVar}${it.pctVar ? ` / ${it.pctVar}` : ''} ${arrow})_`;
+        return `${left}   _(${it.goalLabel || 'Goal'}: ${it.refValue} • ${it.dollarVar}${it.pctVar ? ` / ${it.pctVar}` : ''} ${arrow})_`;
       }
       return left;
     });

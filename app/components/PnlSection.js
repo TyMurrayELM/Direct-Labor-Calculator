@@ -932,6 +932,7 @@ export default function PnlSection({
         scheduledHC={scheduledHC}
         branchId={branchId}
         currentVersionName={currentPnlVersion?.version_name || null}
+        referenceVersionName={referenceVersion?.version_name || null}
       />
 
       {!pnlLoading && !pnlLineItems?.length && (

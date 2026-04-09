@@ -180,7 +180,8 @@ export default function PnlTable({
   branchName = null,
   scheduledHC = null,
   branchId = null,
-  currentVersionName = null
+  currentVersionName = null,
+  referenceVersionName = null
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -1913,15 +1914,65 @@ export default function PnlTable({
       return '$' + s;
     };
 
+    // For maintenance departments, fetch combined Maintenance + Maintenance Onsite revenue
+    // so we can show "Total Maintenance Revenue" and base Maint Growth on the combined total.
+    let combinedRev = null;
+    let combinedRefRev = null;
+    if ((department === 'maintenance' || department === 'maintenance_onsite') && branchId) {
+      const fetchCombined = async (vName) => {
+        if (!vName) return null;
+        try {
+          const url = `/api/pnl/cross-dept-revenue?branchId=${branchId}&year=${year}` +
+            `&versionName=${encodeURIComponent(vName)}&department=irrigation`;
+          const r = await fetch(url);
+          const j = await r.json();
+          if (!j.success) return null;
+          const m = j.departments?.maintenance?.revenue || {};
+          const o = j.departments?.maintenance_onsite?.revenue || {};
+          const out = {};
+          for (const mk of MONTH_KEYS) {
+            out[mk] = (parseFloat(m[mk]) || 0) + (parseFloat(o[mk]) || 0);
+          }
+          return out;
+        } catch (_) { return null; }
+      };
+      combinedRev = await fetchCombined(currentVersionName);
+      combinedRefRev = await fetchCombined(referenceVersionName);
+    }
+
 
     const items = filtered.map(({ item, refItem }) => {
-      const val = parseFloat(item[monthKey]) || 0;
-      const refVal = refItem ? (parseFloat(refItem[monthKey]) || 0) : null;
+      const isMaintRecurringRow = item.row_type === 'detail' &&
+        item.account_name?.toLowerCase().trim() === 'maintenance recurring';
+      const isMaintGrowthRow = item._isMaintGrowth || item.account_name === 'Maintenance Growth';
+
+      // For maintenance depts: override values with combined (Maint + Onsite) revenue
+      let val, refVal;
+      if (combinedRev && isMaintRecurringRow) {
+        val = combinedRev[monthKey] || 0;
+        refVal = combinedRefRev ? (combinedRefRev[monthKey] || 0) : (refItem ? (parseFloat(refItem[monthKey]) || 0) : null);
+      } else if (combinedRev && isMaintGrowthRow) {
+        const janV = combinedRev.jan || 0;
+        const curV = combinedRev[monthKey] || 0;
+        val = janV !== 0 ? Math.round(((curV - janV) / janV) * 1000) / 10 : 0;
+        if (combinedRefRev) {
+          const rJan = combinedRefRev.jan || 0;
+          const rCur = combinedRefRev[monthKey] || 0;
+          refVal = rJan !== 0 ? Math.round(((rCur - rJan) / rJan) * 1000) / 10 : 0;
+        } else {
+          refVal = refItem ? (parseFloat(refItem[monthKey]) || 0) : null;
+        }
+      } else {
+        val = parseFloat(item[monthKey]) || 0;
+        refVal = refItem ? (parseFloat(refItem[monthKey]) || 0) : null;
+      }
       const isPercent = item.row_type === 'percent' || item._isKpi;
       const isHeadcount = item._isHeadcount;
       const isMoneyBag = (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim())) || item._isMoneyBag;
       const isGP = item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit';
-      const isIncomeRow = isMoneyBag || isGP || (isPercent && !isHeadcount);
+      const isDLPct = item._isKpi && item.account_name === 'Direct Labor %';
+      // Direct Labor % is expense-like: lower than goal = favorable
+      const isIncomeRow = !isDLPct && (isMoneyBag || isGP || (isPercent && !isHeadcount));
 
       let dollarVarStr = null, pctVarStr = null, varDirection = null;
       if (refVal !== null) {
@@ -1947,7 +1998,8 @@ export default function PnlTable({
           : (v) => fmtVal(item, v);
         if (currMonthKey) {
           const currVal = parseFloat(item[currMonthKey]) || 0;
-          displayValue = `${fteFmt(val)}   (${currMonthLabel} Required: ${fteFmt(currVal)})`;
+          const suffix = isMaintDept ? '' : ' Required';
+          displayValue = `${fteFmt(val)}   (${currMonthLabel}${suffix}: ${fteFmt(currVal)})`;
         } else {
           displayValue = fteFmt(val);
         }
@@ -1955,7 +2007,28 @@ export default function PnlTable({
 
       // Money-bag (department revenue) rows: append " Revenue"
       if (isMoneyBag) {
-        displayName = `${item.account_name} Revenue`;
+        if (item.account_name?.toLowerCase().trim() === 'maintenance recurring') {
+          displayName = combinedRev ? 'Total Maintenance Revenue' : 'Maintenance Revenue';
+        } else {
+          displayName = `${item.account_name} Revenue`;
+        }
+      }
+
+      // Maintenance Growth row → rename to "Maint Growth since Jan"
+      if (item._isMaintGrowth || item.account_name === 'Maintenance Growth') {
+        displayName = 'Maint Growth since Jan';
+        // Strip the comparison goal — it's confusing for a derived YoY-style metric
+        refVal = null;
+        dollarVarStr = null;
+        pctVarStr = null;
+        varDirection = null;
+      }
+
+      // Headcount @ 40% DL: append next-month value
+      if (item.account_name === 'Headcount @ 40% DL' && currMonthKey) {
+        const currVal = parseFloat(item[currMonthKey]) || 0;
+        const suffix = isMaintDept ? '' : ' Required';
+        displayValue = `${displayValue}   (${currMonthLabel}${suffix}: ${fmtVal(item, currVal)})`;
       }
 
       // Hours Efficiency / Effective Billable Time over 100% gets a positive emoji
@@ -1969,13 +2042,24 @@ export default function PnlTable({
         displayValue = withDollar(displayValue);
       }
 
+      // Maintenance Revenue + Maint Growth use "Orig Goal" label since ref is the original budget
+      const goalLabel = (
+        displayName === 'Maintenance Revenue' ||
+        displayName === 'Total Maintenance Revenue' ||
+        displayName === 'Maint Growth since Jan'
+      ) ? 'Orig Goal' : 'Goal';
+
+      // Rename DL% row to clarify it doesn't include onsite
+      const finalName = (isDLPct && combinedRev) ? 'Direct Labor % (non-Onsite)' : displayName;
+
       return {
-        name: displayName,
+        name: finalName,
         value: displayValue,
         refValue: refVal !== null ? (needsDollar ? withDollar(fmtVal(item, refVal)) : fmtVal(item, refVal)) : null,
         dollarVar: needsDollar && dollarVarStr ? withDollar(dollarVarStr) : dollarVarStr,
         pctVar: pctVarStr,
         varDirection,
+        goalLabel,
       };
     });
 

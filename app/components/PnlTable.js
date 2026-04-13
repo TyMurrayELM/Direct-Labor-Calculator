@@ -3563,6 +3563,12 @@ function ForecastNotesBox({ initialNote, currentVersionName, onUpdate }) {
   const timerRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Sync draft when the persisted note changes (version switch, initial fetch, etc.)
+  useEffect(() => {
+    setDraft(initialNote || '');
+    setSaved(false);
+  }, [initialNote]);
+
   // Auto-resize to fit content
   useEffect(() => {
     const ta = textareaRef.current;

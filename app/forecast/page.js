@@ -27,26 +27,27 @@ export default function ForecastPage() {
   const HOURLY_COST_PHOENIX = 25.50;
   const DEFAULT_HOURLY_RATE = 25.00;
 
-  // Helper function to get hourly cost based on branch name
+  // Single source of truth for branch classification by name.
+  // Returns one of: 'phoenix_parent' | 'phoenix_sub' | 'las_vegas' | 'default'
+  const classifyBranch = (branchName) => {
+    if (!branchName) return 'default';
+    const name = branchName.toLowerCase().trim();
+    if (name === 'phoenix') return 'phoenix_parent';
+    if (name.includes('las vegas') || name.includes('vegas')) return 'las_vegas';
+    if (name.includes('phoenix') ||
+        name.includes('southeast') ||
+        name.includes('southwest') ||
+        name.includes('north') ||
+        name.includes('phx')) {
+      return 'phoenix_sub';
+    }
+    return 'default';
+  };
+
   const getHourlyRateByBranch = (branch) => {
-    if (!branch || !branch.name) return DEFAULT_HOURLY_RATE;
-
-    const branchName = branch.name.toLowerCase();
-
-    // Las Vegas branch
-    if (branchName.includes('las vegas') || branchName.includes('vegas')) {
-      return HOURLY_COST_LAS_VEGAS;
-    }
-
-    // Phoenix branches (Southeast, Southwest, North)
-    if (branchName.includes('phoenix') ||
-        branchName.includes('southeast') ||
-        branchName.includes('southwest') ||
-        branchName.includes('north') ||
-        branchName.includes('phx')) {
-      return HOURLY_COST_PHOENIX;
-    }
-
+    const region = classifyBranch(branch?.name);
+    if (region === 'las_vegas') return HOURLY_COST_LAS_VEGAS;
+    if (region === 'phoenix_sub' || region === 'phoenix_parent') return HOURLY_COST_PHOENIX;
     return DEFAULT_HOURLY_RATE;
   };
 
@@ -151,18 +152,8 @@ export default function ForecastPage() {
   const phoenixBranchRecord = branches.find(b => b.name === 'Phoenix');
   const phoenixBranchId = phoenixBranchRecord?.id || null;
 
-  // Helper to check if a branch is a Phoenix *sub*-branch (not the parent "Phoenix" record)
-  const isPhoenixBranch = (branch) => {
-    if (!branch || !branch.name) return false;
-    const name = branch.name.toLowerCase();
-    // Exclude the parent "Phoenix" record used for region-level P&L
-    if (name === 'phoenix') return false;
-    return name.includes('phoenix') ||
-           name.includes('southeast') ||
-           name.includes('southwest') ||
-           name.includes('north') ||
-           name.includes('phx');
-  };
+  // Is this a Phoenix *sub*-branch? (Excludes the parent "Phoenix" record used for region-level P&L.)
+  const isPhoenixBranch = (branch) => classifyBranch(branch?.name) === 'phoenix_sub';
 
   // Get selected branch and its hourly rate
   const selectedBranch = isEncoreView
@@ -179,8 +170,8 @@ export default function ForecastPage() {
   // Operational branches (exclude parent "Phoenix" record used for region-level P&L only)
   const operationalBranches = branches.filter(b => b.name !== 'Phoenix');
 
-  // Calculate company-wide totals from all branches
-  const companyTotals = operationalBranches.reduce((acc, branch) => {
+  // Roll up revenue + labor totals across an arbitrary list of branches.
+  const reduceBranchTotals = (branchList) => branchList.reduce((acc, branch) => {
     const branchForecasts = allBranchForecasts[branch.id] || [];
     const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
     const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
@@ -197,23 +188,8 @@ export default function ForecastPage() {
     };
   }, { revenue: 0, onsiteRevenue: 0, laborBudget: 0, onsiteLaborBudget: 0, laborHours: 0 });
 
-  // Calculate Phoenix-only totals (combined Phoenix branches)
-  const phoenixTotals = branches.filter(isPhoenixBranch).reduce((acc, branch) => {
-    const branchForecasts = allBranchForecasts[branch.id] || [];
-    const branchRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.forecast_revenue) || 0), 0);
-    const branchOnsiteRevenue = branchForecasts.reduce((sum, f) => sum + (parseFloat(f.onsite_revenue) || 0), 0);
-    const branchHourlyRate = getHourlyRateByBranch(branch);
-    const branchLaborBudget = branchRevenue * (1 - GROSS_MARGIN_TARGET);
-    const branchOnsiteLaborBudget = branchOnsiteRevenue * 0.55;
-    const branchLaborHours = branchLaborBudget / branchHourlyRate;
-    return {
-      revenue: acc.revenue + branchRevenue,
-      onsiteRevenue: acc.onsiteRevenue + branchOnsiteRevenue,
-      laborBudget: acc.laborBudget + branchLaborBudget,
-      onsiteLaborBudget: acc.onsiteLaborBudget + branchOnsiteLaborBudget,
-      laborHours: acc.laborHours + branchLaborHours
-    };
-  }, { revenue: 0, onsiteRevenue: 0, laborBudget: 0, onsiteLaborBudget: 0, laborHours: 0 });
+  const companyTotals = reduceBranchTotals(operationalBranches);
+  const phoenixTotals = reduceBranchTotals(branches.filter(isPhoenixBranch));
 
   // For individual branches, derive totals from P&L summary
   const branchTotals = (() => {
@@ -229,12 +205,13 @@ export default function ForecastPage() {
   // Use appropriate totals based on view
   const totals = isEncoreView ? companyTotals : isPhoenixView ? phoenixTotals : branchTotals;
 
-  const avgFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
+  const avgMaintFtes = Math.floor(totals.laborHours / HOURS_PER_MONTH / 12);
 
   // Calculate Scheduled HC (sum of crew sizes, excluding Onsite crews)
   const getScheduledHC = () => {
-    // Filter out Onsite crews - only count Maintenance crews
-    const maintenanceCrews = crews.filter(crew => crew.crew_type !== 'Onsite');
+    // Filter out Onsite crews - only count Maintenance crews.
+    // Case-insensitive match: DB values have varied casing historically.
+    const maintenanceCrews = crews.filter(crew => (crew.crew_type || '').toLowerCase() !== 'onsite');
 
     if (isEncoreView) {
       // Sum all maintenance crews across all branches
@@ -647,7 +624,7 @@ export default function ForecastPage() {
                   const avgOnsiteFtes = onsiteRevTotal > 0
                     ? Math.floor((onsiteRevTotal * 0.55) / hourlyRate / HOURS_PER_MONTH / 12)
                     : 0;
-                  const totalFtes = avgFtes + avgOnsiteFtes;
+                  const totalFtes = avgMaintFtes + avgOnsiteFtes;
 
                   let baseTotalFtes = null;
                   if (pnlBaseline) {
@@ -667,7 +644,7 @@ export default function ForecastPage() {
                     <div className="px-4 py-3">
                       <div className="text-2xl font-bold text-gray-900">{totalFtes}</div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-gray-900">
-                        <span>{avgFtes} maint</span>
+                        <span>{avgMaintFtes} maint</span>
                         <span className="text-gray-300">|</span>
                         <span>{avgOnsiteFtes} onsite</span>
                       </div>

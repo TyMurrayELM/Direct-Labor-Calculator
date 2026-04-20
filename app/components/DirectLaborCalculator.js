@@ -196,10 +196,10 @@ const DirectLaborCalculator = () => {
   const HOURS_PER_WEEK = 40; // Weekly hours for headcount calculation
   
   // Branch-specific hourly costs by crew type
-  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
-  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
-  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
-  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.06;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.33;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 24.83;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.22;
   const DEFAULT_HOURLY_COST = 25.00;
   
   // State for target direct labor percentage
@@ -240,6 +240,9 @@ const DirectLaborCalculator = () => {
   const [showMismatchOnly, setShowMismatchOnly] = useState(() => {
     return searchParams.get('needsUpdate') === 'true';
   });
+
+  // State for filtering only properties above target
+  const [showAboveTargetOnly, setShowAboveTargetOnly] = useState(false);
   
   // State for tracking which property is currently being saved
   const [savingPropertyId, setSavingPropertyId] = useState(null);
@@ -438,6 +441,7 @@ const DirectLaborCalculator = () => {
     setClientFilter('');
     setSelectedCrewType('');
     setPropertyNameFilter('');
+    setShowAboveTargetOnly(false);
     setPage(1);
   };
   
@@ -1042,7 +1046,19 @@ const DirectLaborCalculator = () => {
     }
     // Mismatch filter
     if (showMismatchOnly) {
-      return property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours;
+      if (!(property.adjusted_hours !== null && property.adjusted_hours !== property.current_hours)) {
+        return false;
+      }
+    }
+    // Above-target filter
+    if (showAboveTargetOnly) {
+      const branchName = property.branches?.name || '';
+      const crewType = property.crews?.crew_type || '';
+      const targetHrs = calculateTargetHours(property.monthly_invoice, branchName, crewType);
+      const editedHour = editedHours[property.id];
+      const adjustedHour = property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours;
+      const newHrs = editedHour !== undefined ? editedHour : adjustedHour;
+      if (newHrs <= targetHrs) return false;
     }
     return true;
   });
@@ -1144,6 +1160,23 @@ const DirectLaborCalculator = () => {
     const crewType = prop.crews?.crew_type || '';
     return sum + calculateTargetHours(prop.monthly_invoice, branchName, crewType);
   }, 0);
+
+  // Count properties at target (new hours <= target) vs above target
+  const { propertiesAtTarget, propertiesAboveTarget, hoursAboveTarget } = filteredProperties.reduce((acc, prop) => {
+    const branchName = prop.branches?.name || '';
+    const crewType = prop.crews?.crew_type || '';
+    const targetHrs = calculateTargetHours(prop.monthly_invoice, branchName, crewType);
+    const editedHour = editedHours[prop.id];
+    const adjustedHour = prop.adjusted_hours !== null ? prop.adjusted_hours : prop.current_hours;
+    const newHrs = editedHour !== undefined ? editedHour : adjustedHour;
+    if (newHrs <= targetHrs) {
+      acc.propertiesAtTarget += 1;
+    } else {
+      acc.propertiesAboveTarget += 1;
+      acc.hoursAboveTarget += (newHrs - targetHrs);
+    }
+    return acc;
+  }, { propertiesAtTarget: 0, propertiesAboveTarget: 0, hoursAboveTarget: 0 });
   
   // Calculate percentages based on property-level data with correct rates
   const calculateWeightedDLPercent = (getHoursForProperty) => {
@@ -1596,6 +1629,43 @@ const DirectLaborCalculator = () => {
               </div>
             </div>
 
+            {/* Properties at/above target */}
+            <div className="flex items-center gap-4 bg-white border border-slate-300 rounded-lg px-4 py-2.5">
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">At Target</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-green-700">{propertiesAtTarget}</span>
+                  <span className="text-xs font-semibold text-green-600">
+                    ({(propertiesAtTarget + propertiesAboveTarget) > 0
+                      ? ((propertiesAtTarget / (propertiesAtTarget + propertiesAboveTarget)) * 100).toFixed(1)
+                      : '0.0'}%)
+                  </span>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-slate-300" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">Above Target</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-red-700">{propertiesAboveTarget}</span>
+                  <span className="text-xs font-semibold text-red-600">
+                    ({(propertiesAtTarget + propertiesAboveTarget) > 0
+                      ? ((propertiesAboveTarget / (propertiesAtTarget + propertiesAboveTarget)) * 100).toFixed(1)
+                      : '0.0'}%)
+                  </span>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-slate-300" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">Hrs Over</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-sm font-bold text-red-700">{formatNumber(hoursAboveTarget)}</span>
+                  <span className="text-xs font-semibold text-red-600">
+                    ({propertiesAboveTarget > 0 ? (hoursAboveTarget / propertiesAboveTarget).toFixed(1) : '0.0'} avg)
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Rates */}
             <div className="flex items-center text-xs font-semibold text-slate-700 px-2">
               Rates: PHX ${HOURLY_COST_PHOENIX_MAINTENANCE}/${HOURLY_COST_PHOENIX_ONSITE} &middot; LV ${HOURLY_COST_LAS_VEGAS_MAINTENANCE}/${HOURLY_COST_LAS_VEGAS_ONSITE}
@@ -1616,7 +1686,8 @@ const DirectLaborCalculator = () => {
                 {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
                 {/* Active filter count dot */}
                 {(() => {
-                  const count = [regionFilter, accountManagerFilter, propertyTypeFilter, companyFilter, clientFilter, propertyNameFilter].filter(Boolean).length;
+                  const count = [regionFilter, accountManagerFilter, propertyTypeFilter, companyFilter, clientFilter, propertyNameFilter].filter(Boolean).length
+                    + (showAboveTargetOnly ? 1 : 0);
                   return count > 0 ? (
                     <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-blue-500 rounded-full">
                       {count}
@@ -1743,7 +1814,28 @@ const DirectLaborCalculator = () => {
                   </div>
                 </div>
                 
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs text-gray-600">Only show properties above target</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={showAboveTargetOnly}
+                      onClick={() => {
+                        setShowAboveTargetOnly(!showAboveTargetOnly);
+                        setPage(1);
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                        showAboveTargetOnly ? 'bg-red-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          showAboveTargetOnly ? 'translate-x-4' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </label>
                   <button
                     onClick={clearFilters}
                     className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"

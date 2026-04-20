@@ -72,10 +72,10 @@ function CrewSchedulePrintPage() {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   // Branch-specific hourly costs by crew type
-  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.50;
-  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.50;
-  const HOURLY_COST_LAS_VEGAS_ONSITE = 25.00;
-  const HOURLY_COST_PHOENIX_ONSITE = 30.00;
+  const HOURLY_COST_LAS_VEGAS_MAINTENANCE = 24.06;
+  const HOURLY_COST_PHOENIX_MAINTENANCE = 25.33;
+  const HOURLY_COST_LAS_VEGAS_ONSITE = 24.83;
+  const HOURLY_COST_PHOENIX_ONSITE = 30.22;
   const DEFAULT_HOURLY_COST = 25.00;
   
   // Get selected branch for calculations

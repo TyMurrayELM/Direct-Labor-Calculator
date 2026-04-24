@@ -830,6 +830,110 @@ const DirectLaborCalculator = () => {
     }
   };
 
+  // Export ALL properties to CSV with scheduled Day of Week column
+  const exportAllPropertiesWithDay = async () => {
+    try {
+      setMessage({ text: 'Preparing full property export...', type: 'success' });
+
+      let query = supabase
+        .from('properties')
+        .select(`
+          id, name, address, monthly_invoice, current_hours, adjusted_hours,
+          region, account_manager, property_type, company, client,
+          service_window_start, service_window_end, complex_id, service_day,
+          branch_id, crew_id,
+          branches (id, name),
+          crews (id, name, crew_type, size)
+        `)
+        .order('name');
+
+      if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
+      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (regionFilter) query = query.eq('region', regionFilter);
+      if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
+      if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
+      if (companyFilter) query = query.eq('company', companyFilter);
+      if (clientFilter) query = query.eq('client', clientFilter);
+
+      const { data: allProperties, error } = await query;
+
+      if (error) {
+        setMessage({ text: 'Error exporting data', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      let filteredProperties = allProperties;
+      if (selectedCrewType) {
+        filteredProperties = filteredProperties.filter(p => p.crews?.crew_type === selectedCrewType);
+      }
+      if (propertyNameFilter) {
+        filteredProperties = filteredProperties.filter(p => p.name?.toLowerCase().includes(propertyNameFilter.toLowerCase()));
+      }
+      if (showMismatchOnly) {
+        filteredProperties = filteredProperties.filter(p => p.adjusted_hours !== null && p.adjusted_hours !== p.current_hours);
+      }
+
+      if (!filteredProperties || filteredProperties.length === 0) {
+        setMessage({ text: 'No data to export', type: 'error' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        return;
+      }
+
+      const headers = ['Property','Address','Day','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End','Notes'];
+      const rows = [];
+
+      filteredProperties.forEach(property => {
+        const newHours = editedHours[property.id] !== undefined
+          ? editedHours[property.id]
+          : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
+        const crewSize = property.crews?.size || 1;
+        const crewHours = (newHours || 0) / crewSize;
+        const minutes = Math.round(crewHours * 60);
+
+        rows.push([
+          property.name || '',
+          property.address || '',
+          property.service_day || '',
+          newHours || 0,
+          crewHours.toFixed(1),
+          minutes,
+          property.service_window_start || '',
+          property.service_window_end || '',
+          ''
+        ]);
+      });
+
+      rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        return (str.includes(',') || str.includes('"') || str.includes('\n')) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const csvContent = [headers.map(escapeCSV).join(','), ...rows.map(row => row.map(escapeCSV).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.setAttribute('href', URL.createObjectURL(blob));
+      link.setAttribute('download', `all-properties-with-day${selectedBranch?.name ? `_${selectedBranch.name.replace(/\s+/g, '-')}` : ''}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setMessage({
+        text: `Exported ${rows.length} properties (with day)`,
+        type: 'success'
+      });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    } catch (err) {
+      console.error('Export error:', err);
+      setMessage({ text: 'Error exporting data', type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    }
+  };
+
   // Export QS Schedule to CSV - exports QS Visit Time instead of crew hours
   // Consolidates multiple visits (e.g., "Property (Visit 1)", "Property (Visit 2)") into single entries
   const exportQSSchedule = async () => {
@@ -1398,6 +1502,15 @@ const DirectLaborCalculator = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <span>All Properties Export</span>
+                      </button>
+                      <button
+                        onClick={() => { exportAllPropertiesWithDay(); setShowExports(false); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>All Properties + Day</span>
                       </button>
                       <button
                         onClick={() => { exportToCSV(); setShowExports(false); }}

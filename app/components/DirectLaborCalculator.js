@@ -523,7 +523,7 @@ const DirectLaborCalculator = () => {
         .select(`
           id, name, address, monthly_invoice, current_hours, adjusted_hours,
           region, account_manager, property_type, company, client,
-          service_window_start, service_window_end, complex_id,
+          service_window_start, service_window_end, complex_id, service_day,
           branch_id, crew_id,
           branches (id, name),
           crews (id, name, crew_type, size)
@@ -586,7 +586,7 @@ const DirectLaborCalculator = () => {
         }
       });
 
-      const headers = ['Property','Address','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End','Notes'];
+      const headers = ['Property','Address','Day','New Wkly Total Hours','New Wkly Crew Hours','Minutes','Time Window Start','Time Window End','Notes'];
 
       const rows = [];
 
@@ -605,6 +605,7 @@ const DirectLaborCalculator = () => {
         rows.push([
           'Branch Location',
           branchAddress,
+          '',
           0,
           0,
           0,
@@ -623,15 +624,18 @@ const DirectLaborCalculator = () => {
         let totalCrewHours = 0;
         let earliestStart = null;
         let latestEnd = null;
+        const daysSet = new Set();
 
         properties.forEach(property => {
-          const newHours = editedHours[property.id] !== undefined 
-            ? editedHours[property.id] 
+          const newHours = editedHours[property.id] !== undefined
+            ? editedHours[property.id]
             : (property.adjusted_hours !== null ? property.adjusted_hours : property.current_hours);
           const crewSize = property.crews?.size || 1;
-          
+
           totalNewHours += newHours || 0;
           totalCrewHours += (newHours || 0) / crewSize;
+
+          if (property.service_day) daysSet.add(property.service_day);
 
           // Track earliest start and latest end times
           if (property.service_window_start) {
@@ -654,6 +658,7 @@ const DirectLaborCalculator = () => {
         rows.push([
           complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
           complex.address || properties[0]?.address || '',
+          Array.from(daysSet).join(', '),
           totalNewHours.toFixed(1),
           totalCrewHours.toFixed(1),
           minutes,
@@ -675,6 +680,7 @@ const DirectLaborCalculator = () => {
         rows.push([
           property.name || '',
           property.address || '',
+          property.service_day || '',
           newHours || 0,
           crewHours.toFixed(1),
           minutes,

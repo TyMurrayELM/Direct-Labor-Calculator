@@ -951,7 +951,7 @@ const DirectLaborCalculator = () => {
         .select(`
           id, name, address, monthly_invoice, current_hours, adjusted_hours, qs_visit_time,
           region, account_manager, property_type, company, client,
-          service_window_start, service_window_end, complex_id,
+          service_window_start, service_window_end, complex_id, service_day,
           branch_id, crew_id,
           branches (id, name),
           crews (id, name, crew_type, size)
@@ -1013,7 +1013,7 @@ const DirectLaborCalculator = () => {
         }
       });
 
-      const headers = ['Property', 'Address', 'Minutes', 'Time Window Start', 'Time Window End', 'Notes'];
+      const headers = ['Property', 'Address', 'Day', 'Minutes', 'Time Window Start', 'Time Window End', 'Notes'];
       const QS_TIME_WINDOW_START = '06:00:00';
       const QS_TIME_WINDOW_END = '12:30:00';
       const rows = [];
@@ -1033,6 +1033,7 @@ const DirectLaborCalculator = () => {
         rows.push([
           'Branch Location',
           branchAddress,
+          '',
           0,
           '',
           '',
@@ -1044,12 +1045,14 @@ const DirectLaborCalculator = () => {
       Object.entries(complexGroups).forEach(([complexId, properties]) => {
         const complex = complexMap[complexId];
         let totalQSTime = 0;
+        const daysSet = new Set();
 
         properties.forEach(property => {
-          const qsTime = editedQSTime[property.id] !== undefined 
-            ? editedQSTime[property.id] 
+          const qsTime = editedQSTime[property.id] !== undefined
+            ? editedQSTime[property.id]
             : (property.qs_visit_time || 0);
           totalQSTime += qsTime || 0;
+          if (property.service_day) daysSet.add(property.service_day);
         });
 
         const propertyNames = properties.map(p => p.name).sort().join(', ');
@@ -1057,6 +1060,7 @@ const DirectLaborCalculator = () => {
         rows.push([
           complex.name ? `${complex.name} - Complex` : `Complex ${complexId}`,
           complex.address || properties[0]?.address || '',
+          Array.from(daysSet).join(', '),
           Math.round(totalQSTime),
           QS_TIME_WINDOW_START,
           QS_TIME_WINDOW_END,
@@ -1069,24 +1073,26 @@ const DirectLaborCalculator = () => {
       
       standaloneProperties.forEach(property => {
         const baseName = getBasePropertyName(property.name);
-        const qsTime = editedQSTime[property.id] !== undefined 
-          ? editedQSTime[property.id] 
+        const qsTime = editedQSTime[property.id] !== undefined
+          ? editedQSTime[property.id]
           : (property.qs_visit_time || 0);
-        
+
         if (!consolidatedProperties[baseName]) {
           consolidatedProperties[baseName] = {
             name: baseName,
             address: property.address || '',
             totalQSTime: 0,
             visitCount: 0,
-            originalNames: []
+            originalNames: [],
+            daysSet: new Set()
           };
         }
-        
+
         consolidatedProperties[baseName].totalQSTime += qsTime || 0;
         consolidatedProperties[baseName].visitCount += 1;
         consolidatedProperties[baseName].originalNames.push(property.name);
-        
+        if (property.service_day) consolidatedProperties[baseName].daysSet.add(property.service_day);
+
         // Use the first non-empty address found
         if (!consolidatedProperties[baseName].address && property.address) {
           consolidatedProperties[baseName].address = property.address;
@@ -1096,10 +1102,11 @@ const DirectLaborCalculator = () => {
       // Convert consolidated properties to rows
       Object.values(consolidatedProperties).forEach(prop => {
         const notes = prop.visitCount > 1 ? `Combined from ${prop.visitCount} visits` : '';
-        
+
         rows.push([
           prop.name,
           prop.address,
+          Array.from(prop.daysSet).join(', '),
           Math.round(prop.totalQSTime),
           QS_TIME_WINDOW_START,
           QS_TIME_WINDOW_END,

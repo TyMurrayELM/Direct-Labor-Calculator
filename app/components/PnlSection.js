@@ -695,7 +695,7 @@ export default function PnlSection({
               {copying ? 'Copying...' : 'Copy Structure'}
             </button>
             {showCopyDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]">
                 <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
                   Copy account structure from:
                 </div>
@@ -749,7 +749,7 @@ export default function PnlSection({
               {filling ? 'Filling...' : 'Fill Forecast'}
             </button>
             {showFillDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]">
                 <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
                   Copy forecast months from:
                 </div>

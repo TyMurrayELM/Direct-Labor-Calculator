@@ -498,13 +498,16 @@ export default function PnlTable({
 
       // Inject Direct Labor % + department KPIs after the DL anchor row.
       // Anchor is Total - Direct Labor Overtime when present (keeps DL/DL-OT sections together),
-      // otherwise Total - Direct Labor. Math always uses dlRow (the regular DL total).
+      // otherwise Total - Direct Labor. Math sums Total - Direct Labor + Total - Direct Labor Overtime
+      // (when present) so DL% reflects total labor cost.
       if (li.row_type === 'total' && normalizeTotalName(li.account_name) === dlAnchorName) {
         const dlRow = dlTotalRow || li;
+        const dlValueAt = (mk) =>
+          (parseFloat(dlRow[mk]) || 0) + (parseFloat(dlOTTotalRow?.[mk]) || 0);
         const dlPctValues = {};
         for (const mk of MONTH_KEYS) {
           const income = parseFloat(incomeRow?.[mk]) || 0;
-          const dl = parseFloat(dlRow[mk]) || 0;
+          const dl = dlValueAt(mk);
           dlPctValues[mk] = income !== 0 ? Math.round((dl / income) * 1000) / 10 : 0;
         }
         result.push({
@@ -539,7 +542,7 @@ export default function PnlTable({
           const arborEffTooltips = {};
           for (const mk of MONTH_KEYS) {
             const income = parseFloat(incomeRow?.[mk]) || 0;
-            const dl = Math.abs(parseFloat(dlRow[mk]) || 0);
+            const dl = Math.abs(dlValueAt(mk));
             if (income > 0 && dl > 0) {
               const theoreticalHours = dl / ARBOR_HOURLY_COST;
               const projectedRevenue = theoreticalHours * ARBOR_HOURLY_RATE;
@@ -574,7 +577,7 @@ export default function PnlTable({
           const effTooltips = {};
           for (const mk of MONTH_KEYS) {
             const income = parseFloat(incomeRow?.[mk]) || 0;
-            const dl = Math.abs(parseFloat(dlRow[mk]) || 0);
+            const dl = Math.abs(dlValueAt(mk));
             if (income > 0 && dl > 0) {
               const theoreticalHours = dl / SPRAY_HOURLY_COST;
               const projectedRevenue = theoreticalHours * SPRAY_BILLING_RATE;
@@ -619,7 +622,7 @@ export default function PnlTable({
           const enhEffTooltips = {};
           for (const mk of MONTH_KEYS) {
             const income = parseFloat(incomeRow?.[mk]) || 0;
-            const dl = Math.abs(parseFloat(dlRow[mk]) || 0);
+            const dl = Math.abs(dlValueAt(mk));
             if (income > 0 && dl > 0) {
               const theoreticalHours = dl / ENHANCE_HOURLY_COST;
               const projectedRevenue = theoreticalHours * ENHANCE_BILLING_RATE;
@@ -657,7 +660,7 @@ export default function PnlTable({
           const irrEffTooltips = {};
           for (const mk of MONTH_KEYS) {
             const income = parseFloat(incomeRow?.[mk]) || 0;
-            const dl = Math.abs(parseFloat(dlRow[mk]) || 0);
+            const dl = Math.abs(dlValueAt(mk));
             if (income > 0 && dl > 0) {
               const theoreticalHours = dl / IRRIG_HOURLY_COST;
               const projectedRevenue = theoreticalHours * IRRIG_BILLING_RATE;

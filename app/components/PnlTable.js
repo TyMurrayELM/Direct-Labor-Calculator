@@ -420,16 +420,23 @@ export default function PnlTable({
       li.row_type === 'total' && normalizeTotalName(li.account_name).startsWith('total cost of')
     );
 
-    // Direct Labor totals: anchor KPI injection (DL%, FTEs Required, etc.) on the
-    // Direct Labor Overtime total when present so the KPI rows don't split the
-    // DL and DL-OT sections. Math always uses the regular Direct Labor total.
+    // Direct Labor totals: anchor KPI injection (DL%, FTEs Required, etc.) on
+    // whichever DL total appears later in row_order so drag-and-drop can
+    // reposition the KPIs by moving either total. Math always sums both totals.
     const dlTotalRow = items.find(li =>
       li.row_type === 'total' && normalizeTotalName(li.account_name) === 'total direct labor'
     );
     const dlOTTotalRow = items.find(li =>
       li.row_type === 'total' && normalizeTotalName(li.account_name) === 'total direct labor overtime'
     );
-    const dlAnchorName = dlOTTotalRow ? 'total direct labor overtime' : 'total direct labor';
+    let dlAnchorName;
+    if (dlTotalRow && dlOTTotalRow) {
+      dlAnchorName = items.indexOf(dlTotalRow) > items.indexOf(dlOTTotalRow)
+        ? 'total direct labor'
+        : 'total direct labor overtime';
+    } else {
+      dlAnchorName = dlOTTotalRow ? 'total direct labor overtime' : 'total direct labor';
+    }
 
     const gpValues = {};
     const gpPctValues = {};

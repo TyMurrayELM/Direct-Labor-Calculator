@@ -143,6 +143,8 @@ const DirectLaborCalculator = () => {
   const forecastRef = useRef(null);
   const [showQsRoutes, setShowQsRoutes] = useState(false);
   const qsRoutesRef = useRef(null);
+  const [showCrewDropdown, setShowCrewDropdown] = useState(false);
+  const crewDropdownRef = useRef(null);
   
   // Fetch user role from allowlist
   useEffect(() => {
@@ -174,6 +176,9 @@ const DirectLaborCalculator = () => {
       }
       if (qsRoutesRef.current && !qsRoutesRef.current.contains(event.target)) {
         setShowQsRoutes(false);
+      }
+      if (crewDropdownRef.current && !crewDropdownRef.current.contains(event.target)) {
+        setShowCrewDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -211,9 +216,11 @@ const DirectLaborCalculator = () => {
     const branchParam = searchParams.get('branch');
     return branchParam ? parseInt(branchParam) : null;
   });
-  const [selectedCrewId, setSelectedCrewId] = useState(() => {
+  const [selectedCrewIds, setSelectedCrewIds] = useState(() => {
     const crewParam = searchParams.get('crew');
-    return crewParam ? parseInt(crewParam) : null;
+    return crewParam
+      ? crewParam.split(',').map(id => parseInt(id, 10)).filter(n => !isNaN(n))
+      : [];
   });
   const [selectedCrewType, setSelectedCrewType] = useState(() => {
     return searchParams.get('crewType') || '';
@@ -265,8 +272,8 @@ const DirectLaborCalculator = () => {
     } else {
       params.delete('branch');
     }
-    if (selectedCrewId) {
-      params.set('crew', selectedCrewId.toString());
+    if (selectedCrewIds.length > 0) {
+      params.set('crew', selectedCrewIds.join(','));
     } else {
       params.delete('crew');
     }
@@ -281,7 +288,7 @@ const DirectLaborCalculator = () => {
       params.delete('needsUpdate');
     }
     router.replace(`?${params.toString()}`, { scroll: false });
-  }, [selectedBranchId, selectedCrewId, selectedCrewType, showMismatchOnly, router, searchParams]);
+  }, [selectedBranchId, selectedCrewIds, selectedCrewType, showMismatchOnly, router, searchParams]);
   
   // Fetch data using custom hooks
   const { branches, loading: branchesLoading } = useBranches();
@@ -306,7 +313,7 @@ const DirectLaborCalculator = () => {
     refetchProperties  // Extract the refetch function
   } = useProperties({
     branchId: selectedBranchId,
-    crewId: selectedCrewId,
+    crewId: selectedCrewIds,
     crewType: selectedCrewType,
     region: regionFilter,
     accountManager: accountManagerFilter,
@@ -531,7 +538,7 @@ const DirectLaborCalculator = () => {
         .order('name');
 
       if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
-      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (selectedCrewIds.length > 0) query = query.in('crew_id', selectedCrewIds);
       if (regionFilter) query = query.eq('region', regionFilter);
       if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
       if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
@@ -749,7 +756,7 @@ const DirectLaborCalculator = () => {
         .order('name');
 
       if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
-      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (selectedCrewIds.length > 0) query = query.in('crew_id', selectedCrewIds);
       if (regionFilter) query = query.eq('region', regionFilter);
       if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
       if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
@@ -854,7 +861,7 @@ const DirectLaborCalculator = () => {
         .order('name');
 
       if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
-      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (selectedCrewIds.length > 0) query = query.in('crew_id', selectedCrewIds);
       if (regionFilter) query = query.eq('region', regionFilter);
       if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
       if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
@@ -959,7 +966,7 @@ const DirectLaborCalculator = () => {
         .order('name');
 
       if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
-      if (selectedCrewId) query = query.eq('crew_id', selectedCrewId);
+      if (selectedCrewIds.length > 0) query = query.in('crew_id', selectedCrewIds);
       if (regionFilter) query = query.eq('region', regionFilter);
       if (accountManagerFilter) query = query.eq('account_manager', accountManagerFilter);
       if (propertyTypeFilter) query = query.eq('property_type', propertyTypeFilter);
@@ -1600,7 +1607,7 @@ const DirectLaborCalculator = () => {
               selectedBranchId={selectedBranchId}
               onChange={(branchId) => {
                 setSelectedBranchId(branchId);
-                setSelectedCrewId(null);
+                setSelectedCrewIds([]);
                 setPage(1);
               }}
             />
@@ -1609,7 +1616,15 @@ const DirectLaborCalculator = () => {
               <select
                 value={selectedCrewType}
                 onChange={(e) => {
-                  setSelectedCrewType(e.target.value);
+                  const newType = e.target.value;
+                  setSelectedCrewType(newType);
+                  // Drop any selected crews that no longer match the chosen type
+                  if (newType) {
+                    setSelectedCrewIds(prev => prev.filter(id => {
+                      const crew = crews.find(c => c.id === id);
+                      return crew && crew.crew_type === newType;
+                    }));
+                  }
                   setPage(1);
                 }}
                 className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
@@ -1626,33 +1641,67 @@ const DirectLaborCalculator = () => {
               </div>
             </div>
 
-            <div className="relative">
-              <select
-                value={selectedCrewId || ""}
-                onChange={(e) => {
-                  const crewId = e.target.value ? parseInt(e.target.value) : null;
-                  setSelectedCrewId(crewId);
-                  setPage(1);
-                }}
-                className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm font-medium bg-white shadow-sm text-gray-900"
+            <div className="relative" ref={crewDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowCrewDropdown(!showCrewDropdown)}
                 disabled={crewsLoading}
+                className="border rounded-lg px-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium bg-white shadow-sm text-gray-900 text-left disabled:opacity-50"
                 style={{ minWidth: '180px' }}
               >
-                <option value="">All Crews</option>
-                {crews
-                  .filter(crew => !selectedCrewType || crew.crew_type === selectedCrewType)
-                  .map((crew) => (
-                    <option key={crew.id} value={crew.id}>
-                      {crew.name} ({crew.crew_type})
-                    </option>
-                  ))
-                }
-              </select>
+                {selectedCrewIds.length === 0
+                  ? 'All Crews'
+                  : selectedCrewIds.length === 1
+                    ? (() => {
+                        const c = crews.find(cr => cr.id === selectedCrewIds[0]);
+                        return c ? `${c.name} (${c.crew_type})` : '1 crew selected';
+                      })()
+                    : `${selectedCrewIds.length} crews selected`}
+              </button>
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <svg className="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
+              {showCrewDropdown && (
+                <div className="absolute z-30 mt-1 w-64 max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedCrewIds([]); setPage(1); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between"
+                  >
+                    <span className={selectedCrewIds.length === 0 ? 'font-semibold text-blue-600' : 'text-gray-700'}>All Crews</span>
+                    {selectedCrewIds.length > 0 && <span className="text-xs text-gray-400">clear</span>}
+                  </button>
+                  <div className="border-t border-gray-100 my-1"></div>
+                  {crews
+                    .filter(crew => !selectedCrewType || crew.crew_type === selectedCrewType)
+                    .map((crew) => {
+                      const checked = selectedCrewIds.includes(crew.id);
+                      return (
+                        <label key={crew.id} className="flex items-center px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedCrewIds(prev =>
+                                prev.includes(crew.id)
+                                  ? prev.filter(id => id !== crew.id)
+                                  : [...prev, crew.id]
+                              );
+                              setPage(1);
+                            }}
+                            className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-gray-900">{crew.name} <span className="text-gray-500">({crew.crew_type})</span></span>
+                        </label>
+                      );
+                    })}
+                  {crews.filter(crew => !selectedCrewType || crew.crew_type === selectedCrewType).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-gray-400">No crews</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Mismatch Filter Toggle - pushed right */}

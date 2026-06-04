@@ -52,9 +52,14 @@ export function useProperties({
       }
       
       if (crewId) {
-        query = query.eq('crew_id', crewId);
+        // Supports a single id or an array of ids (multi-select crew filter)
+        if (Array.isArray(crewId)) {
+          if (crewId.length > 0) query = query.in('crew_id', crewId);
+        } else {
+          query = query.eq('crew_id', crewId);
+        }
       }
-      
+
       if (crewType) {
         // First, get all crews matching the type
         const { data: matchingCrews } = await supabase
@@ -125,9 +130,13 @@ export function useProperties({
       }
       
       if (crewId) {
-        totalsQuery = totalsQuery.eq('crew_id', crewId);
+        if (Array.isArray(crewId)) {
+          if (crewId.length > 0) totalsQuery = totalsQuery.in('crew_id', crewId);
+        } else {
+          totalsQuery = totalsQuery.eq('crew_id', crewId);
+        }
       }
-      
+
       if (crewType) {
         // First, get all crews matching the type
         const { data: matchingCrews } = await supabase

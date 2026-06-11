@@ -52,7 +52,8 @@ export async function POST(request) {
     const pctModeFlags = new Map();
     const cellNotesMap = new Map();
     const savedFullRows = new Map(); // account_code -> full row data (for forecast-only rows)
-    const savedRowOrder = new Map(); // account_code -> row_order (preserve user's manual ordering)
+    const savedRowOrder = new Map(); // `${row_type}:${account_code||full_label}` -> row_order
+    const savedRowOrderByCode = new Map(); // bare account_code -> row_order (detail/header rows only)
 
     {
       // Fetch ALL existing rows to preserve row_order for every row type
@@ -68,12 +69,23 @@ export async function POST(request) {
       const { data: allExistingRows } = await allRowsQuery;
 
       if (allExistingRows) {
-        // Save row_order for all rows — keyed by account_code for detail rows,
-        // or by full_label for non-detail rows (headers, totals, etc.)
+        // Save row_order for all rows. The key must include row_type: an
+        // account_header and its "Total - ..." row share the same account_code,
+        // so a bare-code key collapses both to one position and displaces the
+        // header next to the total (or vice versa) on every re-import.
         for (const row of allExistingRows) {
-          const orderKey = row.account_code || row.full_label;
-          if (orderKey) {
-            savedRowOrder.set(orderKey, row.row_order);
+          const codeOrLabel = row.account_code || row.full_label;
+          if (codeOrLabel) {
+            savedRowOrder.set(`${row.row_type}:${codeOrLabel}`, row.row_order);
+            // Fallback for rows whose type changes between imports (an
+            // account_header becomes a detail once it has postings, and back).
+            // Totals are excluded so they can never claim a header/detail slot.
+            if (
+              row.account_code &&
+              (row.row_type === 'detail' || row.row_type === 'account_header')
+            ) {
+              savedRowOrderByCode.set(row.account_code, row.row_order);
+            }
           }
         }
 
@@ -282,8 +294,19 @@ export async function POST(request) {
     if (isActualsImport) {
       // Tag each row with its preserved order (if any) and original parser index
       const tagged = rows.map((row, parserIdx) => {
-        const orderKey = row.account_code || row.full_label;
-        const preserved = orderKey ? savedRowOrder.get(orderKey) : undefined;
+        const codeOrLabel = row.account_code || row.full_label;
+        let preserved = codeOrLabel
+          ? savedRowOrder.get(`${row.row_type}:${codeOrLabel}`)
+          : undefined;
+        // Type-transition fallback: a header that gained postings arrives as a
+        // detail row (and vice versa) — match by bare code against non-total rows.
+        if (
+          preserved == null &&
+          row.account_code &&
+          (row.row_type === 'detail' || row.row_type === 'account_header')
+        ) {
+          preserved = savedRowOrderByCode.get(row.account_code);
+        }
         return { row, parserIdx, preserved };
       });
 

@@ -1279,15 +1279,32 @@ export default function PnlTable({
       if (isRefOnly) continue;
       // For biz_dev_marketing, only show the two cross-dept KPI rows
       const isBizDev = department === 'biz_dev_marketing';
+      // Spray revenue spans multiple income lines (4050 Spray + 4070 PHC),
+      // so its Key Items revenue row is the recomputed Total Income, not the
+      // single 'Spray' detail row.
+      const isSprayRevenueTotal =
+        department === 'spray' &&
+        item.row_type === 'total' &&
+        normalizeTotalName(item.account_name) === 'total income';
       const isKeyItem = isBizDev
         ? (item._isKpi && (item.account_name === 'BD Spend % of Maint Rev' || item.account_name === '% of Maintenance Revenue'))
         : (item._isKpi || item._isHeadcount ||
+          isSprayRevenueTotal ||
           (item.row_type === 'calculated' && item.account_name?.toLowerCase() === 'gross profit') ||
           (item.row_type === 'percent' && item.account_name?.toLowerCase() === 'gross profit %') ||
           (item.row_type === 'percent' && isNOIPct(item.account_name)) ||
           ((item.row_type === 'total' || item.row_type === 'calculated' || item.row_type === 'section_header') && isNOI(item.account_name)) ||
-          (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim())));
+          (item.row_type === 'detail' && MONEY_BAG_NAMES.has(item.account_name?.toLowerCase().trim()) &&
+            !(department === 'spray' && item.account_name?.toLowerCase().trim() === 'spray')));
       if (!isKeyItem) continue;
+
+      if (isSprayRevenueTotal) {
+        result.push({
+          ...row,
+          item: { ...item, account_name: 'Spray Revenue', _isMoneyBag: true },
+        });
+        continue;
+      }
 
       // For NOI rows, substitute controllable values
       if (isNOI(item.account_name) && controllableValues) {

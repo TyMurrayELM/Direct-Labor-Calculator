@@ -69,8 +69,9 @@ export default function IrrigationForecastPage() {
     const normalize = (name) => (name || '').toLowerCase().replace(/^total\s*-\s*/, 'total ').trim();
 
     // Compute metrics from a list of items (already merged if combined view)
-    // recalcTotals: true for current/draft data (totals may be stale after edits),
-    //               false for saved reference versions (use stored totals to match PnlTable reference display)
+    // recalcTotals: stored total rows are stale whenever detail cells were
+    // edited (edits only write detail rows), so saved versions need the
+    // recalculation just as much as drafts — PnlTable does the same.
     const computeMetrics = (items, recalcTotals = true) => {
       if (!items?.length) return null;
 
@@ -250,7 +251,11 @@ export default function IrrigationForecastPage() {
         : baselineItems;
 
       setCurrentMetrics(computeMetrics(mergedCurrent, true));
-      setBaselineMetrics(mergedBaseline.length > 0 ? computeMetrics(mergedBaseline, false) : null);
+      // Recalculate baseline totals from detail rows too — stored total rows
+      // go stale after cell edits (only detail rows are written), and
+      // PnlTable's reference column recomputes, so reading stored totals
+      // here made the two disagree on the same page.
+      setBaselineMetrics(mergedBaseline.length > 0 ? computeMetrics(mergedBaseline, true) : null);
     };
     run();
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -203,7 +203,9 @@ export default function EnhancementsForecastPage() {
       const baselineVersionId = await fetchBaselineVersionId();
       const [current, baseline] = await Promise.all([
         fetchMetrics(pnlVersionState.selectedVersionId),
-        baselineVersionId ? fetchMetrics(baselineVersionId, false) : Promise.resolve(null)
+        // Recalculate baseline totals from detail rows too — stored total rows
+        // go stale after cell edits (only detail rows are written)
+        baselineVersionId ? fetchMetrics(baselineVersionId) : Promise.resolve(null)
       ]);
       setCurrentMetrics(current);
       setBaselineMetrics(baseline);

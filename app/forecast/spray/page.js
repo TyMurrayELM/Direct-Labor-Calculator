@@ -203,7 +203,11 @@ export default function SprayForecastPage() {
       const baselineVersionId = await fetchBaselineVersionId();
       const [current, baseline] = await Promise.all([
         fetchMetrics(pnlVersionState.selectedVersionId),
-        baselineVersionId ? fetchMetrics(baselineVersionId, false) : Promise.resolve(null)
+        // Recalculate baseline totals from detail rows too — stored total rows
+        // go stale after cell edits (only detail rows are written), and
+        // PnlTable's reference column recomputes, so reading stored totals
+        // here made the two disagree on the same page.
+        baselineVersionId ? fetchMetrics(baselineVersionId) : Promise.resolve(null)
       ]);
       setCurrentMetrics(current);
       setBaselineMetrics(baseline);

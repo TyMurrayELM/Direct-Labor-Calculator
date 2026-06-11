@@ -292,12 +292,19 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
     const result = [];
     let inIncome = false;
     for (const item of items) {
-      if (item.row_type === 'section_header' && item.account_name?.toLowerCase() === 'income') {
+      if (item.row_type === 'section_header' && item.account_name?.toLowerCase().trim() === 'income') {
         inIncome = true;
         result.push(item);
         continue;
       }
       if (inIncome) {
+        // The income section also ends at the next section header or at Gross
+        // Profit — budget versions may lack a Total Income row, and without
+        // this stop the whole P&L (COGS, expenses) was swept into "revenue"
+        if (item.row_type === 'section_header' ||
+            (item.row_type === 'calculated' && item.account_name?.toLowerCase().trim() === 'gross profit')) {
+          break;
+        }
         result.push(item);
         if (item.row_type === 'total' &&
             item.account_name?.toLowerCase().replace(/^total\s*-\s*/, 'total ').trim() === 'total income') {
@@ -308,17 +315,20 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
     return result;
   }
 
-  // Find Total Income value from a set of items for a branch+dept
+  // Reference Total Income, recomputed from income detail rows — stored total
+  // rows go stale after cell edits (only detail rows are written), and the
+  // primary side of this panel already sums details for the same reason.
   function getTotalIncomeValues(items, branchId, dept) {
     const filtered = items.filter(i => i.branch_id === branchId && i.department === dept);
     const incomeRows = filterIncomeRows(filtered);
-    const totalRow = incomeRows.find(r =>
-      r.row_type === 'total' &&
-      r.account_name?.toLowerCase().replace(/^total\s*-\s*/, 'total ').trim() === 'total income'
-    );
-    if (!totalRow) return null;
+    const detailRows = incomeRows.filter(r => r.row_type === 'detail');
+    if (!detailRows.length) return null;
     const vals = {};
-    for (const mk of MONTH_KEYS) vals[mk] = parseFloat(totalRow[mk]) || 0;
+    for (const mk of MONTH_KEYS) {
+      let sum = 0;
+      for (const r of detailRows) sum += parseFloat(r[mk]) || 0;
+      vals[mk] = Math.round(sum * 100) / 100;
+    }
     return vals;
   }
 
@@ -548,9 +558,9 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
     return 'font-normal';
   }
 
-  if (!branchId && !isEncore) return null;
-
   // Grand totals for summary view
+  // (the no-branch early return must come AFTER all hooks — returning before
+  // a useMemo violates the Rules of Hooks and crashes when branchId arrives)
   const grandTotal = useMemo(() => {
     if (!groupedData.length) return null;
     const totals = {};
@@ -575,6 +585,8 @@ export default function MaintenanceRevenuePanel({ branchId, branchKey, year, ver
     }
     return hasAny ? totals : null;
   }, [groupedData, showComparison]);
+
+  if (!branchId && !isEncore) return null;
 
   const hasData = groupedData.length > 0;
 

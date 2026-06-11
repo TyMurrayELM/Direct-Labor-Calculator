@@ -508,9 +508,10 @@ export default function PnlTable({
       // otherwise Total - Direct Labor. Math sums Total - Direct Labor + Total - Direct Labor Overtime
       // (when present) so DL% reflects total labor cost.
       if (li.row_type === 'total' && normalizeTotalName(li.account_name) === dlAnchorName) {
-        const dlRow = dlTotalRow || li;
+        // Sum the rows directly — falling back to the anchor row here used to
+        // double-count OT when a department had an OT total but no plain DL total
         const dlValueAt = (mk) =>
-          (parseFloat(dlRow[mk]) || 0) + (parseFloat(dlOTTotalRow?.[mk]) || 0);
+          (parseFloat(dlTotalRow?.[mk]) || 0) + (parseFloat(dlOTTotalRow?.[mk]) || 0);
         const dlPctValues = {};
         for (const mk of MONTH_KEYS) {
           const income = parseFloat(incomeRow?.[mk]) || 0;
@@ -1249,6 +1250,7 @@ export default function PnlTable({
     const refIncomeRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total income')?.refItem;
     const refCogsRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name).startsWith('total cost of'))?.refItem;
     const refDlRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total direct labor')?.refItem;
+    const refDlOTRow = _allDisplayRows.find(r => !r.isRefOnly && r.refItem && r.item.row_type === 'total' && normalizeTotalName(r.item.account_name) === 'total direct labor overtime')?.refItem;
 
     // Build synthetic refItem for computed rows (GP, GP%, DL%)
     const buildSynthRef = (item) => {
@@ -1264,7 +1266,9 @@ export default function PnlTable({
           const refCogs = refCogsRow ? (parseFloat(refCogsRow[mk]) || 0) : 0;
           synth[mk] = refInc !== 0 ? Math.round(((refInc - refCogs) / refInc) * 1000) / 10 : 0;
         } else if (name === 'direct labor %') {
-          const refDl = refDlRow ? (parseFloat(refDlRow[mk]) || 0) : 0;
+          // Include Direct Labor Overtime, matching the primary DL% cells
+          const refDl = (refDlRow ? (parseFloat(refDlRow[mk]) || 0) : 0) +
+            (refDlOTRow ? (parseFloat(refDlOTRow[mk]) || 0) : 0);
           synth[mk] = refInc !== 0 ? Math.round((refDl / refInc) * 1000) / 10 : 0;
         } else {
           return null; // Don't synthesize for unknown rows
@@ -1418,6 +1422,64 @@ export default function PnlTable({
 
     return result;
   }, [_allDisplayRows, computedLineItems, referenceItems, department, crossDeptData]);
+
+  // Annual % for Key Items strip rows, derived from annual dollars (weighted
+  // by the row's denominator series) so the strip agrees with the table's
+  // Total column. A plain mean of monthly % dilutes zero-revenue months —
+  // a seasonal department at 50% GP for 6 active months showed 25%.
+  // Returns null when no denominator is available (caller falls back).
+  const stripAnnualPct = (pctSrc, isRefSide) => {
+    if (!pctSrc) return null;
+    const name = pctSrc.account_name?.toLowerCase().trim() || '';
+
+    // Denominator series: maintenance revenue for the BD ratios, income otherwise
+    let weights = null;
+    if ((name === '% of maintenance revenue' || name === 'bd spend % of maint rev') && crossDeptData) {
+      weights = {};
+      for (const mk of MONTH_KEYS) {
+        weights[mk] = (parseFloat(crossDeptData['maintenance']?.revenue?.[mk]) || 0) +
+          (parseFloat(crossDeptData['maintenance_onsite']?.revenue?.[mk]) || 0);
+      }
+    } else if (isRefSide) {
+      weights = _allDisplayRows.find(r =>
+        !r.isRefOnly && r.refItem && r.item.row_type === 'total' &&
+        normalizeTotalName(r.item.account_name) === 'total income'
+      )?.refItem || null;
+    } else {
+      weights = computedLineItems.find(li =>
+        (li.row_type === 'total' || li.row_type === 'calculated') &&
+        normalizeTotalName(li.account_name) === 'total income'
+      ) || null;
+    }
+    if (!weights) return null;
+
+    if (name === 'hours efficiency %') {
+      // eff = income / projected revenue, so annual = Σ income / Σ (income_m / eff_m)
+      let incSum = 0;
+      let projSum = 0;
+      for (const mk of MONTH_KEYS) {
+        const inc = parseFloat(weights[mk]) || 0;
+        const eff = parseFloat(pctSrc[mk]) || 0;
+        if (inc === 0 || eff === 0) continue;
+        incSum += inc;
+        projSum += inc / eff;
+      }
+      return projSum !== 0 ? incSum / projSum : 0;
+    }
+
+    // ratio rows (GP%, DL%, NOI%, NI%, BD ratios): pct = numer/denom, so the
+    // denominator-weighted mean of monthly % equals annual numer / annual denom
+    let num = 0;
+    let den = 0;
+    for (const mk of MONTH_KEYS) {
+      const w = parseFloat(weights[mk]) || 0;
+      const p = parseFloat(pctSrc[mk]);
+      if (w === 0 || !isFinite(p)) continue;
+      num += p * w;
+      den += w;
+    }
+    return den !== 0 ? num / den : 0;
+  };
 
   // Collect available source rows for the pct-of-total picker, grouped by section
   const availableSources = useMemo(() => {
@@ -2282,21 +2344,46 @@ export default function PnlTable({
                     annualRaw = computeMgTotal(item) * 12; // multiplied because annualDisplay divides by 12 below
                     refAnnualRaw = refItem ? computeMgTotal(refItem) * 12 : null;
                   }
-                  let annualDisplay, refAnnualDisplay;
+                  // Annual basis per row type: dollar-based % for percent rows
+                  // (matches the table's Total column), active-month average for
+                  // headcount (a 6-month crew is not half a crew), sum for dollars.
+                  const activeMonthAvg = (src, raw) => {
+                    const active = MONTH_KEYS.filter(mk => (parseFloat(src?.[mk]) || 0) !== 0).length;
+                    return active > 0 ? raw / active : 0;
+                  };
+                  let annualVal, refAnnualVal;
                   if (isPercent && !isHeadcount) {
-                    annualDisplay = (annualRaw / 12).toFixed(1) + '%';
-                    refAnnualDisplay = refAnnualRaw !== null ? (refAnnualRaw / 12).toFixed(1) + '%' : null;
+                    annualVal = item._isMaintGrowth
+                      ? annualRaw / 12
+                      : (stripAnnualPct(item, false) ?? annualRaw / 12);
+                    refAnnualVal = refItem === null || refItem === undefined
+                      ? null
+                      : item._isMaintGrowth
+                        ? refAnnualRaw / 12
+                        : (stripAnnualPct(refItem, true) ?? refAnnualRaw / 12);
                   } else if (isHeadcount) {
-                    annualDisplay = formatHeadcount(annualRaw / 12);
-                    refAnnualDisplay = refAnnualRaw !== null ? formatHeadcount(refAnnualRaw / 12) : null;
+                    annualVal = activeMonthAvg(item, annualRaw);
+                    refAnnualVal = refAnnualRaw !== null ? activeMonthAvg(refItem, refAnnualRaw) : null;
                   } else {
-                    annualDisplay = formatCurrency(annualRaw);
-                    refAnnualDisplay = refAnnualRaw !== null ? formatCurrency(refAnnualRaw) : null;
+                    annualVal = annualRaw;
+                    refAnnualVal = refAnnualRaw;
                   }
 
-                  // Variance
-                  const dollarVar = refAnnualRaw !== null ? annualRaw - refAnnualRaw : null;
-                  const pctVar = refAnnualRaw !== null && refAnnualRaw !== 0 ? (dollarVar / Math.abs(refAnnualRaw)) * 100 : null;
+                  let annualDisplay, refAnnualDisplay;
+                  if (isPercent && !isHeadcount) {
+                    annualDisplay = annualVal.toFixed(1) + '%';
+                    refAnnualDisplay = refAnnualVal !== null ? refAnnualVal.toFixed(1) + '%' : null;
+                  } else if (isHeadcount) {
+                    annualDisplay = formatHeadcount(annualVal);
+                    refAnnualDisplay = refAnnualVal !== null ? formatHeadcount(refAnnualVal) : null;
+                  } else {
+                    annualDisplay = formatCurrency(annualVal);
+                    refAnnualDisplay = refAnnualVal !== null ? formatCurrency(refAnnualVal) : null;
+                  }
+
+                  // Variance on the same basis as the displayed annual values
+                  const dollarVar = refAnnualVal !== null ? annualVal - refAnnualVal : null;
+                  const pctVar = refAnnualVal !== null && refAnnualVal !== 0 ? (dollarVar / Math.abs(refAnnualVal)) * 100 : null;
                   // Income/GP rows: positive variance = good. Expense rows: negative variance = good.
                   const isIncomeRow = isMoneyBag || isGP || (isPercent && !isHeadcount);
                   const varColor = dollarVar !== null && dollarVar !== 0
@@ -2344,8 +2431,10 @@ export default function PnlTable({
                           <td className={`py-1 px-1 text-right tabular-nums min-w-[58px] ${varColor}`}>
                             {dollarVar !== null && dollarVar !== 0
                               ? (isPercent && !isHeadcount
-                                ? (dollarVar / 12).toFixed(1) + '%'
-                                : formatCurrency(dollarVar))
+                                ? dollarVar.toFixed(1) + '%'
+                                : isHeadcount
+                                  ? formatHeadcount(dollarVar)
+                                  : formatCurrency(dollarVar))
                               : '\u2014'}
                           </td>
                           <td className={`py-1 px-1 text-right tabular-nums min-w-[42px] ${varColor}`}>
@@ -2500,11 +2589,17 @@ export default function PnlTable({
                     percentAnnual = (computeRowTotal(gpItem) / incAnnual) * 100;
                   } else { percentAnnual = 0; }
                 } else if (percentName === 'direct labor %') {
+                  // Include Direct Labor Overtime, matching the monthly DL% cells
                   const dlItem = computedLineItems.find(li =>
                     li.row_type === 'total' && normalizeTotalName(li.account_name) === 'total direct labor'
                   );
-                  if (dlItem && incAnnual !== 0) {
-                    percentAnnual = (computeRowTotal(dlItem) / incAnnual) * 100;
+                  const dlOTItem = computedLineItems.find(li =>
+                    li.row_type === 'total' && normalizeTotalName(li.account_name) === 'total direct labor overtime'
+                  );
+                  const dlAnnual = (dlItem ? computeRowTotal(dlItem) : 0) +
+                    (dlOTItem ? computeRowTotal(dlOTItem) : 0);
+                  if ((dlItem || dlOTItem) && incAnnual !== 0) {
+                    percentAnnual = (dlAnnual / incAnnual) * 100;
                   } else { percentAnnual = 0; }
                 } else if (isNOIPct(percentName)) {
                   const noiItem = computedLineItems.find(li =>
@@ -2568,13 +2663,21 @@ export default function PnlTable({
                       refPercentAnnual = (refGpAnnual / refIncAnnual) * 100;
                     } else { refPercentAnnual = 0; }
                   } else if (percentName === 'direct labor %') {
+                    // Include Direct Labor Overtime, matching the monthly DL% cells
                     const refDlRow = displayRows.find(dr =>
                       !dr.isRefOnly && dr.refItem &&
                       dr.item.row_type === 'total' &&
                       normalizeTotalName(dr.item.account_name) === 'total direct labor'
                     );
-                    if (refDlRow?.refItem && refIncAnnual !== 0) {
-                      refPercentAnnual = (computeRowTotal(refDlRow.refItem) / refIncAnnual) * 100;
+                    const refDlOTRow = displayRows.find(dr =>
+                      !dr.isRefOnly && dr.refItem &&
+                      dr.item.row_type === 'total' &&
+                      normalizeTotalName(dr.item.account_name) === 'total direct labor overtime'
+                    );
+                    const refDlAnnual = (refDlRow?.refItem ? computeRowTotal(refDlRow.refItem) : 0) +
+                      (refDlOTRow?.refItem ? computeRowTotal(refDlOTRow.refItem) : 0);
+                    if ((refDlRow?.refItem || refDlOTRow?.refItem) && refIncAnnual !== 0) {
+                      refPercentAnnual = (refDlAnnual / refIncAnnual) * 100;
                     } else { refPercentAnnual = 0; }
                   } else if (percentName === '% of maintenance revenue' && crossDeptData) {
                     // Reference version: same formula using ref Net Income over maintenance revenue

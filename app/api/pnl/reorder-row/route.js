@@ -58,16 +58,59 @@ export async function POST(request) {
       }
     }
 
-    // Update row_order for each item in the new order
+    // The client sends only the rows it can SEE (admin_only rows are hidden
+    // from finance editors; collapsed sections and sub-lines are excluded),
+    // so blindly renumbering newOrder to 1..N collides with the omitted rows'
+    // stale orders and scatters them across sections. Instead, permute the
+    // sent rows among the row_order slots they already occupy: the visible
+    // drop order is honored exactly and unseen rows are never touched.
+    let allRowsQuery = supabase
+      .from('pnl_line_items')
+      .select('id, row_order')
+      .eq('branch_id', row[0].branch_id)
+      .eq('department', row[0].department)
+      .eq('year', row[0].year);
+    allRowsQuery = row[0].version_id !== null
+      ? allRowsQuery.eq('version_id', row[0].version_id)
+      : allRowsQuery.is('version_id', null);
+    const { data: allRows, error: allError } = await allRowsQuery
+      .order('row_order', { ascending: true });
+
+    if (allError) throw allError;
+
+    const orderById = new Map((allRows || []).map(r => [r.id, r.row_order]));
+
+    // Reject ids that don't belong to the dragged row's P&L (stale client
+    // state or a forged request must not renumber another version's rows)
+    const uniqueIds = new Set(newOrder);
+    if (uniqueIds.size !== newOrder.length || newOrder.some(id => !orderById.has(id))) {
+      return NextResponse.json(
+        { success: false, error: 'newOrder contains duplicate or out-of-scope row ids' },
+        { status: 400 }
+      );
+    }
+
+    // Slots currently occupied by the sent rows, in ascending order
+    const slots = (allRows || [])
+      .filter(r => uniqueIds.has(r.id))
+      .map(r => r.row_order);
+
+    const updates = [];
+    newOrder.forEach((id, i) => {
+      if (orderById.get(id) !== slots[i]) {
+        updates.push({ id, row_order: slots[i] });
+      }
+    });
+
     const CONCURRENT = 10;
-    for (let i = 0; i < newOrder.length; i += CONCURRENT) {
-      const batch = newOrder.slice(i, i + CONCURRENT);
+    for (let i = 0; i < updates.length; i += CONCURRENT) {
+      const batch = updates.slice(i, i + CONCURRENT);
       const results = await Promise.all(
-        batch.map((id, batchIdx) =>
+        batch.map(u =>
           supabase
             .from('pnl_line_items')
-            .update({ row_order: i + batchIdx + 1 })
-            .eq('id', id)
+            .update({ row_order: u.row_order })
+            .eq('id', u.id)
         )
       );
       for (const { error } of results) {

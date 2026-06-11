@@ -26,7 +26,28 @@ export async function POST(request) {
       );
     }
 
-    // 1. Check if version name already exists — overwrite if unlocked
+    // 1. Fetch the draft FIRST and bail if it's empty — the overwrite path
+    // below is destructive, and deleting the old version before discovering
+    // there's nothing to replace it with loses that version permanently.
+    const { data: draftRows, error: fetchError } = await supabase
+      .from('pnl_line_items')
+      .select('*')
+      .eq('branch_id', branchId)
+      .eq('department', department)
+      .eq('year', year)
+      .is('version_id', null)
+      .order('row_order');
+
+    if (fetchError) throw fetchError;
+
+    if (!draftRows?.length) {
+      return NextResponse.json(
+        { success: false, error: 'No draft data to save' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Check if version name already exists — overwrite if unlocked
     const { data: existing, error: existCheck } = await supabase
       .from('pnl_versions')
       .select('id, is_locked')
@@ -60,7 +81,7 @@ export async function POST(request) {
       if (delVersion) throw delVersion;
     }
 
-    // 2. Create the version record
+    // 3. Create the version record
     const { data: version, error: versionError } = await supabase
       .from('pnl_versions')
       .insert({
@@ -76,26 +97,7 @@ export async function POST(request) {
 
     if (versionError) throw versionError;
 
-    // 2. Fetch all draft rows
-    const { data: draftRows, error: fetchError } = await supabase
-      .from('pnl_line_items')
-      .select('*')
-      .eq('branch_id', branchId)
-      .eq('department', department)
-      .eq('year', year)
-      .is('version_id', null)
-      .order('row_order');
-
-    if (fetchError) throw fetchError;
-
-    if (!draftRows?.length) {
-      return NextResponse.json(
-        { success: false, error: 'No draft data to save' },
-        { status: 400 }
-      );
-    }
-
-    // 3. Copy draft rows with the new version_id
+    // 4. Copy draft rows with the new version_id
     // Two-pass insert: parent rows first, then sub-lines with remapped parent_id
     const BATCH_SIZE = 100;
 
